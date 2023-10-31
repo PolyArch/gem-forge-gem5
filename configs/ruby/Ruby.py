@@ -95,6 +95,12 @@ def define_options(parser):
         "0 = highest bit, not specified = lowest bit",
     )
     parser.add_argument(
+        "--numa-custom-interleave",
+        type=int,
+        default=0,
+        help="Whether enable NUMA custom interleaving",
+    )
+    parser.add_argument(
         "--interleaving-bits",
         type=int,
         default=0,

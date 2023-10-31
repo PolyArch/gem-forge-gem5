@@ -210,6 +210,8 @@ class DRAMsim3 : public AbstractMemory
     void init() override;
     void startup() override;
 
+    void setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func) override;
+
     void resetStats() override;
 
   protected:

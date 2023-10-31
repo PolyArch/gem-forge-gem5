@@ -400,5 +400,11 @@ DRAMsim3::MemoryPort::recvRespRetry()
     mem.recvRespRetry();
 }
 
+void
+DRAMsim3::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
+{
+    wrapper.setInterleaveMaskFunc(mask_func);
+}
+
 } // namespace memory
 } // namespace gem5

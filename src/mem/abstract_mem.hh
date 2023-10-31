@@ -349,6 +349,9 @@ class AbstractMemory : public ClockedObject
      * @param pkt Packet performing the access
      */
     void functionalAccess(PacketPtr pkt);
+
+    using InterleaveMaskFuncT = std::function<uint64_t(uint64_t)>;
+    virtual void setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func);
 };
 
 } // namespace memory

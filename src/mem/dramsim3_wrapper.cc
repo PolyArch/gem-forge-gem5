@@ -120,10 +120,9 @@ DRAMsim3Wrapper::resetStats()
 }
 
 void
-DRAMsim3Wrapper::setCallbacks(std::function<void(uint64_t)> read_complete,
-                              std::function<void(uint64_t)> write_complete)
+DRAMsim3Wrapper::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
 {
-    dramsim->RegisterCallbacks(read_complete, write_complete);
+    dramsim->RegisterInterleaveMaskFunc(mask_func);
 }
 
 bool

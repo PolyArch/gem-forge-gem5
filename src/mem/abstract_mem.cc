@@ -555,5 +555,11 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
     }
 }
 
+void
+AbstractMemory::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
+{
+    panic("%s: Custom Interleave Mask Func not Supported.", this->name());
+}
+
 } // namespace memory
 } // namespace gem5

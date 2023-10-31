@@ -197,6 +197,7 @@ def create_network(options, ruby):
         ext_links=[],
         int_links=[],
         netifs=[],
+        enable_custom_dram_interleave=options.numa_custom_interleave,
     )
 
     return (network, IntLinkClass, ExtLinkClass, RouterClass, InterfaceClass)

@@ -87,6 +87,8 @@ class Network : public ClockedObject
 
     virtual ~Network();
 
+    void init() override;
+
     static uint32_t getNumberOfVirtualNetworks() { return m_virtual_networks; }
     int getNumNodes() const { return m_nodes; }
 
@@ -139,6 +141,11 @@ class Network : public ClockedObject
      * @return the NodeID of the destination
      */
     NodeID addressToNodeID(Addr addr, MachineType mtype);
+
+    /**
+     * @brief Mask an address for DRAM.
+     */
+    Addr maskAddrForNUMA(Addr addr);
 
     Port &
     getPort(const std::string &, PortID idx=InvalidPortID) override

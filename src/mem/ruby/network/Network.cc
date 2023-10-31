@@ -44,6 +44,7 @@
 #include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/network/BasicLink.hh"
 #include "mem/ruby/system/RubySystem.hh"
+#include "mem/abstract_mem.hh"
 
 #include "sim/stream_nuca/stream_nuca_map.hh"
 
@@ -169,6 +170,33 @@ Network::~Network()
     delete m_topology_ptr;
 }
 
+void
+Network::init()
+{
+    // The only thing we need to do is to set up custom NUMA interleave.
+    // However, this breaks the isolation and we only support DRAMsim3.
+    if (params().enable_custom_dram_interleave)
+    {
+        auto maskFunc =
+            new memory::AbstractMemory::InterleaveMaskFuncT(
+                std::bind(&Network::maskAddrForNUMA,
+                    this, std::placeholders::_1)
+            );
+        for (auto simObj : this->getSimObjectList())
+        {
+            if (auto absMem = dynamic_cast<memory::AbstractMemory *>(simObj))
+            {
+                if (absMem->name() == "system.ruby.phys_mem")
+                {
+                    // Ignore the physical back up mem.
+                    continue;
+                }
+                absMem->setInterleaveMaskFunc(maskFunc);
+            }
+        }
+    }
+}
+
 uint32_t
 Network::MessageSizeType_to_int(MessageSizeType size_type)
 {
@@ -268,6 +296,24 @@ Network::addressToNodeID(Addr addr, MachineType mtype)
     warn("Failed to map address %#x to machine %s.\n", addr,
         MachineType_to_string(mtype));
     return MachineType_base_count(mtype);
+}
+
+Addr
+Network::maskAddrForNUMA(Addr addr)
+{
+    auto mtype = MachineType_Directory;
+    const auto &matching_ranges = addrMap.equal_range(mtype);
+    for (auto it = matching_ranges.first; it != matching_ranges.second; it++) {
+        AddrMapNode &node = it->second;
+        auto &ranges = node.ranges;
+        for (AddrRange &range: ranges) {
+            if (range.contains(addr)) {
+                return range.removeIntlvBits(addr);
+            }
+        }
+    }
+    panic("Failed to mask address %#x to machine %s.\n", addr,
+        MachineType_to_string(mtype));
 }
 
 NodeID
