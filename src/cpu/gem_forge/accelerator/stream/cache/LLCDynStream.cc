@@ -77,6 +77,12 @@ LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
     this->maxInflyRequests = 1;
   }
 
+  // if (this->getStaticS()->getStreamName().find("gfm_warm.ld") !=
+  //     std::string::npos) {
+  //   // DRAM prefetch stream has higher infly request count.
+  //   this->maxInflyRequests = 64;
+  // }
+
   if (_configData->floatPlan.getFirstFloatElementIdx() > 0) {
     auto firstFloatElemIdx = _configData->floatPlan.getFirstFloatElementIdx();
     this->nextCommitElemIdx = firstFloatElemIdx;
@@ -572,7 +578,7 @@ void LLCDynStream::initNextElem(Addr vaddr) {
    * Don't check this for OnlyDirectLoadS, which is used for prefetching.
    */
   if (this->getStaticS()->isDirectMemStream() &&
-      this->getMemElementSize() >= 64 && 
+      this->getMemElementSize() >= 64 &&
       !this->getStaticS()->isOnlyDirectLoadStream()) {
     if (this->idxToElementMap.size() >= 2048) {
       int sliceNotReleasedElements = 0;

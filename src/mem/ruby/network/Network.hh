@@ -147,6 +147,13 @@ class Network : public ClockedObject
      */
     Addr maskAddrForNUMA(Addr addr);
 
+    /**
+     * Add NUMA interleave pool.
+     */
+    void addNUMAInterleavePool(Addr start, Addr end,
+        const std::vector<Addr> &masks,
+        int nodes, int transposeRow);
+
     Port &
     getPort(const std::string &, PortID idx=InvalidPortID) override
     {

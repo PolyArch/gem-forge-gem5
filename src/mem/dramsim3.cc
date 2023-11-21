@@ -109,8 +109,6 @@ DRAMsim3::sendResponse()
     assert(!retryResp);
     assert(!responseQueue.empty());
 
-    DPRINTF(DRAMsim3, "Attempting to send response\n");
-
     bool success = port.sendTimingResp(responseQueue.front());
     if (success) {
         responseQueue.pop_front();
@@ -230,11 +228,14 @@ DRAMsim3::recvTimingReq(PacketPtr pkt)
         // we should never have a situation when we think there is space,
         // and there isn't
         if (!wrapper.canAccept(pkt->getAddr(), pkt->isWrite())) {
-            panic("Cannot Accept Address %#x IsWrite %d. Outstanding %d WrapperQueueSize %d.\n",
+            panic("Cannot Accept %#x IsWrite %d. Outstanding %d WrapperQueueSize %d.\n",
                 pkt->getAddr(), pkt->isWrite(), nbrOutstanding(), wrapper.queueSize());
         }
 
-        DPRINTF(DRAMsim3, "Enqueueing address %lld\n", pkt->getAddr());
+        DPRINTF(DRAMsim3,
+            "Enqueue %#x IsWrite %d Outstanding %d WrapperQueueSize %d.\n",
+            pkt->getAddr(), pkt->isWrite(), nbrOutstanding(),
+            wrapper.queueSize());
 
         // @todo what about the granularity here, implicit assumption that
         // a transaction matches the burst size of the memory (which we
@@ -298,7 +299,8 @@ DRAMsim3::accessAndRespond(PacketPtr pkt)
 void DRAMsim3::readComplete(unsigned id, uint64_t addr)
 {
 
-    DPRINTF(DRAMsim3, "Read to address %lld complete\n", addr);
+    DPRINTF(DRAMsim3, "Read %#x complete. Outstanding %d.\n",
+        addr, nbrOutstandingReads);
 
     // get the outstanding reads for the address in question
     auto p = outstandingReads.find(addr);
@@ -324,7 +326,7 @@ void DRAMsim3::readComplete(unsigned id, uint64_t addr)
 void DRAMsim3::writeComplete(unsigned id, uint64_t addr)
 {
 
-    DPRINTF(DRAMsim3, "Write to address %lld complete. Outstanding %d.\n",
+    DPRINTF(DRAMsim3, "Write %#x complete. Outstanding %d.\n",
         addr, nbrOutstandingWrites);
 
     // get the outstanding reads for the address in question
@@ -403,6 +405,7 @@ DRAMsim3::MemoryPort::recvRespRetry()
 void
 DRAMsim3::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
 {
+    this->hasInterleaveMaskFunc = true;
     wrapper.setInterleaveMaskFunc(mask_func);
 }
 

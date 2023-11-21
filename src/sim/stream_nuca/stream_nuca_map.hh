@@ -69,8 +69,17 @@ public:
   static void addNonUniformNode(int routerId, ruby::MachineID machineId,
                                 const AddrRange &addrRange,
                                 const std::vector<int> &handleBanks);
+
   static const NonUniformNodeVec &getNUMANodes() { return numaNodes; }
   static const NonUniformNode &mapPAddrToNUMANode(Addr paddr);
+
+  /**
+   * Callback from to register custom interleave pool for NUMA.
+   */
+  using RegisterNUMAInterleavePoolFuncT =
+      std::function<void(Addr, Addr, const std::vector<Addr> &, int, int)>;
+  static RegisterNUMAInterleavePoolFuncT *registerNUMAInterleavePool;
+
   static int mapPAddrToNUMARouterId(Addr paddr);
   static int mapPAddrToNUMAId(Addr paddr);
   static int64_t computeHops(int64_t bankA, int64_t bankB);
@@ -163,8 +172,7 @@ public:
   // Remap a region with customized interleave.
   static void addRangeMap(Addr startPAddr, Addr endPAddr,
                           const std::vector<uint64_t> &interleaves,
-                          int startBank, int startSet,
-                          bool transposeBank);
+                          int startBank, int startSet, bool transposeBank);
   // Remap a region with PUM
   static void addRangeMap(Addr startPAddr, Addr endPAddr,
                           const AffinePattern &pumTile, int elementBits,

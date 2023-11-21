@@ -181,6 +181,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 enable_stream_float_mem=options.gem_forge_stream_engine_enable_float_mem,
                 enable_distributed_indirect_reduce=\
                     options.gem_forge_enable_stream_float_distributed_indirect_reduction,
+                llc_stream_max_infly_request=\
+                    options.gem_forge_stream_engine_llc_stream_max_infly_request,
                 )
 
             cpu_seq = RubySequencer(version=i * num_cpus_per_cluster + j,
@@ -276,6 +278,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                     options.gem_forge_stream_engine_mlc_stream_runahead_slice_inverse_ratio,
                 mlc_stream_buffer_to_segment_ratio=\
                     options.gem_forge_stream_engine_mlc_stream_buffer_to_segment_ratio,
+                llc_stream_max_infly_request=\
+                    options.gem_forge_stream_engine_llc_stream_max_infly_request,
                 enable_stream_range_sync=options.gem_forge_enable_stream_range_sync,
                 enable_stream_float_mem=options.gem_forge_stream_engine_enable_float_mem,
                 enable_stream_strand=options.gem_forge_enable_stream_strand,

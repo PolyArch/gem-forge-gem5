@@ -55,7 +55,7 @@ LLCStreamEngine::LLCStreamEngine(
       streamResponseMsgBuffer(_streamResponseMsgBuffer),
       issueWidth(_controller->getLLCStreamEngineIssueWidth()),
       migrateWidth(_controller->getLLCStreamEngineMigrateWidth()),
-      maxInflyRequests(8), maxInqueueRequests(2), translationBuffer(nullptr),
+      maxInqueueRequests(2), translationBuffer(nullptr),
       seTracer(_controller->getMachineID().getNum(),
                std::string(_controller->getMachineTypeString()) + "_SE") {
   this->controller->registerLLCStreamEngine(this);
@@ -843,11 +843,15 @@ bool LLCStreamEngine::canMigrateStream(LLCDynStream *dynS) const {
    * forwarding data to the south at the same time would
    * make future stream element block those issued at
    * the previous bank, causing bad timing.
+   *
+   * NOTE: However, this creates a race condition that
+   * after marking the stream "canMigrate" we see more
+   * inqueue requests. Use this at your cost before I fix it.
    */
   int maxBufferedAndInqueueIndReqsBeforeMigration = 4;
   if (this->indReqBuffer->getNumBufferedAndInqueueReqs(dynS->getDynStrandId()) >
       maxBufferedAndInqueueIndReqsBeforeMigration) {
-    // return false;
+    return false;
   }
   /**
    * We can only enable AdvanceMigrate for DirectStreams.

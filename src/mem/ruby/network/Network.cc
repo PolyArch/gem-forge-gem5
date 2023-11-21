@@ -43,10 +43,13 @@
 #include "base/logging.hh"
 #include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/network/BasicLink.hh"
+#include "mem/ruby/structures/DirectoryMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
 #include "mem/abstract_mem.hh"
 
 #include "sim/stream_nuca/stream_nuca_map.hh"
+
+#include "debug/RubyNetwork.hh"
 
 namespace gem5
 {
@@ -194,6 +197,17 @@ Network::init()
                 absMem->setInterleaveMaskFunc(maskFunc);
             }
         }
+
+        StreamNUCAMap::registerNUMAInterleavePool = 
+            new StreamNUCAMap::RegisterNUMAInterleavePoolFuncT(
+                std::bind(&Network::addNUMAInterleavePool,
+                    this,
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    std::placeholders::_4,
+                    std::placeholders::_5)
+            );
     }
 }
 
@@ -314,6 +328,69 @@ Network::maskAddrForNUMA(Addr addr)
     }
     panic("Failed to mask address %#x to machine %s.\n", addr,
         MachineType_to_string(mtype));
+}
+
+void
+Network::addNUMAInterleavePool(Addr start, Addr end,
+    const std::vector<Addr> &masks, int nodes, int transposeRow)
+{
+
+    auto getInterleaveMatch = [transposeRow, nodes](int nodeId) -> int {
+        if (transposeRow == -1) {
+            // No need to transpose.
+            return nodeId;
+        }
+        auto transposeCol = nodes / transposeRow;
+        auto row = nodeId / transposeCol;
+        auto col = nodeId % transposeCol;
+        return col * transposeRow + row;
+    };
+    auto mtype = MachineType_Directory;
+    const auto &matching_ranges = addrMap.equal_range(mtype);
+    for (auto it = matching_ranges.first; it != matching_ranges.second; it++)
+    {
+        AddrMapNode &node = it->second;
+        auto &ranges = node.ranges;
+        // Shrink the existing range with interlave pools.
+        assert(!ranges.empty());
+        for (auto &range : ranges)
+        {
+            range.shrink(start, end);
+        }
+        // Insert at the end to be consistent with DirectoryMemory.
+        auto interleaveMatch = getInterleaveMatch(node.id);
+        ranges.emplace_back(start, end, masks, interleaveMatch);
+
+        if (debug::RubyNetwork)
+        {
+            for (const auto &range : ranges)
+            {
+                DPRINTF(RubyNetwork, "[IntrlvPool] Node %3d %s\n",
+                    node.id, range.to_string());
+            }
+        }
+
+
+        // Update the addr ranges in DirectoryMemory.
+        bool found = false;
+        for (auto simObj : this->getSimObjectList())
+        {
+            if (auto dirMem = dynamic_cast<DirectoryMemory *>(simObj))
+            {
+                if (dirMem->params().index == node.id)
+                {
+                    // Ignore the physical back up mem.
+                    dirMem->updateAddrRanges(ranges);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found)
+        {
+            panic("Failed to update AddrRanges in DirectoryMemory.");
+        }
+    }
 }
 
 NodeID

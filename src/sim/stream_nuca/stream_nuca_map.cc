@@ -19,6 +19,9 @@ std::map<Addr, StreamNUCAMap::RangeMap> StreamNUCAMap::rangeMaps;
 std::map<int, Addr> StreamNUCAMap::pumWordlineToRangeMap;
 std::unordered_map<Addr, int> StreamNUCAMap::paddrLineToBankMap;
 
+StreamNUCAMap::RegisterNUMAInterleavePoolFuncT
+    *StreamNUCAMap::registerNUMAInterleavePool = nullptr;
+
 void StreamNUCAMap::initializeTopology(int numRows, int numCols) {
   if (topologyInitialized) {
     if (numCols != StreamNUCAMap::numCols ||

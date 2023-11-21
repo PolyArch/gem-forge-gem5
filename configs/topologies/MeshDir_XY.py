@@ -218,9 +218,9 @@ class MeshDir_XY(SimpleTopology):
             for j in range(num_dir_columns):
                 dir_idx = i * num_dir_columns + j
                 tile_row = i 
-                tile_col = j * self.num_columns - 1
+                tile_col = 0 if j == 0 else self.num_columns - 1
                 router_idx = tile_row * self.num_columns + tile_col
-                print(f'[MeshDirTile] Dir {i}x{j} -> Router {tile_row}x{tile_col}.')
+                print(f'[MeshDirEastWestEdge] Dir {i}x{j} -> Router {tile_row}x{tile_col}.')
                 dir_nodes[dir_idx].router_id = router_idx
                 ext_links.append(
                     ExtLink(

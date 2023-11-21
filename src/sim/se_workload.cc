@@ -89,4 +89,16 @@ SEWorkload::freeMemSize(int pool_id) const
     return memPools.freeMemSize(pool_id);
 }
 
+int
+SEWorkload::splitInterleavePool(const InterleavePoolArgs &args, int pool_id)
+{
+    return memPools.splitInterleavePool(args, pool_id);
+}
+
+int
+SEWorkload::getInterleavePool(Addr intrlv) const
+{
+    return memPools.getInterleavePool(intrlv);
+}
+
 } // namespace gem5

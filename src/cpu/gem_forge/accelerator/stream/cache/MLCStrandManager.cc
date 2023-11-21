@@ -61,6 +61,13 @@ void MLCStrandManager::receiveStreamConfigure(ConfigVec *configs,
         std::string::npos) {
       splitContext.totalStrands = 8;
     }
+    // if (config->stream->getStreamName().find("gfm_warm.ld") !=
+    //     std::string::npos) {
+    //   /**
+    //    * Memory warm up stream we only create strands for each NUMA node.
+    //    */
+    //   splitContext.totalStrands = StreamNUCAMap::getNUMANodes().size();
+    // }
     if (config->stream->getStreamName().find("gap.bfs_push.out_v.ld") !=
         std::string::npos) {
       if (config->getTotalTripCount() <= 32) {

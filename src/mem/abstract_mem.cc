@@ -392,7 +392,10 @@ AbstractMemory::access(PacketPtr pkt)
       return;
     }
 
-    assert(pkt->getAddrRange().isSubset(range));
+    if (!hasInterleaveMaskFunc)
+    {
+        assert(pkt->getAddrRange().isSubset(range));
+    }
 
     uint8_t *host_addr = toHostAddr(pkt->getAddr());
 
@@ -498,7 +501,10 @@ AbstractMemory::access(PacketPtr pkt)
 void
 AbstractMemory::functionalAccess(PacketPtr pkt)
 {
-    assert(pkt->getAddrRange().isSubset(range));
+    if (!hasInterleaveMaskFunc)
+    {
+        assert(pkt->getAddrRange().isSubset(range));
+    }
 
     uint8_t *host_addr = toHostAddr(pkt->getAddr());
 

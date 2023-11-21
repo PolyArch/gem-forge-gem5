@@ -116,8 +116,6 @@ private:
   std::unique_ptr<PUMEngine> pumEngine;
   const int issueWidth;
   const int migrateWidth;
-  // Threshold to limit maximum number of infly requests.
-  const int maxInflyRequests;
   // Threshold to limit maximum number of requests in queue;
   const int maxInqueueRequests;
 

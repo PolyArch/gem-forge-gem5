@@ -193,6 +193,20 @@ private:
    */
   void makeRegionPAddrContinuous(ThreadContext *tc, const StreamRegion &region);
 
+  /**
+   * Helper function to adjust the NUMA interleave of the region.
+   */
+  void adjustNUMALayoutForRegion(ThreadContext *tc, const StreamRegion &region,
+                                 Addr nucaIntrlv, int startNUCANode,
+                                 bool transposeNUCABank);
+
+  /**
+   * Helper function to copy region to new paddr.
+   * It never frees stuff.
+   */
+  void copyRegionToContinuousPAddr(ThreadContext *tc, Addr startPageVAddr,
+                                   Addr newStartPagePAddr, Addr numPages);
+
   Addr translate(Addr vaddr);
 
   using AddrVecT = std::vector<Addr>;
@@ -202,7 +216,7 @@ private:
   int64_t getVirtualBitlinesForPUM(const std::vector<Addr> &pumRegionVAddrs);
   int64_t getVirtualBitlinesForPUM(const StreamRegion &region);
   void remapDirectRegionPUM(const StreamRegion &region, int64_t vBitlines);
-  void remapDirectRegionNUCA(StreamRegion &region);
+  void remapDirectRegionNUCA(ThreadContext *tc, StreamRegion &region);
   void setNonUniformInterleave(ThreadContext *tc, StreamRegion &region,
                                Addr intrlvVAddr);
   InterleaveVecT determineInterleave(const StreamRegion &region);
