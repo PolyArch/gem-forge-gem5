@@ -29,6 +29,7 @@
 #include "arch/x86/cpuid.hh"
 
 #include "arch/x86/isa.hh"
+#include "debug/X86CPUId.hh"
 
 namespace gem5 {
 
@@ -59,7 +60,7 @@ std::map<uint32_t, std::map<uint32_t, CpuidResult>>
   { 0x8, {{0, {0, 0, 0, 0}}, }},
   { 0x9, {{0, {0, 0, 0, 0}}, }},
   { 0xa, {{0, {0x8300805, 0, 0x8604, 0xf}}, }},
-  { 0xb, {{0, {0x1, 0x2, 0x25, 0x100}}, }},
+  { 0xb, {{0, {0x1, 0x2, 0x2b, 0x100}}, {0x1, {0x7, 0x38, 0x2b, 0x201}}, {0x2, {0, 0, 0x2b, 0x2}}, }},
   { 0xc, {{0, {0, 0, 0, 0}}, }},
   { 0xd, {{0, {0x602e7, 0x2b00, 0, 0x2b00}}, {0x1, {0x1f, 0x2d00, 0, 0xdd00}},
           {0x2, {0x100, 0x240, 0, 0}}, {0x3, {0, 0, 0, 0}},
@@ -94,14 +95,20 @@ bool doCpuidWithRealCPU(const std::string &realCPUId,
   switch (function) {
     case 0x4:
     case 0x7:
+    case 0xB:
     case 0xD:
     case 0xF:
     case 0x10:
     case 0x17:
+    case 0x18:
+    case 0x1F:
+    case 0x20:
       break;
-    default:
+    default: {
+      warn_if(index != 0, "CPUId ignore ECX %#x.\n", index);
       index = 0;
       break;
+    }
   }
 
   // Clear the result.
@@ -117,6 +124,11 @@ bool doCpuidWithRealCPU(const std::string &realCPUId,
       auto indexIter = funcMap.find(index);
       if (indexIter != funcMap.end()) {
         result = indexIter->second;
+        DPRINTF(X86CPUId,
+          "RealCPUId %s EAX %#x ECX %#x -> EAX %#x EBX %#x EDX %#x ECX %#x\n",
+          realCPUId, function, index,
+          result.rax, result.rbx, result.rdx, result.rcx
+          );
         return true;
       }
     }

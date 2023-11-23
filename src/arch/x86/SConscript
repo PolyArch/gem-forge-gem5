@@ -86,6 +86,7 @@ SimObject('X86CPU.py', sim_objects=[], tags='x86 isa')
 DebugFlag('LocalApic', "Local APIC debugging", tags='x86 isa')
 DebugFlag('X86', "Generic X86 ISA debugging", tags='x86 isa')
 DebugFlag('ACPI', "ACPI debugging", tags='x86 isa')
+DebugFlag('X86CPUId', "X86 ISA CPUId debugging", tags='x86 isa')
 DebugFlag('X86AVX', "X86 ISA AVX debugging", tags='x86 isa')
 DebugFlag('X86MediaMicroop', "X86 Media Microop debugging", tags='x86 isa')
 
