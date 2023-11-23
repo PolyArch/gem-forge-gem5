@@ -690,7 +690,7 @@
             }
             0x2: CPUIDInst::CPUID({{
                 CpuidResult result;
-                bool success = doCpuid(xc->tcBase(), bits(Rax, 31, 0),
+                bool success = doCpuidInst(xc->tcBase(), bits(Rax, 31, 0),
                     bits(Rcx, 31, 0), result);
                 if (success) {
                     Rax = result.rax;

@@ -150,7 +150,9 @@ RegClass vecPredRegClass(VecPredRegClass, VecPredRegClassName, 1,
 
 } // anonymous namespace
 
-ISA::ISA(const X86ISAParams &p) : BaseISA(p), vendorString(p.vendor_string)
+ISA::ISA(const X86ISAParams &p) : BaseISA(p),
+    vendorString(p.vendor_string),
+    realCPUId(p.realCPUId)
 {
     fatal_if(vendorString.size() != 12,
              "CPUID vendor string must be 12 characters\n");

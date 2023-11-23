@@ -242,6 +242,14 @@ def initializeCPUs(args):
             dtb.walker_se_port = args.walker_se_port
             dtb.timing_se = args.tlb_timing_se
 
+    # Set RealCPUId for all cpus:
+    for cpu in initial_cpus:
+        for isa in cpu.isa:
+            isa.realCPUId = args.real_cpu_id
+    for cpu in future_cpus:
+        for isa in cpu.isa:
+            isa.realCPUId = args.real_cpu_id
+
     # We initialize GemForge for initial_cpus.
     for cpu in initial_cpus:
         cpu.accelManager = \

@@ -58,6 +58,7 @@ class ISA : public BaseISA
             SegAttr csAttr, SegAttr ssAttr, RFLAGS rflags);
 
     std::string vendorString;
+    std::string realCPUId; 
 
   public:
     void clear() override;
@@ -93,6 +94,10 @@ class ISA : public BaseISA
     void setThreadContext(ThreadContext *_tc) override;
 
     std::string getVendorString() const;
+    const std::string &getRealCPUId() const
+    {
+        return realCPUId;
+    }
 
     Addr getPageBytes() const override;
 

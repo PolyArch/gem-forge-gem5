@@ -56,3 +56,8 @@ class X86ISA(BaseISA):
     vendor_string = Param.String(
         "M5 Simulator", "Vendor string for CPUID instruction"
     )
+
+    realCPUId = Param.String(
+        "",
+        "model a real cpu id",
+    )

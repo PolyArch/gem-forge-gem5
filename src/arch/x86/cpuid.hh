@@ -61,6 +61,15 @@ namespace X86ISA
     bool doCpuid(ThreadContext * tc, uint32_t function,
             uint32_t index, CpuidResult &result);
 
+    // Support to implement real CPU id.
+    bool doCpuidWithRealCPU(const std::string &realCPUId,
+        ThreadContext * tc, uint32_t function,
+        uint32_t index, CpuidResult &result);
+
+    // A wrapper for cpuid inst.
+    bool doCpuidInst(ThreadContext * tc, uint32_t function,
+            uint32_t index, CpuidResult &result);
+
 } // namespace X86ISA
 } // namespace gem5
 

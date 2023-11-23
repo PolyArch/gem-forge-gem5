@@ -724,6 +724,13 @@ def addCommonOptions(parser):
         default=None,
         help="Override vendor string returned by CPUID instruction in X86.",
     )
+    parser.add_argument(
+        "--real-cpu-id",
+        action="store",
+        type=str,
+        default='',
+        help="Use real CPUID in X86.",
+    )
 
 
 def addSEOptions(parser):
