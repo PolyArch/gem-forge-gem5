@@ -105,7 +105,7 @@ bool doCpuidWithRealCPU(const std::string &realCPUId,
     case 0x20:
       break;
     default: {
-      warn_if(index != 0, "CPUId ignore ECX %#x.\n", index);
+      warn_if(index != 0, "CPUId ignore EAX %#x ECX %#x.\n", function, index);
       index = 0;
       break;
     }
