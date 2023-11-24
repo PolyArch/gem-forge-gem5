@@ -62,12 +62,13 @@ void FunctionTracer::traceFunctions(Addr pc) {
       if (this->functionTraceFirstTick == 0) {
         this->functionTraceFirstTick = curTick();
       }
-      ccprintf(*this->functionTraceStream, " %lu-%12lu-%8lu: %20s %10s %20s\n",
+      ccprintf(*this->functionTraceStream,
+               " %lu-%lu-%5lu: %8#x %20s %10s %20s %#x\n",
                curTick() / this->clockPeriod,
                (curTick() - this->functionTraceFirstTick) / clockPeriod,
-               accumulateTick / clockPeriod, oldFuncName,
+               accumulateTick / clockPeriod, this->currentPC, oldFuncName,
                pc == this->currentFunctionStart ? ">>Enter" : ">>BackTo",
-               sym_str);
+               sym_str, pc);
     }
 
     if (this->functionAccumulateTickEnabled) {
@@ -79,6 +80,8 @@ void FunctionTracer::traceFunctions(Addr pc) {
   if (this->functionAccumulateTickEnabled) {
     this->accumulateMicroOps(this->currentFunctionStart, 1);
   }
+
+  this->currentPC = pc;
 }
 
 void FunctionTracer::accumulateTick(Addr funcStart, Tick ticks) {

@@ -26,6 +26,7 @@ private:
   std::ostream *functionTraceStream = nullptr;
   std::ostream *functionAccumulateTickStream = nullptr;
 
+  Addr currentPC = 0;
   Addr currentFunctionStart = 0;
   Addr currentFunctionEnd = 0;
   Tick functionEntryTick = 0;
