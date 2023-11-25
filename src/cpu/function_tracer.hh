@@ -12,13 +12,14 @@ namespace gem5 {
 class FunctionTracer {
 public:
   FunctionTracer(const std::string &_name, Tick _clockPeriod)
-      : name(_name), clockPeriod(_clockPeriod) {}
+      : myName(_name), clockPeriod(_clockPeriod) {}
   void enableFunctionTrace();
   void enableFunctionAccumulateTick();
   void traceFunctions(Addr pc);
 
 private:
-  const std::string name;
+  const std::string &name() const { return myName; }
+  const std::string myName;
   const Tick clockPeriod;
   Tick functionTraceFirstTick = 0;
   bool functionTracingEnabled = false;

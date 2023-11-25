@@ -27,6 +27,7 @@
 
 #include "arch/x86/linux/syscalls.hh"
 
+#include "arch/x86/isa.hh"
 #include "arch/x86/linux/linux.hh"
 #include "arch/x86/process.hh"
 #include "arch/x86/regs/misc.hh"
@@ -37,6 +38,8 @@
 #include "sim/process.hh"
 #include "sim/syscall_desc.hh"
 #include "sim/syscall_emul.hh"
+
+#include "debug/SyscallVerbose.hh"
 
 namespace gem5
 {
@@ -67,11 +70,34 @@ archPrctlFunc(SyscallDesc *desc, ThreadContext *tc, int code, uint64_t addr)
         SetFS = 0x1002,
         GetFS = 0x1003,
         SetGS = 0x1001,
-        GetGS = 0x1004
+        GetGS = 0x1004,
+        ARCH_GET_XCOMP_PERM = 0x1022,
+        ARCH_REQ_XCOMP_PERM = 0x1023,
     };
 
     uint64_t fsBase, gsBase;
     SETranslatingPortProxy p(tc);
+
+    DPRINTF(SyscallVerbose, "arch_prctl: code %#x addr %#x\n", code, addr);
+    
+    ISA *isa = dynamic_cast<ISA *>(tc->getIsaPtr());
+    const auto &realCPUId = isa->getRealCPUId();
+    if (realCPUId == "Intel_Xeon_w7_3465X")
+    {
+        // Special handling for certain code.
+        switch (code)
+        {
+          case ARCH_GET_XCOMP_PERM:
+            p.write(addr, tc->XCOMP_PERM);
+            return 0;
+          case ARCH_REQ_XCOMP_PERM:
+            if (addr == 18) {
+                tc->XCOMP_PERM |= 1 << addr;
+                return 0;
+            }
+        }
+    }
+
     switch(code)
     {
       // Each of these valid options should actually check addr.
@@ -92,6 +118,7 @@ archPrctlFunc(SyscallDesc *desc, ThreadContext *tc, int code, uint64_t addr)
         p.write(addr, gsBase);
         return 0;
       default:
+        warn("arch_prctl: unsupport code %#x addr %#x\n", code, addr);
         return -EINVAL;
     }
 }

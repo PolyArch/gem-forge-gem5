@@ -36,8 +36,6 @@ namespace gem5 {
 
 namespace X86ISA {
 
-CpuidResult x = {1, 2, 3, 4};
-
 std::map<uint32_t, std::map<uint32_t, CpuidResult>>
     RealCPUId_Intel_Xeon_w7_3465X = {
   { 0x80000000, {{0, {0x80000008, 0, 0, 0}}, }},

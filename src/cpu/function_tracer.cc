@@ -4,13 +4,21 @@
 #include "base/loader/symtab.hh"
 #include "base/output.hh"
 #include "base/statistics.hh"
+#include "base/trace.hh"
+#include "debug/FuncTrace.hh"
 #include "sim/core.hh"
+
+#define FUNC_TRACE_(X, format, args...)                                        \
+  {                                                                            \
+    DPRINTF(X, format, ##args);                                                \
+    ccprintf(*this->functionTraceStream, format, ##args);                      \
+  }
 
 namespace gem5 {
 
 void FunctionTracer::enableFunctionTrace() {
   assert(!this->functionTracingEnabled);
-  const std::string fname = csprintf("ftrace.%s", this->name);
+  const std::string fname = csprintf("ftrace.%s", this->name());
   auto funcTraceFolder = simout.findOrCreateSubdirectory("ftrace");
   this->functionTraceStream = funcTraceFolder->findOrCreate(fname)->stream();
   this->functionTracingEnabled = true;
@@ -62,13 +70,12 @@ void FunctionTracer::traceFunctions(Addr pc) {
       if (this->functionTraceFirstTick == 0) {
         this->functionTraceFirstTick = curTick();
       }
-      ccprintf(*this->functionTraceStream,
-               " %lu-%lu-%5lu: %8#x %20s %10s %20s %#x\n",
-               curTick() / this->clockPeriod,
-               (curTick() - this->functionTraceFirstTick) / clockPeriod,
-               accumulateTick / clockPeriod, this->currentPC, oldFuncName,
-               pc == this->currentFunctionStart ? ">>Enter" : ">>BackTo",
-               sym_str, pc);
+      FUNC_TRACE_(FuncTrace, " %lu-%lu-%5lu: %8#x %20s %10s %20s %#x\n",
+                  curTick() / this->clockPeriod,
+                  (curTick() - this->functionTraceFirstTick) / clockPeriod,
+                  accumulateTick / clockPeriod, this->currentPC, oldFuncName,
+                  pc == this->currentFunctionStart ? ">>Enter" : ">>BackTo",
+                  sym_str, pc);
     }
 
     if (this->functionAccumulateTickEnabled) {
@@ -122,7 +129,7 @@ void FunctionTracer::dumpFuncAccumulateTick() {
 
   if (!this->functionAccumulateTickStream) {
     auto funcTraceFolder = simout.findOrCreateSubdirectory("ftrace");
-    const std::string fname = csprintf("ftick.%s", this->name);
+    const std::string fname = csprintf("ftick.%s", this->name());
     this->functionAccumulateTickStream =
         funcTraceFolder->findOrCreate(fname)->stream();
   }
