@@ -29,6 +29,7 @@
 #include "arch/x86/cpuid.hh"
 
 #include "arch/x86/isa.hh"
+#include "cpu/thread_context.hh"
 #include "debug/X86CPUId.hh"
 
 namespace gem5 {
@@ -53,10 +54,11 @@ std::map<uint32_t, std::map<uint32_t, CpuidResult>>
   { 0x2, {{0, {0xfeff01, 0xf0, 0, 0}}, }},
   { 0x3, {{0, {0, 0, 0, 0}}, }},
   { 0x4, {{0, {0xfc004121, 0x2c0003f, 0, 0x3f}}, {0x1, {0xfc004122, 0x1c0003f, 0, 0x3f}},
-          {0x2, {0xfc004143, 0x3c0003f, 0, 0x7ff}}, {0x3, {0xfc1fc163, 0x380003f, 0x4, 0x13fff}}, }},
+          {0x2, {0xfc004143, 0x3c0003f, 0, 0x7ff}}, {0x3, {0xfc1fc163, 0x380003f, 0x4, 0x13fff}},
+          {0x4, {0, 0, 0, 0}}, }},
   { 0x5, {{0, {0x40, 0x40, 0x1020, 0x3}}, }},
   { 0x6, {{0, {0x45cef7, 0x2, 0, 0x9}}, }},
-  { 0x7, {{0, {0x2, 0xf3bfb7eb, 0xffdd4430, 0xbb417ffe}}, }},
+  { 0x7, {{0, {0x2, 0xf3bfb7eb, 0xffdd4430, 0xbb417ffe}}, {0x1, {0x1c30, 0, 0x40000, 0}}, {0x2, {0, 0, 0x17, 0}}, }},
   { 0x8, {{0, {0, 0, 0, 0}}, }},
   { 0x9, {{0, {0, 0, 0, 0}}, }},
   { 0xa, {{0, {0x8300805, 0, 0x8604, 0xf}}, }},
@@ -104,7 +106,17 @@ bool doCpuidWithRealCPU(const std::string &realCPUId,
     case 0x1F:
     case 0x20:
       break;
+    case 0x0: // Basic
+    case 0x1: 
+    case 0x2: // TLB/Cache/Prefetch
+    case 0x80000001: 
+    case 0x80000007: // Power/RAS
+    case 0x80000008: 
+      // We know these ignores ECX.
+      index = 0;
+      break;
     default: {
+      // I am not sure... Need to read the manual. Just warn.
       warn_if(index != 0, "CPUId ignore EAX %#x ECX %#x.\n", function, index);
       index = 0;
       break;
@@ -137,6 +149,20 @@ bool doCpuidWithRealCPU(const std::string &realCPUId,
   }
 
   warn("x86 cpuid: unknown real cpu %s", realCPUId);
+  return false;
+}
+
+bool doXGETBVInst(ThreadContext * tc, uint32_t ecx, CpuidResult &result) {
+  ISA *isa = dynamic_cast<ISA *>(tc->getIsaPtr());
+  const auto &realCPUId = isa->getRealCPUId();
+  if (realCPUId == "Intel_Xeon_w7_3465X") {
+    result.rax = 0x602e7;
+    result.rdx = 0;
+    warn("x86 xgetbv: %s eax %#x edx %#x\n",
+      realCPUId, result.rax, result.rdx);
+    return true;
+  }
+  warn("x86 xgetbv: not implemented\n");
   return false;
 }
 

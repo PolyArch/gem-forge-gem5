@@ -70,6 +70,9 @@ namespace X86ISA
     bool doCpuidInst(ThreadContext * tc, uint32_t function,
             uint32_t index, CpuidResult &result);
 
+    // A hacker implementation for xgetbv.
+    bool doXGETBVInst(ThreadContext * tc, uint32_t ecx, CpuidResult &result);
+
 } // namespace X86ISA
 } // namespace gem5
 
