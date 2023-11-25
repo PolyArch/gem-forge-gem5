@@ -77,6 +77,7 @@ categories = [
     "vpshufd",
     "vpextrq",
     "vshufps",
+    "vunpckd",
     "vunpcks",
     "vpunpcklqdq",
     "vucomiss",
