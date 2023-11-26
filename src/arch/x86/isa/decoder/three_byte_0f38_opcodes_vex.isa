@@ -55,6 +55,10 @@
                     0x1: VPMINSD(VYdo, WYdo);
                     0x0: VPMINSD(Vo, Wo);
                 }
+                0x40: decode EVEX_L {
+                    0x1: VPMULLD(VYdo, WYdo);
+                    0x0: VPMULLD(Vo, Wo);
+                }
                 0x58: decode EVEX_L {
                     0x1: VPBROADCASTD(VYdo, Wd);
                     0x0: VPBROADCASTD(Vo, Wd);
