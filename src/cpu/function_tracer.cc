@@ -70,8 +70,8 @@ void FunctionTracer::traceFunctions(Addr pc) {
       if (this->functionTraceFirstTick == 0) {
         this->functionTraceFirstTick = curTick();
       }
-      FUNC_TRACE_(FuncTrace, " %lu-%lu-%5lu: %8#x %20s %10s %20s %#x\n",
-                  curTick() / this->clockPeriod,
+      FUNC_TRACE_(FuncTrace, " %lu-%lu-%lu-%5lu: %8#x %20s %10s %20s %#x\n",
+                  curTick(), curTick() / this->clockPeriod,
                   (curTick() - this->functionTraceFirstTick) / clockPeriod,
                   accumulateTick / clockPeriod, this->currentPC, oldFuncName,
                   pc == this->currentFunctionStart ? ">>Enter" : ">>BackTo",
