@@ -284,7 +284,7 @@ else:
 
 system.workload = SEWorkload.init_compatible(mp0_path)
 
-if options.llvm_mcpat == 1:
+if args.llvm_mcpat == 1:
     system.mcpat_manager = McPATManager()
 if args.wait_gdb:
     system.workload.wait_for_remote_gdb = True
