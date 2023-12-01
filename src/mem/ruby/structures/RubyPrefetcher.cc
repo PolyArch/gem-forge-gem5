@@ -279,7 +279,8 @@ RubyPrefetcher::issueNextPrefetch(Addr address, PrefetchEntry *stream)
     auto line_addr = addrBulk.getAt(0);
     if (addrBulk.size() == 1) {
         // Normal case.
-        DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
+        DPRINTF(RubyPrefetcher, "prefetch %#x page %#x stride %d\n",
+            line_addr, pageAddress(line_addr), stream->m_stride);
         m_controller->enqueuePrefetch(line_addr, stream->m_type);
     } else {
         // Bulk prefetch.
@@ -407,7 +408,8 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
         // launch prefetch
         rubyPrefetcherStats.numPrefetchRequested++;
-        DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
+        DPRINTF(RubyPrefetcher, "prefetch %#x page %#x stride %d\n",
+            line_addr, pageAddress(line_addr), stride);
         m_controller->enqueuePrefetch(line_addr, m_array[index].m_type);
     }
 
