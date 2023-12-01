@@ -82,11 +82,13 @@ protected:
       uint32_t i1;
       uint32_t i2;
     } ui;
+    uint32_t ui_array[2];
     struct __attribute__((packed))
     {
       int32_t i1;
       int32_t i2;
     } si;
+    int32_t si_array[2];
     struct __attribute__((packed))
     {
       uint16_t i1;
@@ -102,6 +104,7 @@ protected:
       int16_t i3;
       int16_t i4;
     } ss;
+    int16_t ss_array[4];
     struct __attribute__((packed))
     {
       uint8_t i1;
@@ -125,6 +128,7 @@ protected:
       int8_t i7;
       int8_t i8;
     } sc;
+    int8_t sc_array[8];
     uint64_t ul;
     int64_t sl;
   };
@@ -187,6 +191,8 @@ protected:
   void doMov(ExecContext *xc) const;
   // A helper function to perform permutation in lane
   void doPermuteInLane(ExecContext *xc) const;
+  // A helper function to perform permutation using indexes from reg.
+  void doPermOp(ExecContext *xc) const;
 
   // A helper function to add dest regs.
   void addAVXDestRegs();
