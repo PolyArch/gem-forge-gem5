@@ -44,6 +44,9 @@ parser.add_argument("--gem-forge-num-active-cpus", action="store", type=int,
                   help="""number of active cpus.""", default="1")
 parser.add_argument("--gem-forge-enable-func-acc-tick", action="store_true",
                   help="""enable func accumulate ticks.""", default=False)
+parser.add_argument("--gem-forge-enable-pc-acc-tick", action="store_true",
+                  help="""enable pc accumulate ticks. Must enable func acc tick.""",
+                  default=False)
 parser.add_argument("--gem-forge-enable-func-trace-at-tick", action="store", type=int,
                   help="""enable func trace at this tick.""", default=-1)
 parser.add_argument("--gem-forge-cpu-deadlock-interval", action="store", type=str, default="10000ns",
