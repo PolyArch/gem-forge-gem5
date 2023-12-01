@@ -56,6 +56,8 @@
 namespace gem5
 {
 
+unsigned long elapsedTimeOffset = 0;
+
 void
 warnUnsupportedOS(std::string syscall_name)
 {
