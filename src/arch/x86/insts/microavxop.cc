@@ -1114,7 +1114,6 @@ namespace gem5
             FloatInt srcValue[vSrcRegs];
             for (int i = 0; i < vSrcRegs; i++)
             {
-                // Read in the four 32-bit value.
                 srcValue[i].ul = xc->getRegOperand(this, i * 2 + 1);
             }
 
