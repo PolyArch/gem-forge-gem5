@@ -176,7 +176,7 @@ class AbstractController : public ClockedObject, public Consumer
 
     /** Used to get pc from packet. */
     bool hasPC(PacketPtr pkt) const {
-      return pkt->req->hasPC();
+      return pkt && pkt->req->hasPC();
     }
     Addr getPC(PacketPtr pkt) const {
       return pkt->req->getPC();

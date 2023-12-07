@@ -225,6 +225,8 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP", interface="AbstractS
   RequestStatisticPtr getRequestStatistic(PacketPtr);
   bool isRequestStatisticStream(RequestStatisticPtr);
   bool isRequestStatisticValid(RequestStatisticPtr);
+  bool hasPC(PacketPtr);
+  Addr getPC(PacketPtr);
 
   bool isStreamSublineEnabled();
   MessageSizeType getMessageSizeType(int);
@@ -1203,7 +1205,14 @@ machine(MachineType:L1Cache, "MESI Directory L1 Cache CMP", interface="AbstractS
   action(pm_observeMiss, "\pm", desc="Inform the prefetcher about the miss") {
     if (enable_prefetch) {
       // We always use LD as the prefetch type.
-      prefetcher.observeMiss(address, RubyRequestType:LD);
+      peek(messageBufferFromL0_in, CoherenceMsg) {
+        if (hasPC(in_msg.pkt)) {
+          Addr pc := getPC(in_msg.pkt);
+          prefetcher.observeMissWithPC(address, RubyRequestType:LD, pc);
+        } else {
+          prefetcher.observeMiss(address, RubyRequestType:LD);
+        }
+      }
     }
   }
   action(ppm_observePfMiss, "\ppm",

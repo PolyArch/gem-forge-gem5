@@ -650,6 +650,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         // Don't forget to copy the statistic hook.
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -682,6 +683,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -716,6 +718,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -751,6 +754,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
