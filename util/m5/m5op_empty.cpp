@@ -41,4 +41,24 @@ __attribute__((noinline)) extern void m5_switch_cpu() {
   volatile int x = dummy;
   (void)x;
 }
+__attribute__((noinline)) extern void
+m5_stream_nuca_region(const char *regionName, const void *buffer,
+                      uint64_t elementSize, uint64_t dim1, uint64_t dim2,
+                      uint64_t dim3) {
+  volatile int x = dummy;
+  (void)x;
+}
+__attribute__((noinline)) extern void
+m5_stream_nuca_align(const void *A, const void *B, int64_t elementOffset) {
+  volatile int x = dummy;
+  (void)x;
+}
+__attribute__((noinline)) extern void m5_stream_nuca_remap() {
+  volatile int x = dummy;
+  (void)x;
+}
+__attribute__((noinline)) extern uint64_t
+m5_stream_nuca_get_cached_bytes(void *buffer) {
+  return 0;
+}
 }
