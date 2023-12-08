@@ -462,12 +462,16 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
         auto pc = pkt->req->getPC();
         auto isStream = false;
         const char *streamName = nullptr;
+        auto hitLevel = RequestStatistic::HitPlaceE::INVALID;
         if (pkt->req->hasStatistic()) {
-            isStream = pkt->req->getStatistic()->isStream;
-            streamName = pkt->req->getStatistic()->streamName;
+            auto stats = pkt->req->getStatistic();
+            isStream = stats->isStream;
+            streamName = stats->streamName;
+            hitLevel = stats->hitCacheLevel;
         }
         auto latency = completion_time - issued_time;
-        this->pcReqRecorder.recordReq(pc, type, isStream, streamName, latency);
+        this->pcReqRecorder.recordReq(pc, type, isStream, streamName,
+            latency, hitLevel);
     }
 
     if (isExternalHit) {

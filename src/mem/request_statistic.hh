@@ -13,16 +13,10 @@
 
 #include <memory>
 
+#include "req_hit_level.hh"
+
 struct RequestStatistic {
-  enum HitPlaceE {
-    INVALID = -1,
-    L0_CACHE = 0,
-    L1_CACHE = 1,
-    L2_CACHE = 2,
-    L3_CACHE = 3,
-    MEM = 4,
-    L1_STREAM_BUFFER = 5,
-  };
+  using HitPlaceE = ReqHitPlaceE;
   /**
    * A bad way to snick some information here.
    */

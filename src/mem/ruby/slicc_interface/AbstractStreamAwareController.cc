@@ -327,16 +327,18 @@ void AbstractStreamAwareController::recordPCReq(
   Addr pc = 0;
   bool isStream = false;
   const char *streamName = nullptr;
+  auto hitLevel = RequestStatistic::HitPlaceE::INVALID;
   if (reqStat) {
     pc = reqStat->pc;
     isStream = reqStat->isStream;
     streamName = reqStat->streamName;
+    hitLevel = reqStat->hitCacheLevel;
   }
   // For now we have no latency information for AbstractController.
   // And simply use LD request.
   Cycles latency(1);
   this->pcReqRecorder.recordReq(pc, RubyRequestType_LD, isStream, streamName,
-                                latency);
+                                latency, hitLevel);
 }
 
 void AbstractStreamAwareController::recordDeallocateNoReuseReqStats(
