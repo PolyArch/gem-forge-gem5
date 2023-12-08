@@ -687,7 +687,18 @@ LSQUnit::executeLoad(const DynInstPtr &inst)
             ++it;
 
             if (checkLoads)
-                return checkViolations(it, inst);
+                load_fault = checkViolations(it, inst);
+        }
+    }
+
+    if (!this->cpu->params().block_on_prefetch_inst) {
+        if (load_fault == NoFault) {
+            if (inst->isDataPrefetch() || inst->isInstPrefetch()) {
+                if (inst->isIssued()) {
+                    // If not issued, the inst is blocked.
+                    this->writebackPrefetch(inst);
+                }
+            }
         }
     }
 
@@ -776,8 +787,8 @@ LSQUnit::commitLoad()
 
     DynInstPtr inst = loadQueue.front().instruction();
 
-    DPRINTF(LSQUnit, "Committing head load instruction, PC %s\n",
-            inst->pcState());
+    DPRINTF(LSQUnit, "Committing head load instruction [sn:%llu], PC %s\n",
+        inst->seqNum, inst->pcState());
 
     if (cpu->cpuDelegator) {
         /**
@@ -1210,6 +1221,8 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
         }
     }
 
+    DPRINTF(LSQUnit, "Writeback [sn:%lli]\n", inst->seqNum);
+
     // Need to insert instruction into queue to commit
     iewStage->instToCommit(inst);
 
@@ -1217,6 +1230,32 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
 
     // see if this load changed the PC
     iewStage->checkMisprediction(inst);
+}
+
+void
+LSQUnit::writebackPrefetch(const DynInstPtr &inst)
+{
+    iewStage->wakeCPU();
+
+    assert(inst->isDataPrefetch() || inst->isInstPrefetch());
+    assert(!inst->isSquashed());
+    assert(!inst->isExecuted());
+    assert(inst->isIssued());
+    inst->setExecuted();
+    /**
+     * ! GemForge
+     * We have to handle GemForgeLoad here.
+     */
+    if (cpu->cpuDelegator) {
+        assert(cpu->cpuDelegator->canWriteback(inst));
+        cpu->cpuDelegator->writeback(inst);
+    }
+    DPRINTF(LSQUnit, "Writeback Pf [sn:%lli]\n", inst->seqNum);
+
+    // Need to insert instruction into queue to commit
+    iewStage->instToCommit(inst);
+
+    iewStage->activityThisCycle();
 }
 
 void
