@@ -102,6 +102,8 @@ parser.add_argument("--llvm-trace-file", type=parse_tdg_files,
 parser.add_argument("--gem-forge-core-pipeline", type=str,
                   choices=['none', 'sapphire-rapids'],
                   help="""core uarch details""", default="none")
+parser.add_argument("--gem-forge-core-block-on-prefetch", action="store", type=int,
+                  help="""whether to block commit on prefetch inst""", default="1")
 parser.add_argument("--llvm-issue-width", action="store", type=int,
                   help="""llvm issue width""", default="8")
 parser.add_argument("--llvm-store-queue-size", action="store",
