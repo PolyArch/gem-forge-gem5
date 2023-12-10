@@ -74,8 +74,12 @@ parser.add_argument("--gem-forge-ideal-prefetcher-distance", action="store",
 parser.add_argument("--gem-forge-prefetcher", type=str, default="none",
                   choices=['none', 'stride', 'imp', 'isb', 'bingo'],
                   help="Type of L1 prefetcher we are using.")
+parser.add_argument("--gem-forge-prefetch-train-misses", action="store", type=int,
+                  help="L1 prefetcher train misses", default="5")
 parser.add_argument("--gem-forge-prefetch-dist", action="store", type=int,
                   help="L1 prefetcher distance", default="8")
+parser.add_argument("--gem-forge-prefetch-track-pc", action="store", type=int,
+                  help="L1 prefetcher track pc", default="0")
 parser.add_argument("--gem-forge-prefetch-cross-page", action="store", type=int,
                   help="Prefetcher can cross pages", default="1")
 parser.add_argument("--gem-forge-prefetch-on-hit", action="store", type=int,
@@ -87,8 +91,12 @@ parser.add_argument("--gem-forge-prefetch-filter-dup", action="store", type=int,
 parser.add_argument("--gem-forge-l2-prefetcher", type=str, default="none",
                   choices=['none', 'stride'],
                   help="Type of L2 prefetcher we are using.")
+parser.add_argument("--gem-forge-l2-prefetch-train-misses", action="store", type=int,
+                  help="L2 prefetcher train misses", default="5")
 parser.add_argument("--gem-forge-l2-prefetch-dist", action="store", type=int,
                   help="L2 prefetcher distance", default="8")
+parser.add_argument("--gem-forge-l2-prefetch-track-pc", action="store", type=int,
+                  help="L2 prefetcher track pc", default="0")
 parser.add_argument("--gem-forge-l2-prefetch-cross-page", action="store", type=int,
                   help="L2 prefetcher can cross pages", default="1")
 parser.add_argument("--gem-forge-l2-prefetch-on-hit", action="store", type=int,
@@ -97,6 +105,12 @@ parser.add_argument("--gem-forge-l2-bulk-prefetch-size", action="store", type=in
                   help="Bulk prefetch size at L2.", default=1)
 parser.add_argument("--gem-forge-prefetch-on-access", action="store_true",
                   help="""whether to prefetch on every access""", default=False)
+parser.add_argument("--gem-forge-l1-replacement-policy", type=str, default='brriprp',
+                  choices=['brriprp', 'lru'], help="replacement policy")
+parser.add_argument("--gem-forge-l2-replacement-policy", type=str, default='treeplrurp',
+                  choices=['brriprp', 'treeplrurp', 'lru'], help="L2 replacement policy")
+parser.add_argument("--gem-forge-l3-replacement-policy", type=str, default='brriprp',
+                  choices=['brriprp', 'lru'], help="L2 replacement policy")
 parser.add_argument("--llvm-trace-file", type=parse_tdg_files,
                   help="""llvm trace file input LLVMTraceCPU""", default=[])
 parser.add_argument("--gem-forge-core-pipeline", type=str,

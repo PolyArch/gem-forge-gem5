@@ -143,6 +143,9 @@ class AbstractController : public ClockedObject, public Consumer
     //! Function for enqueuing a prefetch request
     virtual void enqueuePrefetch(const Addr &, const RubyRequestType&)
     { fatal("Prefetches not implemented!");}
+    virtual void enqueuePrefetchWithId(const Addr &addr,
+        const RubyRequestType &type, const Addr &pfId)
+    { enqueuePrefetch(addr, type); }
     virtual void enqueueBulkPrefetch(const Addr &, const RubyRequestType&,
       const RubyAddressBulk&)
     { fatal("Bulk Prefetches not implemented!");}

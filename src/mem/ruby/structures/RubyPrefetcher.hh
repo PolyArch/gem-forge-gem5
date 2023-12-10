@@ -71,6 +71,7 @@ class PrefetchEntry
         PrefetchEntry()
         {
             // default: 1 cache-line stride
+            m_pc = InvalidPC;
             m_stride   = (1 << RubySystem::getBlockSizeBits());
             m_use_time = Cycles(0);
             m_is_valid = false;
@@ -79,6 +80,10 @@ class PrefetchEntry
 
         //! The base address for the stream prefetch
         Addr m_address;
+
+        //! The PC used to track stream.
+        static constexpr Addr InvalidPC = 0;
+        Addr m_pc = InvalidPC;
 
         //! stride distance to get next address from
         int m_stride;
@@ -115,8 +120,14 @@ class RubyPrefetcher : public SimObject
          * on a line with the line's prefetch bit set. If this address
          * hits in m_array we will continue prefetching the stream.
          */
-        void observePfHit(Addr address);
-        void observePfMiss(Addr address);
+        void observePfHitWithId(Addr address, Addr pc);
+        void observePfHit(Addr address) {
+            observePfHitWithId(address, InvalidPC);
+        }
+        void observePfMissWithId(Addr address, Addr pc);
+        void observePfMiss(Addr address) {
+            observePfMissWithId(address, InvalidPC);
+        }
 
         /**
          * Observe a prefetched cache block being evicted unused.
@@ -126,7 +137,10 @@ class RubyPrefetcher : public SimObject
         /**
          * Observe a prefetched block already cached.
          */
-        void observePfAlreadyCached(Addr paddr);
+        void observePfAlreadyCachedWithId(Addr paddr, Addr pc);
+        void observePfAlreadyCached(Addr paddr) {
+            observePfAlreadyCachedWithId(paddr, InvalidPC);
+        }
 
         /**
          * Observe a memory miss from the cache.
@@ -137,12 +151,12 @@ class RubyPrefetcher : public SimObject
          */
         void observeMissWithPC(Addr address, const RubyRequestType& type, Addr pc);
         void observeMiss(Addr address, const RubyRequestType& type) {
-            observeMissWithPC(address, type, 0);
+            observeMissWithPC(address, type, InvalidPC);
         }
 
         void observeHitWithPC(Addr address, const RubyRequestType& type, Addr pc);
         void observeHit(Addr address, const RubyRequestType& type) {
-            observeHitWithPC(address, type, 0);
+            observeHitWithPC(address, type, InvalidPC);
         }
 
         /**
@@ -153,15 +167,18 @@ class RubyPrefetcher : public SimObject
         { m_controller = _ctrl; }
 
     private:
+        static constexpr Addr InvalidPC = PrefetchEntry::InvalidPC;
         struct UnitFilterEntry
         {
             /** Address to which this filter entry refers. */
             Addr addr;
             /** Counter of the number of times this entry has been hit. */
             uint32_t hits;
+            /** Used to track PC. */
+            Addr pc = InvalidPC;
 
-            UnitFilterEntry(Addr _addr = 0)
-              : addr(_addr), hits(0)
+            UnitFilterEntry(Addr _addr = 0, Addr _pc = InvalidPC)
+              : addr(_addr), hits(0), pc(_pc)
             {
             }
         };
@@ -171,8 +188,8 @@ class RubyPrefetcher : public SimObject
             /** Stride (in # of cache lines). */
             int stride;
 
-            NonUnitFilterEntry(Addr _addr = 0)
-              : UnitFilterEntry(_addr), stride(0)
+            NonUnitFilterEntry(Addr _addr = 0, Addr _pc = InvalidPC)
+              : UnitFilterEntry(_addr, _pc), stride(0)
             {
             }
 
@@ -193,12 +210,12 @@ class RubyPrefetcher : public SimObject
         uint32_t getLRUindex(void);
 
         //! allocate a new stream buffer at a specific index
-        void initializeStream(Addr address, int stride,
+        void initializeStream(Addr address, Addr pc, int stride,
             uint32_t index, const RubyRequestType& type);
 
         //! get pointer to the matching stream entry, returns NULL if not found
         //! index holds the multiple of the stride this address is.
-        PrefetchEntry* getPrefetchEntry(Addr address,
+        PrefetchEntry* getPrefetchEntry(Addr address, Addr pc,
             uint32_t &index);
 
         /**
@@ -212,7 +229,7 @@ class RubyPrefetcher : public SimObject
          * @return True if a corresponding entry was found.
          */
         bool accessUnitFilter(CircularQueue<UnitFilterEntry>* const filter,
-            Addr line_addr, int stride, const RubyRequestType& type);
+            Addr line_addr, Addr pc, int stride, const RubyRequestType& type);
 
         /**
          * Access a non-unit stride filter to determine if there is a hit, and
@@ -223,7 +240,8 @@ class RubyPrefetcher : public SimObject
          * @return True if a corresponding entry was found and its stride is
          *         not zero.
          */
-        bool accessNonunitFilter(Addr line_addr, const RubyRequestType& type);
+        bool accessNonunitFilter(Addr line_addr, Addr pc,
+            const RubyRequestType& type);
 
         /// determine the page aligned address
         Addr pageAddress(Addr addr) const;

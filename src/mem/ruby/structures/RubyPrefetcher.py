@@ -70,6 +70,8 @@ class RubyPrefetcher(SimObject):
         "Set to >= 2 to enable buld prefetch")
     sys = Param.System(Parent.any, "System this prefetcher belongs to")
 
+    track_pc = Param.Bool(False, "Whether use PC to trace stream.")
+
 
 class Prefetcher(RubyPrefetcher):
     """DEPRECATED"""

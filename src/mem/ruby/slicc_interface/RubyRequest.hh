@@ -69,6 +69,7 @@ class RubyRequest : public Message
     RubyAccessMode m_AccessMode;
     int m_Size;
     PrefetchBit m_Prefetch;
+    Addr m_PrefetchId;
     PacketPtr m_pkt = nullptr;
     ContextID m_contextId;
     WriteMask m_writeMask;

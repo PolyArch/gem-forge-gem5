@@ -97,6 +97,17 @@ def create_system(options, full_system, system, dma_ports, bootmem,
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
     #
+    def get_replacement_policy(arg):
+        if arg == 'brriprp':
+            return BRRIPRP()
+        elif arg == 'lru':
+            return LRURP()
+        elif arg == 'treeplrurp':
+            return TreePLRURP()
+        else:
+            print('Unsupported replacement policy')
+            assert(False)
+
     for i in range(options.num_clusters):
         for j in range(num_cpus_per_cluster):
             #
@@ -105,19 +116,21 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l0i_cache = L0Cache(size=options.l1i_size, assoc=options.l1i_assoc,
                 is_icache=True,
                 start_index_bit=block_size_bits,
-                replacement_policy=BRRIPRP())
+                replacement_policy=get_replacement_policy(options.gem_forge_l1_replacement_policy),
+            ) 
 
             l0d_cache = L0Cache(size=options.l1d_size, assoc=options.l1d_assoc, is_icache=False,
                 start_index_bit=block_size_bits,
-                replacement_policy=BRRIPRP(),
+                replacement_policy=get_replacement_policy(options.gem_forge_l1_replacement_policy),
                 dataAccessLatency=options.l1d_lat)
 
             prefetcher = RubyPrefetcher(
                 num_streams=16,
                 unit_filter=256,
                 nonunit_filter=256,
-                train_misses=5,
+                train_misses=options.gem_forge_prefetch_train_misses,
                 num_startup_pfs=options.gem_forge_prefetch_dist,
+                track_pc=options.gem_forge_prefetch_track_pc,
                 cross_page=options.gem_forge_prefetch_cross_page,
                 observe_hit=options.gem_forge_prefetch_on_hit,
                 prefetch_inst=options.gem_forge_prefetch_inst,
@@ -219,14 +232,16 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l1_cache = L1Cache(size=options.l1_5d_size,
                                assoc=options.l1_5d_assoc,
                                start_index_bit=block_size_bits,
+                               replacement_policy=get_replacement_policy(options.gem_forge_l2_replacement_policy),
                                is_icache=False)
 
             l1_prefetcher = RubyPrefetcher(
                 num_streams=16,
                 unit_filter=256,
                 nonunit_filter=256,
-                train_misses=5,
+                train_misses=options.gem_forge_l2_prefetch_train_misses,
                 num_startup_pfs=options.gem_forge_l2_prefetch_dist,
+                track_pc=options.gem_forge_l2_prefetch_track_pc,
                 cross_page=options.gem_forge_l2_prefetch_cross_page,
                 observe_hit=options.gem_forge_l2_prefetch_on_hit,
                 bulk_prefetch_size=options.gem_forge_l2_bulk_prefetch_size,
@@ -362,7 +377,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                start_index_bit=block_size_bits,
                                skip_index_start_bit=l2_select_low_bit,
                                skip_index_num_bits=l2_bits,
-                               replacement_policy=BRRIPRP(),
+                               replacement_policy=get_replacement_policy(options.gem_forge_l3_replacement_policy),
                                query_stream_nuca=True,
                                num_bitlines=options.gem_forge_stream_pum_num_bitlines,
                                num_wordlines=options.gem_forge_stream_pum_num_wordlines,
