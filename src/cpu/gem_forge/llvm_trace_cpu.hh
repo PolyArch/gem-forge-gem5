@@ -24,6 +24,7 @@
 #include "cpu/gem_forge/thread_context.hh"
 #include "cpu/o3/fu_pool.hh"
 #include "mem/page_table.hh"
+#include "sim/mem_pool.hh"
 #include "params/LLVMTraceCPU.hh"
 
 namespace gem5 {
@@ -131,6 +132,8 @@ private:
 public:
   const LLVMTraceCPUParams *cpuParams;
   EmulationPageTable pageTable;
+  // MemPool to allocate paddr.
+  MemPools memPools;
   CPUPort instPort;
   CPUPort dataPort;
 

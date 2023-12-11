@@ -7,6 +7,8 @@ from m5.objects.FuncUnitConfig import *
 from m5.objects.FUPool import FUPool
 from m5.objects.BranchPredictor import *
 from m5.objects.Process import EmulatedDriver
+from m5.objects.X86CPU import X86CPU
+from m5.objects.X86MMU import X86MMU
 
 
 class LLVMAccel(FUDesc):
@@ -34,10 +36,14 @@ class DefaultFUPool(FUPool):
               SIMD_Unit(), WritePort(), RdWrPort(), IprPort(), LLVMAccel()]
 
 
-class LLVMTraceCPU(BaseCPU):
+# We need to inherit X86CPU to fake the ArchMMU.
+class LLVMTraceCPU(BaseCPU, X86CPU):
     type = 'LLVMTraceCPU'
     cxx_header = 'cpu/gem_forge/llvm_trace_cpu.hh'
     cxx_class = 'gem5::LLVMTraceCPU'
+
+    # Same: fake the mmu.
+    mmu = X86MMU()
 
     traceFile = Param.String('', 'The input llvm trace file.')
 

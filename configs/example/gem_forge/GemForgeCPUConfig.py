@@ -152,7 +152,7 @@ def createCPUNonStandalone(args, CPUClass, multiprocesses, numThreads):
             # For each process, add a LLVMTraceCPU for simulation.
             llvm_trace_cpu = \
                 GemForgeLLVMTraceCPUConfig.initializeLLVMTraceCPU(
-                    options, len(cpus))
+                    args, len(cpus))
 
             llvm_trace_cpu.cpu_id = len(cpus)
             llvm_trace_cpu.traceFile = tdg_fn
@@ -194,7 +194,7 @@ def createCPUStandalone(args):
         # For each process, add a LLVMTraceCPU for simulation.
         llvm_trace_cpu = \
             GemForgeLLVMTraceCPUConfig.initializeLLVMTraceCPU(
-                options, len(cpus))
+                args, len(cpus))
 
         # A dummy null driver to make the python script happy.
         llvm_trace_cpu.cpu_id = len(cpus)

@@ -382,8 +382,20 @@ X86ISA::Interrupts::completeIPI(PacketPtr pkt)
 AddrRangeList
 X86ISA::Interrupts::getAddrRanges() const
 {
-    assert(tc);
+    /**
+     * Originally we assert here for tc.
+     * However, for LLVMTraceCPU we have no TC, and no interrupts at all.
+     * Therefore, here we return empty range when we have no tc.
+     * Then we should receive no interrupts at all.
+     * TODO: Check if this is really LLVMTraceCPU.
+     */
+    // assert(tc);
     AddrRangeList ranges;
+    if (!tc) {
+      warn("Miss ThreadContext. Return empty addr range for interrupt.\n"
+        "    Make sure this is LLVMTraceCPU!\n");
+      return ranges;
+    }
     ranges.push_back(RangeSize(pioAddr, PageBytes));
     return ranges;
 }

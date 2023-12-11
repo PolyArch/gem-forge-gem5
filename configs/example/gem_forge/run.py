@@ -492,9 +492,10 @@ system = System(cpu=initial_cpus,
 if future_cpus:
     system.future_cpus = future_cpus
 
-system.workload = SEWorkload.init_compatible(
-    system.cpu[0].workload[0].executable
-)
+if not args.llvm_standalone:
+    system.workload = SEWorkload.init_compatible(
+        system.cpu[0].workload[0].executable
+    )
 
 # Set the work count options.
 Simulation.setWorkCountOptions(system, args)
