@@ -405,6 +405,9 @@ enum : RegIndex
     // "Fake" MSRs for internally implemented devices
     PciConfigAddress,
 
+    // AMX tile config to track dependence.
+    AmxTileConfig,
+
     NumRegs
 };
 

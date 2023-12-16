@@ -28,9 +28,9 @@ protected:
   const RegIndex src2;
   const RegIndex src3;
   const uint8_t destSize;
-  const uint8_t destVL;
+  const uint32_t destVL;
   const uint8_t srcSize;
-  const uint8_t srcVL;
+  const uint32_t srcVL;
   const uint8_t imm8;
   const uint8_t ext;
   const RegIndex mask;
@@ -48,8 +48,8 @@ protected:
   AVXOpBase(ExtMachInst _machInst, const char *_mnem, const char *_instMnem,
             uint64_t _setFlags, OpClass _opClass, SrcType _srcType,
             FpRegIndex _dest, FpRegIndex _src1, FpRegIndex _src2,
-            FpRegIndex _src3, uint8_t _destSize, uint8_t _destVL,
-            uint8_t _srcSize, uint8_t _srcVL, uint8_t _imm8, uint8_t _ext,
+            FpRegIndex _src3, uint8_t _destSize, uint32_t _destVL,
+            uint8_t _srcSize, uint32_t _srcVL, uint8_t _imm8, uint8_t _ext,
             GpRegIndex _mask, bool _zeroHighRegs)
       : X86MicroopBase(_machInst, _mnem, _instMnem, _setFlags, _opClass),
         srcType(_srcType), dest(_dest.index), src1(_src1.index),
@@ -193,6 +193,11 @@ protected:
   void doPermuteInLane(ExecContext *xc) const;
   // A helper function to perform permutation using indexes from reg.
   void doPermOp(ExecContext *xc) const;
+  // A helper function to set AMX tile config from reg.
+  void doAMXSetTileCfg(ExecContext *xc) const;
+  // A helper function to release AMX tile config.
+  void doAMXReleaseTileCfg(ExecContext *xc) const;
+  void setAMXTileCfg(ExecContext *xc, const uint8_t *raw) const;
 
   // A helper function to add dest regs.
   void addAVXDestRegs();

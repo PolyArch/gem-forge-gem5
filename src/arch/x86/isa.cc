@@ -479,9 +479,22 @@ ISA::setMiscReg(RegIndex idx, RegVal val)
 }
 
 void
+ISA::setAMXTileCfg(const AMX::AMXTileConfig &cfg)
+{
+    this->amxTileCfg = cfg;
+}
+
+const
+AMX::AMXTileConfig &ISA::getAMXTileCfg() const
+{
+    return this->amxTileCfg;
+}
+
+void
 ISA::serialize(CheckpointOut &cp) const
 {
     SERIALIZE_ARRAY(regVal, misc_reg::NumRegs);
+    SERIALIZE_ARRAY(amxTileCfg.raw_data, AMX::AMXTileConfig::ConfigBytes);
 }
 
 void
@@ -493,6 +506,7 @@ ISA::unserialize(CheckpointIn &cp)
                      regVal[misc_reg::CsAttr],
                      regVal[misc_reg::SsAttr],
                      regVal[misc_reg::Rflags]);
+    UNSERIALIZE_ARRAY(amxTileCfg.raw_data, AMX::AMXTileConfig::ConfigBytes);
 }
 
 void

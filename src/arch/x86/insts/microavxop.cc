@@ -5,9 +5,12 @@
 #include "arch/x86/regs/float.hh"
 #include "arch/x86/regs/int.hh"
 #include "arch/x86/regs/misc.hh"
+#include "arch/x86/isa.hh"
+#include "arch/x86/amx.hh"
 #include "base/logging.hh"
 #include "cpu/exec_context.hh"
 #include "debug/X86AVX.hh"
+#include "debug/X86AMX.hh"
 
 namespace gem5
 {
@@ -1174,6 +1177,45 @@ namespace gem5
 
                 xc->setRegOperand(this, i + 0, dest.ul);
             }
+        }
+
+        void AVXOpBase::doAMXSetTileCfg(ExecContext *xc) const
+        {
+            assert(this->srcVL == 64);
+            auto vRegs = this->srcVL / sizeof(uint64_t);
+            uint64_t raw[vRegs];
+            for (int i = 0; i < vRegs; ++i) {
+                raw[i] = xc->getRegOperand(this, i);
+            }
+            this->setAMXTileCfg(xc, reinterpret_cast<uint8_t *>(raw));
+        }
+
+        void AVXOpBase::doAMXReleaseTileCfg(ExecContext *xc) const
+        {
+            assert(this->srcVL == 64);
+            auto vRegs = this->srcVL / sizeof(uint64_t);
+            uint64_t raw[vRegs];
+            for (int i = 0; i < vRegs; ++i) {
+                raw[i] = 0;
+            }
+            this->setAMXTileCfg(xc, reinterpret_cast<uint8_t *>(raw));
+        }
+
+        void
+        AVXOpBase::setAMXTileCfg(ExecContext *xc, const uint8_t *raw) const
+        {
+            AMX::AMXTileConfig cfg;
+            if (AMX::parseAMXTileConfig(raw, cfg)) {
+                panic("Illegal AMX tile config.");
+            }
+
+            DPRINTF(X86AMX, "Set AMXTileCfg %s\n", cfg);
+
+            auto isa = dynamic_cast<X86ISA::ISA *>(
+                xc->tcBase()->getIsaPtr());
+            assert(isa != nullptr);
+
+            isa->setAMXTileCfg(cfg);
         }
 
     } // namespace X86ISA

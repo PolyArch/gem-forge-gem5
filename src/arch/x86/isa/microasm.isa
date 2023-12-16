@@ -184,6 +184,12 @@ let {{
             fpRegIdx(f"float_reg::tmmIdx(env.regm, {i})")
         assembler.symbols[f'tmm{i}v'] = \
             fpRegIdx(f"float_reg::tmmIdx(machInst.evex.v_extend, {i})")
+    # Directly access tile registers.
+    for i in range(8):
+        for j in range(128):
+            assembler.symbols[f'tmm{i}_{j}'] = \
+                fpRegIdx(f"float_reg::tmmIdx({i}, {j})")
+    assembler.symbols["amx_tile_cfg"] = ctrlRegIdx("misc_reg::AmxTileConfig")
 
     # This segment selects an internal address space mapped to MSRs,
     # CPUID info, etc.

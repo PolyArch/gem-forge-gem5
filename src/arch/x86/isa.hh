@@ -38,6 +38,7 @@
 #include "arch/x86/regs/float.hh"
 #include "arch/x86/regs/int.hh"
 #include "arch/x86/regs/misc.hh"
+#include "arch/x86/amx.hh"
 #include "base/types.hh"
 #include "cpu/reg_class.hh"
 
@@ -60,6 +61,11 @@ class ISA : public BaseISA
     std::string vendorString;
     std::string realCPUId; 
 
+    /**
+     * Handle AMX tile cfg.
+     */
+    AMX::AMXTileConfig amxTileCfg;
+
   public:
     void clear() override;
 
@@ -78,6 +84,9 @@ class ISA : public BaseISA
 
     void setMiscRegNoEffect(RegIndex idx, RegVal val) override;
     void setMiscReg(RegIndex idx, RegVal val) override;
+
+    void setAMXTileCfg(const AMX::AMXTileConfig &cfg);
+    const AMX::AMXTileConfig &getAMXTileCfg() const;
 
     bool
     inUserMode() const override

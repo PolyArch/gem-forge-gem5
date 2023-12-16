@@ -33,8 +33,8 @@ def template AVXOpDeclare {{
                   FpRegIndex _src1,
                   FpRegIndex _src2,
                   FpRegIndex _src3,
-                  uint8_t _destSize, uint8_t _destVL,
-                  uint8_t _srcSize, uint8_t _srcVL,
+                  uint8_t _destSize, uint32_t _destVL,
+                  uint8_t _srcSize, uint32_t _srcVL,
                   uint8_t _imm8, uint8_t _ext,
                   GpRegIndex _mask,
                   bool _zeroHighRegs);
@@ -51,8 +51,8 @@ def template AVXOpConstructor {{
         FpRegIndex _src1,
         FpRegIndex _src2,
         FpRegIndex _src3,
-        uint8_t _destSize, uint8_t _destVL,
-        uint8_t _srcSize, uint8_t _srcVL,
+        uint8_t _destSize, uint32_t _destVL,
+        uint8_t _srcSize, uint32_t _srcVL,
         uint8_t _imm8, uint8_t _ext,
         GpRegIndex _mask,
         bool _zeroHighRegs)
@@ -147,7 +147,8 @@ let {{
         # This class itself doesn't act as a microop
         abstract = True
 
-        def __init__(self, dest,
+        def __init__(self,
+            dest='FpRegIndex(float_reg::microfp(1))',
             src1='FpRegIndex(float_reg::xmmIdx(0, 0))',
             src2='FpRegIndex(float_reg::xmmIdx(0, 0))',
             src3='FpRegIndex(float_reg::xmmIdx(0, 0))',
@@ -227,6 +228,80 @@ let {{
             }
         '''
 
+    class Vsettilecfg(AVXOp):
+        # Helper microop to set AMX tile config.
+        def __init__(self, src):
+            super(Vsettilecfg, self).__init__(
+                src1=src,
+                srcVL=64,
+            )
+        opClass = 'SimdMiscOp'
+        srcType = 'AVXOpBase::SrcType::Reg'
+        constructorCode = '''
+            // Add 64B to src.
+            auto vRegs = srcVL / sizeof(uint64_t);
+            assert(vRegs <= NumXMMSubRegs && "VL overflow.");
+            assert(NumXMMSubRegs == 8 && "We assume 8 xmm sub regs.");
+            _numSrcRegs = vRegs;
+            assert(_numSrcRegs <= MaxInstSrcRegs && "SrcRegs overflow.");
+            for (int i = 0; i < _numSrcRegs; i++) {
+                srcRegIdxArr[i] = floatRegClass[src1 + i] ;
+            }
+            // Add AMXTileConfig to dest.
+            _numDestRegs = 1;
+            setDestRegIdx(0, miscRegClass[misc_reg::AmxTileConfig]);
+        '''
+        code = '''
+            this->doAMXSetTileCfg(xc);
+        '''
+
+    class Vtilerelease(AVXOp):
+        # Helper microop to set AMX tile config.
+        def __init__(self):
+            super(Vtilerelease, self).__init__(
+                srcVL=64,
+            )
+        opClass = 'SimdMiscOp'
+        srcType = 'AVXOpBase::SrcType::Non'
+        constructorCode = '''
+            // Add AMXTileConfig to dest to track dependence.
+            _numDestRegs = 1;
+            setDestRegIdx(0, miscRegClass[misc_reg::AmxTileConfig]);
+        '''
+        code = '''
+            this->doAMXReleaseTileCfg(xc);
+        '''
+    
+    class Vtilezero(AVXOp):
+        # Helper microop to clear AMX tile.
+        def __init__(self, dest, destVL):
+            super(Vtilezero, self).__init__(
+                dest=dest,
+                destVL=destVL,
+            )
+        opClass = 'SimdMiscOp'
+        srcType = 'AVXOpBase::SrcType::Non'
+        constructorCode = '''
+            // Add 1 tile (128 reg = 1KiB)
+            // Add MAXVL-1:VL to destination.
+            auto vRegs = destVL / sizeof(uint64_t);
+            assert(vRegs <= MaxInstDestRegs && "VL overflow.");
+            _numDestRegs = vRegs;
+            for (int i = 0; i < _numDestRegs; i++) {
+                setDestRegIdx(i, floatRegClass[dest + i]);
+                _numTypedDestRegs[floatRegClass.type()]++;
+            }
+            // We also add AMXTileConfig to src to honor dependence.
+            _numSrcRegs = 1;
+            srcRegIdxArr[0] = miscRegClass[misc_reg::AmxTileConfig];
+        '''
+        code = '''
+            RegVal zero = 0;
+            for (int i = 0; i < _numDestRegs; i++) {
+                xc->setRegOperand(this, i, zero);
+            }
+        '''
+
     class Varithp(AVXOp):
         # Used in packed arithmetic ops, e.g. vaddps.
         abstract = True
@@ -270,6 +345,12 @@ let {{
         '''
 
     class Tdpbssd(Varithp):
+        opClass = 'SimdMatrixOp'
+        code = '''
+            this->doPackedBinaryOp(xc, BinaryOp::FloatAdd);
+        '''
+
+    class Tdpbusd(Varithp):
         opClass = 'SimdMatrixOp'
         code = '''
             this->doPackedBinaryOp(xc, BinaryOp::FloatAdd);
