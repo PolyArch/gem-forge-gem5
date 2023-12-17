@@ -1,0 +1,453 @@
+// Copyright (c) 2007-2008 The Hewlett-Packard Development Company
+// Copyright (c) 2015 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
+// The license below extends only to copyright in the software and shall
+// not be construed as granting a license to any other intellectual
+// property including but not limited to intellectual property relating
+// to a hardware implementation of the functionality of the software
+// licensed hereunder.  You may use the software subject to the license
+// terms below provided that you ensure that this notice is replicated
+// unmodified and in its entirety in all distributions of the software,
+// modified or unmodified, in source code or in binary form.
+//
+// Copyright (c) 2008 The Regents of The University of Michigan
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met: redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer;
+// redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution;
+// neither the name of the copyright holders nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+//////////////////////////////////////////////////////////////////////////
+//
+// AMX Tile LdStOp Microop templates
+//
+//////////////////////////////////////////////////////////////////////////
+
+// Load templates
+
+def template MicroAMXTileLoadExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+        Addr EA;
+
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+        DPRINTF(X86, "%s : %s: The address is %#x\n", instMnem, mnemonic, EA);
+
+        auto bytes = getAMXSubTileBytes(xc, tile, tileRow, tileCol);
+
+        DPRINTF(X86AMX,
+            "%s : %s: Addr %#x Tile %d-%d-%d %dB\n",
+            instMnem, mnemonic, EA, tile, tileRow, tileCol, bytes);
+
+        if (bytes > 0) {
+            /**
+             * So far we only check if bytes is zero.
+             * TODO: read the actual number of bytes.
+             */
+            fault = readMemAtomic(xc, traceData, EA, Mem, dataSize, memFlags);
+        } else {
+            xc->setMemAccPredicate(false);
+        }
+
+        if (fault == NoFault) {
+            %(code)s;
+        } else if (memFlags & Request::PREFETCH) {
+            // For prefetches, ignore any faults/exceptions.
+            return NoFault;
+        }
+        if (fault == NoFault) {
+            %(op_wb)s;
+        }
+
+        return fault;
+    }
+}};
+
+def template MicroAMXTileLoadInitiateAcc {{
+    Fault
+    %(class_name)s::initiateAcc(ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+        Addr EA;
+
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+
+        auto bytes = getAMXSubTileBytes(xc, tile, tileRow, tileCol);
+
+        DPRINTF(X86AMX,
+            "%s : %s: Addr %#x Tile %d-%d-%d %dB\n",
+            instMnem, mnemonic, EA, tile, tileRow, tileCol, bytes);
+
+        if (bytes > 0) {
+            /**
+             * So far we only check if bytes is zero.
+             * TODO: read the actual number of bytes.
+             */
+            fault = initiateMemRead(xc, traceData, EA, %(memDataSize)s, memFlags);
+        } else {
+            xc->setMemAccPredicate(false);
+        }
+
+        return fault;
+    }
+}};
+
+def template MicroAMXTileLoadCompleteAcc {{
+    Fault
+    %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+
+        %(op_decl)s;
+        %(op_rd)s;
+
+        if (xc->readMemAccPredicate()) {
+            getMem(pkt, Mem, dataSize, traceData);
+        }
+
+        %(code)s;
+
+        if (fault == NoFault) {
+            %(op_wb)s;
+        }
+
+        return fault;
+    }
+}};
+
+
+// Store templates
+
+def template MicroAMXTileStoreExecute {{
+    Fault
+    %(class_name)s::execute(ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+
+        Addr EA;
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+        %(code)s;
+
+        auto bytes = getAMXSubTileBytes(xc, tile, tileRow, tileCol);
+
+        DPRINTF(X86AMX,
+            "%s : %s: Addr %#x Tile %d-%d-%d %dB\n",
+            instMnem, mnemonic, EA, tile, tileRow, tileCol, bytes);
+
+        if (bytes > 0) {
+            if (fault == NoFault) {
+                fault = writeMemAtomic(xc, traceData,
+                    reinterpret_cast<uint8_t *>(Mem.data()), bytes,
+                    EA, memFlags, NULL);
+                if (fault == NoFault) {
+                    %(op_wb)s;
+                }
+            }
+        } else {
+            xc->setMemAccPredicate(false);
+        }
+
+        return fault;
+    }
+}};
+
+def template MicroAMXTileStoreInitiateAcc {{
+    Fault
+    %(class_name)s::initiateAcc(ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        Fault fault = NoFault;
+
+        Addr EA;
+        %(op_decl)s;
+        %(op_rd)s;
+        %(ea_code)s;
+        %(code)s;
+
+        auto bytes = getAMXSubTileBytes(xc, tile, tileRow, tileCol);
+
+        DPRINTF(X86AMX,
+            "%s : %s: Addr %#x Tile %d-%d-%d %dB\n",
+            instMnem, mnemonic, EA, tile, tileRow, tileCol, bytes);
+
+        if (bytes > 0) {
+            if (fault == NoFault) {
+                fault = writeMemTiming(xc, traceData,
+                    reinterpret_cast<uint8_t *>(Mem.data()), bytes,
+                    EA, memFlags, NULL);
+            }
+        } else {
+            xc->setMemAccPredicate(false);
+        }
+
+        return fault;
+    }
+}};
+
+def template MicroAMXTileStoreCompleteAcc {{
+    Fault
+    %(class_name)s::completeAcc(PacketPtr pkt, ExecContext *xc,
+            trace::InstRecord *traceData) const
+    {
+        %(op_decl)s;
+        %(op_rd)s;
+        %(complete_code)s;
+        %(op_wb)s;
+        return NoFault;
+    }
+}};
+
+def template MicroAMXTileLdStOpDeclare {{
+    class %(class_name)s : public %(base_class)s
+    {
+      private:
+        %(reg_idx_arr_decl)s;
+
+        // Which tile this is working on.
+        int tile;
+        // Which row of the tile is this store.
+        int tileRow;
+        // Which col of the tile (in byte).
+        int tileCol;
+
+      public:
+        template <typename ...Args>
+        %(class_name)s(ExtMachInst mach_inst, const char *inst_mnem,
+                int _tile, int _tileRow, int _tileCol,
+                uint64_t set_flags, uint8_t data_size, uint8_t address_size,
+                Request::FlagsType mem_flags, Args ...args) :
+            %(base_class)s(mach_inst, "%(mnemonic)s", inst_mnem, set_flags,
+                    args..., data_size, address_size, mem_flags, %(op_class)s),
+            tile(_tile), tileRow(_tileRow), tileCol(_tileCol)
+        {
+            %(set_reg_idx_arr)s;
+            %(constructor)s;
+
+            DPRINTF(X86AMX,
+                "Make %s : Tile %d-%d-%d\n",
+                instMnem, tile, tileRow, tileCol);
+        }
+
+
+        Fault execute(ExecContext *, trace::InstRecord *) const override;
+        Fault initiateAcc(ExecContext *, trace::InstRecord *) const override;
+        Fault completeAcc(PacketPtr, ExecContext *,
+                          trace::InstRecord *) const override;
+    };
+}};
+
+let {{
+    class AMXTileLdStOp(X86Microop):
+        def __init__(self, tile, tileRow, tileCol,
+                data, segment, addr, disp,
+                dataSize, addressSize, baseFlags, atCPL0, prefetch, nonSpec,
+                uncacheable):
+            self.tile = str(tile)
+            self.tileRow = str(tileRow)
+            self.tileCol = str(tileCol)
+            self.data = data
+            [self.scale, self.index, self.base] = addr
+            self.disp = disp
+            self.segment = segment
+            self.dataSize = dataSize
+            self.addressSize = addressSize
+            self.memFlags = baseFlags
+            if atCPL0:
+                self.memFlags += " | CPL0FlagBit"
+            self.instFlags = ""
+            if prefetch:
+                self.memFlags += " | Request::PREFETCH"
+                self.instFlags += " | (1ULL << StaticInst::IsDataPrefetch)"
+            if nonSpec:
+                self.instFlags += " | (1ULL << StaticInst::IsNonSpeculative)"
+            if uncacheable:
+                self.instFlags += " | Request::UNCACHEABLE"
+            self.memFlags += \
+                " | ((log2i(%s) & AddrSizeFlagMask) << AddrSizeFlagShift)" % \
+                addressSize
+
+        def getAllocator(self, microFlags):
+            allocator = '''new %(class_name)s(machInst, macrocodeBlock,
+                    %(tile)s, %(tileRow)s, %(tileCol)s,
+                    %(flags)s, %(dataSize)s, %(addressSize)s, %(memFlags)s,
+                    %(data)s, %(scale)s, %(index)s, %(base)s,
+                    %(disp)s, %(segment)s)''' % {
+                "class_name" : self.className,
+                "tile" : self.tile,
+                "tileRow" : self.tileRow,
+                "tileCol" : self.tileCol,
+                "flags" : self.microFlagsText(microFlags) + self.instFlags,
+                "scale" : self.scale, "index" : self.index,
+                "base" : self.base,
+                "disp" : self.disp,
+                "segment" : self.segment, "data" : self.data,
+                "dataSize" : self.dataSize, "addressSize" : self.addressSize,
+                "memFlags" : self.memFlags}
+            return allocator
+
+}};
+
+let {{
+
+    # Make these empty strings so that concatenating onto
+    # them will always work.
+    header_output = ""
+    decoder_output = ""
+    exec_output = ""
+
+    segmentEAExpr = \
+        'bits(scale * Index + Base + disp, addressSize * 8 - 1, 0);'
+
+    calculateEA = 'EA = SegBase + ' + segmentEAExpr
+
+    def defineMicroAMXTileLoadOp(
+        mnemonic, code, bigCode='',
+        mem_flags="0", nonSpec=False,
+        is_float=False, extra_flags=[]):
+        global header_output
+        global decoder_output
+        global exec_output
+        global microopClasses
+        Name = mnemonic
+        name = mnemonic.lower()
+
+        if is_float:
+            base = 'X86ISA::LdStFpOp'
+        else:
+            base = 'X86ISA::LdStOp'
+
+        # Build up the all register version of this micro op
+        iops = [InstObjParams(name, Name, base,
+                              { "code": code,
+                                "ea_code": calculateEA,
+                                "memDataSize": "dataSize" }, extra_flags)]
+        for iop in iops:
+            header_output += MicroAMXTileLdStOpDeclare.subst(iop)
+            exec_output += MicroAMXTileLoadExecute.subst(iop)
+            exec_output += MicroAMXTileLoadInitiateAcc.subst(iop)
+            exec_output += MicroAMXTileLoadCompleteAcc.subst(iop)
+
+        base = AMXTileLdStOp
+        class AMXTileLoadOp(base):
+            def __init__(self, data, segment, addr, disp = 0,
+                    dataSize="env.dataSize",
+                    addressSize="env.addressSize",
+                    atCPL0=False, prefetch=False, nonSpec=nonSpec,
+                    tile="env.reg", tileRow="0", tileCol="0",
+                    uncacheable=False):
+                super().__init__(tile, tileRow, tileCol,
+                        data, segment, addr,
+                        disp, dataSize, addressSize, mem_flags,
+                        atCPL0, prefetch, nonSpec, uncacheable)
+                self.className = Name
+                self.mnemonic = name
+
+        microopClasses[name] = AMXTileLoadOp
+
+    def defineMicroAMXTileStoreOp(
+        mnemonic, code, completeCode="", mem_flags="0",
+        is_float=False, extra_flags=[]):
+        global header_output
+        global decoder_output
+        global exec_output
+        global microopClasses
+        Name = mnemonic
+        name = mnemonic.lower()
+
+        if is_float:
+            base = 'X86ISA::LdStFpOp'
+        else:
+            base = 'X86ISA::LdStOp'
+
+        # Build up the all register version of this micro op
+        iop = InstObjParams(name, Name, base,
+                            { "code": code,
+                              "complete_code": completeCode,
+                              "ea_code": calculateEA,
+                              "memDataSize": "dataSize" }, extra_flags)
+        header_output += MicroAMXTileLdStOpDeclare.subst(iop)
+        exec_output += MicroAMXTileStoreExecute.subst(iop)
+        exec_output += MicroAMXTileStoreInitiateAcc.subst(iop)
+        exec_output += MicroAMXTileStoreCompleteAcc.subst(iop)
+
+        class AMXTileStoreOp(AMXTileLdStOp):
+            def __init__(self,
+                    data, segment, addr, disp=0,
+                    dataSize="env.dataSize", addressSize="env.addressSize",
+                    atCPL0=False, nonSpec=False, uncacheable=False,
+                    tile="env.reg", tileRow="0", tileCol="0",
+                    ):
+                super().__init__(tile, tileRow, tileCol,
+                        data, segment, addr, disp,
+                        dataSize, addressSize, mem_flags, atCPL0, False,
+                        nonSpec, uncacheable)
+                self.className = Name
+                self.mnemonic = name
+
+        microopClasses[name] = AMXTileStoreOp
+
+    defineMicroAMXTileLoadOp(
+        'tileload', is_float=True,
+        code='''
+            // We always need to read the tile cfg.
+            __attribute__((unused)) uint64_t cfg = TileCfg;
+            FpData0_uqw = Mem_u8qw[0];
+            FpData1_uqw = Mem_u8qw[1];
+            FpData2_uqw = Mem_u8qw[2];
+            FpData3_uqw = Mem_u8qw[3];
+            FpData4_uqw = Mem_u8qw[4];
+            FpData5_uqw = Mem_u8qw[5];
+            FpData6_uqw = Mem_u8qw[6];
+            FpData7_uqw = Mem_u8qw[7];
+        ''',
+    )
+
+    defineMicroAMXTileStoreOp(
+        'tilestore', is_float=True,
+        code='''
+            // We always need to read the tile cfg.
+            __attribute__((unused)) uint64_t cfg = TileCfg;
+            Mem_u8qw[0] = FpData0_uqw;
+            Mem_u8qw[1] = FpData1_uqw;
+            Mem_u8qw[2] = FpData2_uqw;
+            Mem_u8qw[3] = FpData3_uqw;
+            Mem_u8qw[4] = FpData4_uqw;
+            Mem_u8qw[5] = FpData5_uqw;
+            Mem_u8qw[6] = FpData6_uqw;
+            Mem_u8qw[7] = FpData7_uqw;
+        ''',
+    )
+
+}};

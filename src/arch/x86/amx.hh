@@ -10,9 +10,9 @@ namespace X86ISA {
 namespace AMX {
 
 union AMXTileConfig {
-	static constexpr int MaxTiles = 8;
-	static constexpr int8_t InvalidPalette = 0;
-	static constexpr int ConfigBytes = 64;
+  static constexpr int MaxTiles = 8;
+  static constexpr int8_t InvalidPalette = 0;
+  static constexpr int ConfigBytes = 64;
   struct __attribute__((packed)) {
     uint8_t palette;
     uint8_t start_row;
@@ -27,6 +27,7 @@ union AMXTileConfig {
     return palette > 0 && tileId >= 0 && tileId < 8 && tile_colsb[tileId] > 0 &&
            tile_rows[tileId] > 0;
   }
+  int getSubTileSize(int tileId, int row, int col) const;
 };
 
 bool parseAMXTileConfig(const uint8_t *raw, AMXTileConfig &config);

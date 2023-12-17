@@ -1,5 +1,7 @@
 #include "amx.hh"
 
+#include "base/logging.hh"
+
 #include <sstream>
 
 namespace gem5 {
@@ -72,8 +74,28 @@ bool parseAMXTileConfig(const uint8_t *raw, AMXTileConfig &config) {
   return error;
 }
 
+int AMXTileConfig::getSubTileSize(int tileId, int row, int col) const {
+  if (this->palette == InvalidPalette) {
+    return 0;
+  }
+  panic_if(this->palette != 1, "Unsupported palette %d.", (int)this->palette);
+  panic_if(tileId < 0 || tileId >= MaxTiles, "Invaid tile %d.", tileId);
+  panic_if(row < 0, "Invalid row %d.", row);
+  panic_if(col < 0, "Invalid col %d.", col);
+  if (!this->isTileValid(tileId)) {
+    // It's possible that due to misspeculatin, some tile is not configured.
+    return 0;
+  }
+  if (row >= this->tile_rows[tileId] || col >= this->tile_colsb[tileId]) {
+    // Overflown.
+    return 0;
+  }
+  // Return the remaining bytes in this row.
+  return this->tile_colsb[tileId] - col;
+}
+
 std::ostream &operator<<(std::ostream &os, const AMXTileConfig &cfg) {
-  os << "Tile Pallete " << (int)cfg.palette;
+  os << "Tile Palette " << (int)cfg.palette;
   if (cfg.palette != cfg.InvalidPalette) {
     os << " StartRow " << (int)cfg.start_row;
     for (int i = 0; i < cfg.MaxTiles; ++i) {

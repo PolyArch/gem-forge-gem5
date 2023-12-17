@@ -296,4 +296,7 @@ def operands {{
         'FpDestReg5':     FloatReg('dest + 5', 345),
         'FpDestReg6':     FloatReg('dest + 6', 346),
         'FpDestReg7':     FloatReg('dest + 7', 347),
+
+        # AMX Tile Cfg.
+        'TileCfg': ControlReg('X86ISA::misc_reg::AmxTileConfig', 400),
 }};

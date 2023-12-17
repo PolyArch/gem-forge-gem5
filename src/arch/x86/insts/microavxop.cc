@@ -6,7 +6,6 @@
 #include "arch/x86/regs/int.hh"
 #include "arch/x86/regs/misc.hh"
 #include "arch/x86/isa.hh"
-#include "arch/x86/amx.hh"
 #include "base/logging.hh"
 #include "cpu/exec_context.hh"
 #include "debug/X86AVX.hh"
