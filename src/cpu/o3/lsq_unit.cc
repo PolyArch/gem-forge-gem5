@@ -868,7 +868,7 @@ void
 LSQUnit::writebackStores()
 {
     if (isStoreBlocked) {
-        DPRINTF(LSQUnit, "Writing back  blocked store\n");
+        DPRINTF(LSQUnit, "Writing back blocked store\n");
         writebackBlockedStore();
     }
 
@@ -1739,7 +1739,7 @@ LSQUnit::read(LSQRequest *request, ssize_t load_idx)
 
             // Do not generate a writeback event as this instruction is not
             // complete.
-            DPRINTF(LSQUnit, "Store-Load Forward Mismatch Addr %#x, SQ %i %s\n",
+            DPRINTF(LSQUnit, "Store-Load Fwd Mismatch Addr %#x, SQ %i %s\n",
                 request->mainReq()->getVaddr(), store_it._idx,
                 *store_it->instruction());
 

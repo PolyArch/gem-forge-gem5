@@ -37,11 +37,6 @@ void PCRequestRecorder::dump() {
   std::sort(sortedStats.begin(), sortedStats.end(),
             [this](const RequestLatencyStats *a,
                    const RequestLatencyStats *b) -> bool {
-              auto reqs0 = a->totalReqs;
-              auto reqs1 = b->totalReqs;
-              if (reqs0 != reqs1) {
-                return reqs0 > reqs1;
-              }
               return a->operator<(*b);
             });
 

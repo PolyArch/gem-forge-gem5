@@ -113,6 +113,8 @@ parser.add_argument("--gem-forge-l3-replacement-policy", type=str, default='brri
                   choices=['brriprp', 'lru'], help="L2 replacement policy")
 parser.add_argument("--llvm-trace-file", type=parse_tdg_files,
                   help="""llvm trace file input LLVMTraceCPU""", default=[])
+parser.add_argument("--gem-forge-core-needs-TSO", type=int, action="store", default=None,
+                  help="""core uarch needs TSO""")
 parser.add_argument("--gem-forge-core-pipeline", type=str,
                   choices=['none', 'sapphire-rapids'],
                   help="""core uarch details""", default="none")

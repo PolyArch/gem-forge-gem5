@@ -824,7 +824,6 @@ LSQ::pushRequest(const DynInstPtr& inst, bool isLoad, uint8_t *data,
          * ! GemForge
          * Try to get special GemForgeLoadRequest here.
          */
-        DPRINTF(LSQ, "Do we have CPUDelegator? %d\n", cpu->cpuDelegator != nullptr);
         if (cpu->cpuDelegator) {
             request = cpu->cpuDelegator->allocateGemForgeLoadRequest(
                 &thread[tid], inst);

@@ -22,6 +22,9 @@ def initializeO3CPU(args, o3cpu):
     elif args.branch_predictor == 'ltage':
         o3cpu.branchPred = LTAGE(
             numThreads=args.gem_forge_hardware_contexts_per_core)
+    
+    if args.gem_forge_core_needs_TSO is not None:
+        o3cpu.needsTSO = args.gem_forge_core_needs_TSO
 
     o3cpu.SQEntries = args.llvm_store_queue_size
     o3cpu.LQEntries = args.llvm_load_queue_size
