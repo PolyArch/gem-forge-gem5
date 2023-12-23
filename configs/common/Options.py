@@ -201,7 +201,7 @@ def addNoISAOptions(parser):
 
     parser.add_argument("--no-l2bus", action="store_true")
     parser.add_argument("--l2bus_width", type=int, default=32)
-    parser.add_argument("--l2_mshrs", type=int, default=20)
+    parser.add_argument("--l2_mshrs", type=int, default=128)
     parser.add_argument("--l2_assoc", type=int, default=8)
     parser.add_argument("--l2_size", type=str, default="2MB")
     parser.add_argument("--l2_lat", type=int, default=16)

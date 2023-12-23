@@ -197,7 +197,7 @@ GarnetNetwork::init()
         // implementing XY or custom routing in RoutingUnit.cc
         m_num_rows = getNumRows();
         m_num_cols = m_routers.size() / m_num_rows;
-        assert(m_num_rows * m_num_cols == m_routers.size());
+	//        assert(m_num_rows * m_num_cols == m_routers.size());
 
         /**
          * Notify the StreamNUCAMap about the topology information.

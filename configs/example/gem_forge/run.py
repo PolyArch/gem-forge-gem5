@@ -34,6 +34,7 @@ def parse_int_list(value):
     vs = [int(v) for v in value.split('x')]
     return vs
 
+parser.add_argument("--chiplet-latency-increase", action="store", type=int, default=0)
 parser.add_argument("--gem-forge-work-mark-history", action="store", type=str,
                   help="""work mark history""")
 parser.add_argument("--gem-forge-work-mark-switch-cpu", action="store", type=int, default=-1,

@@ -93,6 +93,9 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         num_cores_per_row = options.num_cpus / options.mesh_rows
 
 
+    print(f'number of L0 TBE: {options.l1d_mshrs}')
+    print(f'number of L1 TBE: {options.l1_5d_mshrs}')
+    print(f'L2 has {options.l2_mshrs} TBE')
     #
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
@@ -370,7 +373,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 cluster_id=i,
                 transitions_per_cycle=options.l2_transitions_per_cycle,
                 ruby_system=ruby_system,
-                number_of_TBEs=128,
+                number_of_TBEs=options.l2_mshrs,
                 recycle_latency=options.recycle_latency,
                 l2_request_latency=options.l3_lat,
                 l2_response_latency=options.l3_lat,

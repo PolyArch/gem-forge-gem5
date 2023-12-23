@@ -31,6 +31,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
    Cycles l2_request_latency := 2;
    Cycles l2_response_latency := 2;
    Cycles to_l1_latency := 1;
+   int number_of_TBEs := 1;
 
    bool multicast_test := "false";
 
@@ -80,6 +81,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     SS, AccessPermission:Read_Only, desc="L2 cache entry Shared, also present in one or more L1s";
     M, AccessPermission:Read_Write, desc="L2 cache entry Modified, not present in any L1s", format="!b";
     MT, AccessPermission:Maybe_Stale, desc="L2 cache entry Modified in a local L1, assume L2 copy stale", format="!b";
+    SOS, AccessPermission:Read_Only, desc="L2 cache entry shared among L2s, sync at directory";
 
     // L2 replacement
     M_I, AccessPermission:Busy, desc="L2 cache replacing, have all acks, sent dirty data to memory, waiting for ACK from memory";
@@ -131,6 +133,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
 
     // events from memory controller
     Mem_Data,     desc="data from memory", format="!r";
+    Mem_Data_Shared, desc="data from memory, shared", format="!r";
     Mem_Ack,     desc="ack from memory", format="!r";
 
     // M->S data writeback
@@ -144,6 +147,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     Exclusive_Unblock, desc="Unblock from L1 requestor";
 
     MEM_Inv,            desc="Invalidate from directory";
+    MEM_Inv_Pushback,   desc="Need to release TBE before servicing this";
     Mem_InvGetR,        desc="Invalidate and get from directory, as a request.";
     Mem_InvGetRStale,   desc="Invalidate and get from directory, stale.";
 
@@ -480,7 +484,13 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
               trigger(Event:Mem_Ack, in_msg.addr, cache_entry, tbe);
           } else if(in_msg.Type == CoherenceResponseType:INV) {
               DPRINTF(RubySlicc, "Addr: %#x MemInv TBEs %d.\n", in_msg.addr, TBEs.size());
-              trigger(Event:MEM_Inv, in_msg.addr, cache_entry, tbe);
+              if (TBEs.size() == number_of_TBEs) {
+                trigger(Event:MEM_Inv_Pushback, in_msg.addr, cache_entry, tbe);
+              } else {
+                trigger(Event:MEM_Inv, in_msg.addr, cache_entry, tbe);
+              }
+          } else if(in_msg.Type == CoherenceResponseType:MEMORY_DATA_SHARED) {
+              trigger(Event:Mem_Data_Shared, in_msg.addr, cache_entry, tbe);
           } else {
             error("unknown message type");
           }
@@ -625,7 +635,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
 
   // ACTIONS
 
-  action(a_issueFetchToMemory, "a", desc="fetch data from memory") {
+  action(a_issueFetchRequestToMemory, "a", desc="fetch data from memory") {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
         out_msg.addr := address;
@@ -636,6 +646,33 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
       }
     }
   }
+
+  action(a_issueWriteRequestToMemory, "a1", desc="want to write to memory") {
+    peek(L1RequestL2Network_in, RequestMsg) {
+      enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
+        out_msg.addr := address;
+        out_msg.Type := CoherenceRequestType:GETX;
+        out_msg.Requestors.add(machineID);
+        out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
+        out_msg.MessageSize := MessageSizeType:Control;
+      }
+    }
+  }
+
+  action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
+    peek(L1RequestL2Network_in, RequestMsg) {
+      enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
+        out_msg.addr := address;
+        out_msg.Type := CoherenceRequestType:UPGRADE;
+        out_msg.Requestors.add(machineID);
+        out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
+        out_msg.MessageSize := MessageSizeType:Control;
+      }
+    }
+  }
+
+  
+
 
   action(b_forwardRequestToExclusive, "b", desc="Forward request to the exclusive L1") {
     peek(L1RequestL2Network_in, RequestMsg) {
@@ -1260,6 +1297,10 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   //*****************************************************
 
 
+  transition({SOS, SS, M, MT}, MEM_Inv_Pushback) {
+    zn_recycleResponseNetwork;
+  }
+
   //===============================================
   // BASE STATE - I
 
@@ -1305,7 +1346,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     nn_addSharer;
     i_allocateTBE;
     ss_recordGetSL1ID;
-    a_issueFetchToMemory;
+    a_issueFetchRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1316,7 +1357,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     i_allocateTBE;
     css_copyStreamSliceId;
     sv_recordGetVL1ID;
-    a_issueFetchToMemory;
+    a_issueFetchRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1327,7 +1368,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     ll_clearSharers;
     i_allocateTBE;
     css_copyStreamSliceId;
-    a_issueFetchToMemory;
+    a_issueFetchRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1338,7 +1379,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     i_allocateTBE;
     css_copyStreamSliceId;
     csv_copyStreamStoreValue;
-    a_issueFetchToMemory;
+    a_issueWriteRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1349,7 +1390,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     nn_addSharer;
     i_allocateTBE;
     ss_recordGetSL1ID;
-    a_issueFetchToMemory;
+    a_issueFetchRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1360,7 +1401,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     // nn_addSharer;
     i_allocateTBE;
     xx_recordGetXL1ID;
-    a_issueFetchToMemory;
+    a_issueWriteRequestToMemory;
     uu_profileMiss;
     ur_profileReq;
     jj_popL1RequestQueue;
@@ -1408,6 +1449,15 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     kd_wakeUpDependents;
   }
 
+  transition({IS, ISS}, Mem_Data_Shared, SOS) {
+    m_writeDataToCache;
+    net_notifyStreamEngineFromTBE;
+    e_sendDataToGetSRequestors;
+    s_deallocateTBE;
+    o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
+  }
+
   transition(IM, Mem_Data, MT_MB) {
     m_writeDataToCache;
     ee_sendDataToGetXRequestor;
@@ -1445,7 +1495,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   }
 
   // transitions from SS
-  transition(SS, {L1_GETS, L1_GET_INSTR}) {
+  transition({SOS, SS}, {L1_GETS, L1_GET_INSTR}) {
     ds_sendSharedDataToRequestor;
     nn_addSharer;
     set_setMRU;
@@ -1474,11 +1524,23 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     jj_popL1RequestQueue;
   }
 
-  transition(SS, L2_Replacement_clean, I_I) {
+  transition({SOS, SS}, L2_Replacement_clean, I_I) {
     i_allocateTBE;
     f_sendInvToSharers;
     rr_deallocateL2CacheBlock;
   }
+
+ transition(SOS, MEM_Inv, I_I) {
+   i_allocateTBE;
+   f_sendInvToSharers;
+   rr_deallocateL2CacheBlock;
+   o_popIncomingResponseQueue;
+ }
+
+ transition(SOS, {L1_GETX, L1_UPGRADE}) {
+    a_issueUpgradeRequestToMemory;
+    zz_stallAndWaitL1RequestQueue;
+ }
 
   transition(SS, {L2_Replacement, MEM_Inv, Mem_InvGetR}, S_I) {
     i_allocateTBE;
