@@ -101,6 +101,9 @@ parser.add_argument("--gem-forge-l2-prefetch-cross-page", action="store", type=i
                   help="L2 prefetcher can cross pages", default="1")
 parser.add_argument("--gem-forge-l2-prefetch-on-hit", action="store", type=int,
                   help="L2 prefetcher observe hits", default="0")
+parser.add_argument("--gem-forge-l2-prefetch-store", action="store", type=int,
+                  help="How L2 prefetch handles store: 0 disable, 1 as load, 2 as store",
+                  default="1")
 parser.add_argument("--gem-forge-l2-bulk-prefetch-size", action="store", type=int,
                   help="Bulk prefetch size at L2.", default=1)
 parser.add_argument("--gem-forge-prefetch-on-access", action="store_true",
@@ -115,6 +118,8 @@ parser.add_argument("--llvm-trace-file", type=parse_tdg_files,
                   help="""llvm trace file input LLVMTraceCPU""", default=[])
 parser.add_argument("--gem-forge-core-needs-TSO", type=int, action="store", default=None,
                   help="""core uarch needs TSO""")
+parser.add_argument("--gem-forge-core-max-inflight-stores", type=int, action="store",
+                  default=0, help="""Max num of inflight stores (0 is no limit)""")
 parser.add_argument("--gem-forge-core-pipeline", type=str,
                   choices=['none', 'sapphire-rapids'],
                   help="""core uarch details""", default="none")

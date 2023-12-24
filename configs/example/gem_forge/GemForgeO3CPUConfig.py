@@ -25,6 +25,7 @@ def initializeO3CPU(args, o3cpu):
     
     if args.gem_forge_core_needs_TSO is not None:
         o3cpu.needsTSO = args.gem_forge_core_needs_TSO
+    o3cpu.maxStoresInFlight = args.gem_forge_core_max_inflight_stores
 
     o3cpu.SQEntries = args.llvm_store_queue_size
     o3cpu.LQEntries = args.llvm_load_queue_size

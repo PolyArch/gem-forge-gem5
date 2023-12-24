@@ -1234,6 +1234,11 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     pq_popPrefetchQueue;
   }
 
+  transition({IU}, {PF_Load, PF_Store, PF_Ifetch}) {
+    // Ignore prefetch when we are doing non-temporal fetch.
+    pq_popPrefetchQueue;
+  }
+
   // Transitions from Idle
   transition(I, Load, IS) {
     oo_allocateDCacheBlock;

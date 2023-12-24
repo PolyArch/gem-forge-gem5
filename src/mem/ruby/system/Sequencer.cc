@@ -442,12 +442,18 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
     }
 
     Addr pc = 0x0;
+    auto hitLevel = ReqHitPlaceE::INVALID;
     if (srequest->pkt->req->hasPC()) {
         pc = srequest->pkt->req->getPC();
+        if (auto stat = srequest->pkt->req->getStatistic()) {
+            hitLevel = stat->hitCacheLevel;
+        }
     }
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s %d-cy pc %#x\n",
-             curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
-             "", "", printAddress(srequest->pkt->getAddr()), total_lat, pc);
+    DPRINTF(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s "
+            "%d-cy pc %#x hit %d\n",
+            curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
+            "", "", printAddress(srequest->pkt->getAddr()),
+            total_lat, pc, hitLevel);
 
     m_latencyHist.sample(total_lat);
     m_typeLatencyHist[type]->sample(total_lat);
