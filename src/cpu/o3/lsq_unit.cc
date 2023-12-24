@@ -181,11 +181,13 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
             writeback(inst, request->mainPacket());
             if (inst->isStore() || inst->isAtomic()) {
                 request->writebackDone();
+                decrementStoresInFlight();
                 completeStore(request->instruction()->sqIt);
             }
         } else if (inst->isStore()) {
             // This is a regular store (i.e., not store conditionals and
             // atomics), so it can complete without writing back
+            decrementStoresInFlight();
             completeStore(request->instruction()->sqIt);
         }
     }
@@ -197,7 +199,8 @@ LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries)
       htmStarts(0), htmStops(0),
       lastRetiredHtmUid(0),
       cacheBlockMask(0), stalled(false),
-      isStoreBlocked(false), storeInFlight(false), stats(nullptr)
+      isStoreBlocked(false), numStoresInFlight(0), maxStoresInFlight(0),
+      stats(nullptr)
 {
 }
 
@@ -219,6 +222,7 @@ LSQUnit::init(CPU *cpu_ptr, IEW *iew_ptr, const BaseO3CPUParams &params,
     depCheckShift = params.LSQDepCheckShift;
     checkLoads = params.LSQCheckLoads;
     needsTSO = params.needsTSO;
+    maxStoresInFlight = params.maxStoresInFlight;
 
     resetState();
 }
@@ -876,7 +880,9 @@ LSQUnit::writebackStores()
            storeWBIt.dereferenceable() &&
            storeWBIt->valid() &&
            storeWBIt->canWB() &&
-           ((!needsTSO) || (!storeInFlight)) &&
+           ((!needsTSO) || (numStoresInFlight == 0)) &&
+           ((maxStoresInFlight == 0) ||
+            (numStoresInFlight < maxStoresInFlight)) &&
            lsq->cachePortAvailable(false)) {
 
         if (isStoreBlocked) {
@@ -1152,9 +1158,7 @@ LSQUnit::storePostSend()
         }
     }
 
-    if (needsTSO) {
-        storeInFlight = true;
-    }
+    numStoresInFlight++;
 
     storeWBIt++;
 }
@@ -1319,10 +1323,6 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
     }
 
     store_inst->setCompleted();
-
-    if (needsTSO) {
-        storeInFlight = false;
-    }
 
     // Tell the checker we've completed this instruction.  Some stores
     // may get reported twice to the checker, but the checker can

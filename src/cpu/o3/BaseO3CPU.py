@@ -211,3 +211,4 @@ class BaseO3CPU(BaseCPU):
     )
     needsTSO = Param.Bool(False,
                           "Enable TSO Memory model")
+    maxStoresInFlight = Param.Int(0, "Max inflight stores. Zero means no limit.")

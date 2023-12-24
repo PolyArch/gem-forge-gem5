@@ -503,8 +503,15 @@ class LSQUnit
     /** Whehter or not a store is blocked due to the memory system. */
     bool isStoreBlocked;
 
-    /** Whether or not a store is in flight. */
-    bool storeInFlight;
+    /** Number of stores in flight. */
+    int numStoresInFlight;
+    void decrementStoresInFlight() {
+      assert(numStoresInFlight > 0);
+      numStoresInFlight--;
+    }
+
+    /** Max number of stores in flight. 0 means no limit. */
+    int maxStoresInFlight;
 
     /** The oldest load that caused a memory ordering violation. */
     DynInstPtr memDepViolator;

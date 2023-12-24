@@ -148,21 +148,23 @@ bool L0StreamEngine::shouldCache(PacketPtr pkt) {
    * Two possible cases:
    * 1. If this is a StreamFloatAccess, check if stream float is enabled.
    * 2. If not, check if the stream want to bypass L1.
+   * 3. For normal requests, check the temporary hint is not T1/T2/NTA.
    */
-  if (!this->isStreamFloatAccess(pkt)) {
-    if (auto streamAcc = this->getStreamMemAccessFromPacket(pkt)) {
-      auto stream = streamAcc->getStream();
-      if (stream->shouldBypassL1()) {
-        return false;
-      }
-    }
-    // Normal case should be cached.
-    return true;
+  if (this->isStreamFloatAccess(pkt)) {
+    // This is StreamFloatAccess.
+    return !this->controller->isStreamFloatEnabled();
+  } else if (auto streamAcc = this->getStreamMemAccessFromPacket(pkt)) {
+    // This is StreamAccess.
+    auto stream = streamAcc->getStream();
+    return !stream->shouldBypassL1();
+  } else {
+    // Check temporary hint.
+    auto flags = pkt->req->getFlags();
+    bool isT1 = flags.isSet(Request::TEMPORAL_HINT_T1);
+    bool isT2 = flags.isSet(Request::TEMPORAL_HINT_T2);
+    bool isNTA = flags.isSet(Request::TEMPORAL_HINT_NTA);
+    return !(isT1 || isT2 || isNTA);
   }
-  if (!this->controller->isStreamFloatEnabled()) {
-    return true;
-  }
-  return false;
 }
 
 bool L0StreamEngine::shouldForward(PacketPtr pkt) {
