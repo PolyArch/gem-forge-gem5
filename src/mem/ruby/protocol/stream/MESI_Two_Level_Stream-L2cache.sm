@@ -1110,7 +1110,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(cache_entry));
       addSharer(address, in_msg.Requestors.singleElement(), cache_entry);
-      APPEND_TRANSITION_COMMENT( cache_entry.Sharers );
+      APPEND_TRANSITION_COMMENT(cache_entry.Sharers);
     }
   }
 
@@ -1453,7 +1453,6 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     ur_profileReq;
     jj_popL1RequestQueue;
   }
-
 
   transition(SS, L1_GETX, SS_MB) {
     d_sendDataToRequestor;

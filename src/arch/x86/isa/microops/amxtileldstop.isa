@@ -273,7 +273,7 @@ let {{
         def __init__(self, tile, tileRow, tileCol,
                 data, segment, addr, disp,
                 dataSize, addressSize, baseFlags, atCPL0, prefetch, nonSpec,
-                uncacheable):
+                uncacheable, temporalHint):
             self.tile = str(tile)
             self.tileRow = str(tileRow)
             self.tileCol = str(tileCol)
@@ -293,7 +293,14 @@ let {{
             if nonSpec:
                 self.instFlags += " | (1ULL << StaticInst::IsNonSpeculative)"
             if uncacheable:
-                self.instFlags += " | Request::UNCACHEABLE"
+                self.memFlags += " | Request::UNCACHEABLE"
+            if temporalHint == 'T1':
+                self.memFlags += " | Request::TEMPORAL_HINT_T1"
+            elif temporalHint == 'T2':
+                self.memFlags += " | Request::TEMPORAL_HINT_T2"
+            elif temporalHint == 'NTA':
+                self.memFlags += " | Request::TEMPORAL_HINT_NTA"
+
             self.memFlags += \
                 " | ((log2i(%s) & AddrSizeFlagMask) << AddrSizeFlagShift)" % \
                 addressSize
@@ -366,11 +373,11 @@ let {{
                     addressSize="env.addressSize",
                     atCPL0=False, prefetch=False, nonSpec=nonSpec,
                     tile="env.reg", tileRow="0", tileCol="0",
-                    uncacheable=False):
+                    uncacheable=False, temporalHint=None):
                 super().__init__(tile, tileRow, tileCol,
                         data, segment, addr,
                         disp, dataSize, addressSize, mem_flags,
-                        atCPL0, prefetch, nonSpec, uncacheable)
+                        atCPL0, prefetch, nonSpec, uncacheable, temporalHint)
                 self.className = Name
                 self.mnemonic = name
 
@@ -408,11 +415,12 @@ let {{
                     dataSize="env.dataSize", addressSize="env.addressSize",
                     atCPL0=False, nonSpec=False, uncacheable=False,
                     tile="env.reg", tileRow="0", tileCol="0",
+                    temporalHint=None,
                     ):
                 super().__init__(tile, tileRow, tileCol,
                         data, segment, addr, disp,
                         dataSize, addressSize, mem_flags, atCPL0, False,
-                        nonSpec, uncacheable)
+                        nonSpec, uncacheable, temporalHint)
                 self.className = Name
                 self.mnemonic = name
 
