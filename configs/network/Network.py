@@ -99,8 +99,9 @@ def define_options(parser):
     )
     parser.add_argument(
         "--routing-YX",
-        action="store_true",
-        default=False,
+        action="store",
+        type=int,
+        default=0,
         help="Switch XY to YX, used in MeshDirCorners_XY only.",
     )
     parser.add_argument(
