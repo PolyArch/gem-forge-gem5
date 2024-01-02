@@ -574,6 +574,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.mlc_stream_buffer_init_num_entries = options.gem_forge_stream_engine_mlc_stream_buffer_init_num_entries
         dir_cntrl.mlc_stream_slices_runahead_inverse_ratio = options.gem_forge_stream_engine_mlc_stream_runahead_slice_inverse_ratio
         dir_cntrl.llc_stream_engine_issue_width = options.gem_forge_stream_engine_mc_issue_width
+        # We make it have some burst to be more friendly to the DRAM.
+        dir_cntrl.llc_stream_engine_issue_burst = options.gem_forge_stream_engine_mc_issue_burst
         dir_cntrl.llc_stream_engine_migrate_width = options.gem_forge_stream_engine_llc_stream_engine_migrate_width
         dir_cntrl.llc_stream_max_infly_request = options.gem_forge_stream_engine_mc_stream_max_infly_request
         dir_cntrl.llc_stream_engine_compute_width = options.gem_forge_stream_engine_compute_width

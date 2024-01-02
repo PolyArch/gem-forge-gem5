@@ -80,6 +80,8 @@ LLCStreamEngine::LLCStreamEngine(
       true /* PerCoreMode */
   );
   this->pumEngine = std::make_unique<PUMEngine>(this);
+
+  this->curIssueBurst.second = 0;
 }
 
 LLCStreamEngine::~LLCStreamEngine() { this->streams.clear(); }
@@ -1556,9 +1558,26 @@ void LLCStreamEngine::issueStreams() {
     if (readyS) {
       this->issueStreamDirect(readyS);
       issuedStreams++;
-      // Push the stream back to the end.
-      this->issuingDirStreamList.splice(streamEnd, this->issuingDirStreamList,
-                                        curIter);
+      /**
+       * Implement the burst behavior to stick to the same stream.
+       * NOTE: This only works properly when the issue width is 1.
+       */
+      if (this->curIssueBurst.first == readyS->getDynStrandId()) {
+        // Same S.
+        this->curIssueBurst.second++;
+      } else {
+        // Different S.
+        this->curIssueBurst.first = readyS->getDynStrandId();
+        this->curIssueBurst.second = 1;
+      }
+      bool shouldRotate =
+          this->curIssueBurst.second ==
+          this->controller->myParams->llc_stream_engine_issue_burst;
+      if (shouldRotate) {
+        // Push the stream back to the end.
+        this->issuingDirStreamList.splice(streamEnd, this->issuingDirStreamList,
+                                          curIter);
+      }
     }
   }
   for (; checkedStreams < nStreams; ++checkedStreams) {

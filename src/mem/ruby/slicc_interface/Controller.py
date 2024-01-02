@@ -146,6 +146,8 @@ class RubyStreamAwareController(RubyController):
         Param.Bool(True, "When MLCStream pop, ideally check LLCStream progress.")
     llc_stream_engine_issue_width = \
         Param.UInt32(1, "Issue width of LLCStreamEngine.")
+    llc_stream_engine_issue_burst = \
+        Param.UInt32(1, "Issue burst of LLCStreamEngine.")
     llc_stream_engine_migrate_width = \
         Param.UInt32(1, "Issue width of LLCStreamEngine.")
     llc_stream_max_infly_request = \

@@ -115,6 +115,7 @@ private:
   std::unique_ptr<StreamReuseBuffer> reuseBuffer;
   std::unique_ptr<PUMEngine> pumEngine;
   const int issueWidth;
+  std::pair<DynStrandId, int> curIssueBurst;
   const int migrateWidth;
   // Threshold to limit maximum number of requests in queue;
   const int maxInqueueRequests;

@@ -461,6 +461,9 @@ parser.add_argument("--gem-forge-stream-reuse-tile-elems", action="store",
 parser.add_argument("--gem-forge-stream-engine-mc-issue-width", action="store",
                   type=int, default="1",
                   help="Mem StreamEngine issue width.")
+parser.add_argument("--gem-forge-stream-engine-mc-issue-burst", action="store",
+                  type=int, default="16",
+                  help="Mem StreamEngine issue burst on the same stream.")
 
 parser.add_argument("--gem-forge-adfa-enable",
                   action="store_true", default=False)

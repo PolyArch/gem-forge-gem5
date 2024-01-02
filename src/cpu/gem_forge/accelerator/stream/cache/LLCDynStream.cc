@@ -367,7 +367,7 @@ bool LLCDynStream::shouldUpdateIssueClearCycle() {
     // for both myself and all the indirect streams.
     this->shouldUpdateIssueClearCycleMemorized = true;
     auto dynCoreS = this->getCoreDynS();
-    if (dynCoreS && !dynCoreS->shouldCoreSEIssue()) {
+    if ((!dynCoreS) || !dynCoreS->shouldCoreSEIssue()) {
       this->shouldUpdateIssueClearCycleMemorized = false;
     }
   }
