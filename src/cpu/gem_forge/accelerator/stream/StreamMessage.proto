@@ -334,5 +334,10 @@ message StreamFloatEvent {
     ROUTER_XBAR_OUT_EAST_DONE = 16;
     ROUTER_XBAR_OUT_WEST_START = 17;
     ROUTER_XBAR_OUT_WEST_DONE = 18;
+    // DRAM event.
+    DRAM_READ_START = 19;
+    DRAM_READ_DONE = 20;
+    DRAM_WRITE_START = 21;
+    DRAM_WRITE_DONE = 22;
   }
 }

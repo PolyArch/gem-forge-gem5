@@ -43,6 +43,8 @@
 #include "debug/Drain.hh"
 #include "sim/system.hh"
 
+#include "mem/ruby/common/MachineID.hh"
+
 namespace gem5
 {
 
@@ -61,7 +63,8 @@ DRAMsim3::DRAMsim3(const Params &p) :
     retryReq(false), retryResp(false), startTick(0),
     nbrOutstandingReads(0), nbrOutstandingWrites(0),
     sendResponseEvent([this]{ sendResponse(); }, name()),
-    tickEvent([this]{ tick(); }, name())
+    tickEvent([this]{ tick(); }, name()),
+    tracer(p.index, "DRAM")
 {
     DPRINTF(DRAMsim3,
             "Instantiated DRAMsim3 with clock %d ns and queue size %d\n",
@@ -70,7 +73,10 @@ DRAMsim3::DRAMsim3(const Params &p) :
     // Register a callback to compensate for the destructor not
     // being called. The callback prints the DRAMsim3 stats.
     Stats::registerDumpCallback(
-        [this]() -> void { this->wrapper.printStats(); });
+        [this]() -> void {
+            this->wrapper.printStats();
+            this->tracer.write();
+        });
 }
 
 void
@@ -101,6 +107,7 @@ DRAMsim3::startup()
 void
 DRAMsim3::resetStats() {
     wrapper.resetStats();
+    tracer.resetFloatTrace();
 }
 
 void
@@ -208,12 +215,16 @@ DRAMsim3::recvTimingReq(PacketPtr pkt)
             // queue in the controller, and the response has been sent
             // back, note that this will differ for reads and writes
             ++nbrOutstandingReads;
+            this->traceEvent(
+                ::LLVM::TDG::StreamFloatEvent_StreamFloatEventType_DRAM_READ_START);
         }
     } else if (pkt->isWrite()) {
         if (can_accept) {
             outstandingWrites[pkt->getAddr()].push(pkt);
 
             ++nbrOutstandingWrites;
+            this->traceEvent(
+                ::LLVM::TDG::StreamFloatEvent_StreamFloatEventType_DRAM_WRITE_START);
 
             // perform the access for writes
             accessAndRespond(pkt);
@@ -318,6 +329,8 @@ void DRAMsim3::readComplete(unsigned id, uint64_t addr)
     // response to the response queue straight away
     assert(nbrOutstandingReads != 0);
     --nbrOutstandingReads;
+    this->traceEvent(
+        ::LLVM::TDG::StreamFloatEvent_StreamFloatEventType_DRAM_READ_DONE);
 
     // perform the actual memory access
     accessAndRespond(pkt);
@@ -341,6 +354,8 @@ void DRAMsim3::writeComplete(unsigned id, uint64_t addr)
 
     assert(nbrOutstandingWrites != 0);
     --nbrOutstandingWrites;
+    this->traceEvent(
+        ::LLVM::TDG::StreamFloatEvent_StreamFloatEventType_DRAM_WRITE_DONE);
 
     if (nbrOutstanding() == 0)
         signalDrainDone();
@@ -407,6 +422,27 @@ DRAMsim3::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
 {
     this->hasInterleaveMaskFunc = true;
     wrapper.setInterleaveMaskFunc(mask_func);
+}
+
+
+void
+DRAMsim3::traceEvent(
+    ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event)
+{
+    this->traceEvent(this->curCycle(), event);
+}
+
+void
+DRAMsim3::traceEvent(
+    Cycles cycle, ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event)
+{
+    if (this->params().enableTrace)
+    {
+        ::gem5::ruby::MachineID mid(
+            ::gem5::ruby::MachineType_Directory,
+            this->params().index);
+        this->tracer.traceEvent(cycle, mid, event);
+    }
 }
 
 } // namespace memory

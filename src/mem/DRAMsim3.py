@@ -63,3 +63,6 @@ class DRAMsim3(AbstractMemory):
     interleaveBitsLow = Param.Int(0, "Low bit masked out")
     interleaveBitsHigh = Param.Int(0, "High bit masked out")
     customInterleave = Param.Bool(False, "Enable custom interleave")
+
+    enableTrace = Param.Bool(False, "Enable trace")
+    index = Param.Int(0, "Index in trace")
