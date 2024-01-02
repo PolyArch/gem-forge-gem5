@@ -117,6 +117,14 @@ public:
   ExecFuncPtr storeCallback;
   DynStreamFormalParamV loadFormalParams;
   ExecFuncPtr loadCallback;
+  bool overrideAsMemOnly = false;
+  bool overrideAsCmpOnly = false;
+  void clearLoadStoreCallback() {
+    this->storeFormalParams.clear();
+    this->loadFormalParams.clear();
+    this->storeCallback = nullptr;
+    this->loadCallback = nullptr;
+  }
 
   // For LoopBoundFunc.
   // Break when loopBoundCallback() == Ret.

@@ -481,13 +481,12 @@ void LLCStreamEngine::receiveStreamData(
   }
 
   bool needIndirect = !dynS->getIndStreams().empty();
-  bool needUpdate = S->isUpdateStream() || S->isAtomicStream();
   bool needSendTo = !(dynS->sendToEdges.empty());
 
   LLC_SLICE_DPRINTF(sliceId,
-                    "Recv Data, InflyReqs %d, NeedIndirect %d, NeedUpdate %d "
+                    "Recv Data, InflyReqs %d, NeedIndirect %d "
                     "NeedSendTo %d StoreBlock %s.\n",
-                    dynS->inflyRequests, needIndirect, needUpdate, needSendTo,
+                    dynS->inflyRequests, needIndirect, needSendTo,
                     storeValueBlock);
 
   // Alert MLC prefetch stream is done.
@@ -1682,14 +1681,14 @@ LLCDynStreamPtr LLCStreamEngine::findStreamReadyToIssue(LLCDynStreamPtr dynS) {
    * UpdateS should have BaseElems ready (except itself).
    * StoreS should have StoreValue ready.
    */
-  if (S->isStoreComputeStream() || S->isAtomicComputeStream() ||
-      S->isUpdateStream()) {
+  if (dynS->isStoreComputeStream() || S->isAtomicComputeStream() ||
+      dynS->isUpdateStream()) {
     auto nextSlice = dynS->getNextAllocSlice();
     if (!nextSlice) {
       LLC_S_PANIC(dynS->getDynStrandId(), "Failed to get next alloc slice.");
     }
     const auto &nextSliceId = nextSlice->getSliceId();
-    if (S->isStoreComputeStream()) {
+    if (dynS->isStoreComputeStream()) {
       /**
        * Try to schedule compuation for each slice.
        * This is to break the limitation that only one StoreComputeSlice is
@@ -1855,34 +1854,65 @@ void LLCStreamEngine::issueStreamDirect(LLCDynStream *dynS) {
         statistic.numLLCCanMulticastSlice++;
       }
     }
-    auto requestIter = this->enqueueRequest(S, sliceId, vaddrLine, paddrLine,
-                                            this->myMachineType(), reqType);
 
-    if (S->isStoreStream()) {
+    // Check if we track inflyRequests.
+    dynS->inflyRequests++;
+    LLC_SLICE_DPRINTF(sliceId, "Issue, InflyRequests + 1 = %d.\n",
+                      dynS->inflyRequests);
+
+    /**
+     * Normally we should issue, unless we are marked CmpOnly.
+     * In such case, we directly enqueue a fake response.
+     */
+    if (dynS->isOverrideCmpOnly()) {
+      DynStreamSliceIdVec sliceIds;
+      sliceIds.add(sliceId);
+      ruby::DataBlock fakeDataBlock;
+      this->receiveStreamDataVecFromCache(Cycles(1), paddrLine, sliceIds,
+                                          fakeDataBlock, fakeDataBlock);
+      LLC_SLICE_DPRINTF(sliceId, "[CmpOnly] Skip issue with fake response.\n");
+    } else {
+      auto requestIter = this->enqueueRequest(S, sliceId, vaddrLine, paddrLine,
+                                              this->myMachineType(), reqType);
+
+      if (S->isStoreStream()) {
+        /**
+         * For StoreStream, we build the stored data by extracting
+         * overlap region from elements. Notice that we can release any
+         * older elements, as later we perform the store in slice
+         * granularity, not element granularity. Thus element is not
+         * used anymore.
+         */
+        for (auto idx = sliceId.getStartIdx(); idx < sliceId.getEndIdx();
+             ++idx) {
+          auto elem = dynS->getElemPanic(idx, "IssueStoreS");
+          assert(elem->isReady() && "StoreElement is not ready.");
+
+          // Compute the overlap and set the data.
+          int elemOffset;
+          int sliceOffset;
+          int overlapSize = elem->computeOverlap(
+              sliceId.vaddr, sliceId.getSize(), sliceOffset, elemOffset);
+          requestIter->dataBlock.setData(elem->getUInt8Ptr(elemOffset),
+                                         sliceOffset, overlapSize);
+          requestIter->storeSize = overlapSize;
+          LLC_SLICE_DPRINTF_(LLCRubyStreamStore, sliceId,
+                             "Get StoreValue from elem %llu, line [%#x, +%d), "
+                             "elemOffset %#x.\n",
+                             elem->idx, sliceId.vaddr + sliceOffset,
+                             overlapSize, elemOffset);
+        }
+      }
+
       /**
-       * For StoreStream, we build the stored data by extracting
-       * overlap region from elements. Notice that we can release any
-       * older elements, as later we perform the store in slice
-       * granularity, not element granularity. Thus element is not
-       * used anymore.
+       * Try to handle multicast for streams:
+       * 1. Has multicast group.
+       * 2. No indirect dependent (can be relaxed later).
        */
-      for (auto idx = sliceId.getStartIdx(); idx < sliceId.getEndIdx(); ++idx) {
-        auto elem = dynS->getElemPanic(idx, "IssueStoreS");
-        assert(elem->isReady() && "StoreElement is not ready.");
-
-        // Compute the overlap and set the data.
-        int elemOffset;
-        int sliceOffset;
-        int overlapSize = elem->computeOverlap(sliceId.vaddr, sliceId.getSize(),
-                                               sliceOffset, elemOffset);
-        requestIter->dataBlock.setData(elem->getUInt8Ptr(elemOffset),
-                                       sliceOffset, overlapSize);
-        requestIter->storeSize = overlapSize;
-        LLC_SLICE_DPRINTF_(LLCRubyStreamStore, sliceId,
-                           "Get StoreValue from elem %llu, line [%#x, +%d), "
-                           "elemOffset %#x.\n",
-                           elem->idx, sliceId.vaddr + sliceOffset, overlapSize,
-                           elemOffset);
+      bool hasIndirectDependent = dynS->hasIndirectDependent();
+      if (!hasIndirectDependent &&
+          this->controller->isStreamMulticastEnabled()) {
+        this->generateMulticastRequest(requestIter, dynS);
       }
     }
 
@@ -1892,20 +1922,6 @@ void LLCStreamEngine::issueStreamDirect(LLCDynStream *dynS) {
         auto elem = dynS->getElemPanic(idx, "IssueStoreS");
         dynS->checkStoreReuse(elem);
       }
-    }
-
-    // Check if we track inflyRequests.
-    bool hasIndirectDependent = dynS->hasIndirectDependent();
-    dynS->inflyRequests++;
-    LLC_SLICE_DPRINTF(sliceId, "Issue, InflyRequests + 1 = %d.\n",
-                      dynS->inflyRequests);
-    /**
-     * Try to handle multicast for streams:
-     * 1. Has multicast group.
-     * 2. No indirect dependent (can be relaxed later).
-     */
-    if (!hasIndirectDependent && this->controller->isStreamMulticastEnabled()) {
-      this->generateMulticastRequest(requestIter, dynS);
     }
 
   } else {
@@ -4069,7 +4085,7 @@ LLCStreamEngine::processSlice(SliceList::iterator sliceIter) {
     // We can finally process it.
     this->processDirectAtomicSlice(dynS, sliceId);
 
-  } else if (S->isUpdateStream()) {
+  } else if (dynS->isUpdateStream()) {
     /**
      * DirectUpdateStream requires special handling now.
      * 1. If processed -- check if we can post-process it.

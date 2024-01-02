@@ -298,6 +298,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                     options.gem_forge_stream_engine_llc_stream_max_infly_request,
                 enable_stream_range_sync=options.gem_forge_enable_stream_range_sync,
                 enable_stream_float_mem=options.gem_forge_stream_engine_enable_float_mem,
+                stream_split_compute_stream=options.gem_forge_stream_split_compute_stream,
                 enable_stream_strand=options.gem_forge_enable_stream_strand,
                 enable_stream_strand_elem_split=\
                     options.gem_forge_enable_stream_strand_elem_split,

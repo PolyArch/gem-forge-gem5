@@ -78,6 +78,16 @@ public:
   }
 
   Stream *getStaticS() const { return this->configData->stream; }
+  bool isOverrideCmpOnly() const { return this->configData->overrideAsCmpOnly; }
+  bool isOverrideMemOnly() const { return this->configData->overrideAsMemOnly; }
+  bool isUpdateStream() const {
+    return !this->configData->overrideAsMemOnly &&
+           this->getStaticS()->isUpdateStream();
+  }
+  bool isStoreComputeStream() const {
+    return !this->configData->overrideAsMemOnly &&
+           this->getStaticS()->isStoreComputeStream();
+  }
   DynStream *getCoreDynS() const {
     return this->getStaticS()->getDynStream(this->getDynStreamId());
   }

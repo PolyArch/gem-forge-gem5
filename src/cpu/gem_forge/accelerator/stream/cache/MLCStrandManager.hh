@@ -63,6 +63,11 @@ private:
   std::unordered_map<DynStrandId, MLCDynStream *, DynStrandIdHasher> strandMap;
 
   /**
+   * Split a LoadComputeS into a LoadS and a ComputeS.
+   */
+  void splitComputeStream(ConfigVec &configs) const;
+
+  /**
    * Check if streams can be sliced.
    */
   void checkShouldBeSliced(ConfigVec &configs) const;

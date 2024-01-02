@@ -50,6 +50,8 @@ void MLCStrandManager::receiveStreamConfigure(ConfigVec *configs,
 
   // auto configs = *(pkt->getPtr<ConfigVec *>());
 
+  this->splitComputeStream(*configs);
+
   this->checkShouldBeSliced(*configs);
 
   StrandSplitContext splitContext;
@@ -2327,5 +2329,63 @@ bool MLCStrandManager::isStreamElemAcked(
   }
 
   return true;
+}
+
+void MLCStrandManager::splitComputeStream(ConfigVec &configs) const {
+
+  /**
+   * This is required to properly implement some reduction data.
+   * For example, in GEMM, when one spatial dimension is K, we will pin the
+   * ComputeS to the LLC tile, while the split LoadS/StoreS send the data
+   * to the ComputeS.
+   *
+   * So far we just support UpdateS used in GEMM.
+   */
+  if (!this->controller->myParams->stream_split_compute_stream) {
+    return;
+  }
+
+  ConfigVec newConfigs;
+
+  for (auto &config : configs) {
+
+    auto S = config->stream;
+    if (!S->hasComputation()) {
+      newConfigs.push_back(config);
+      continue;
+    }
+
+    if (!S->isUpdateStream()) {
+      // So far we only support update stream.
+      MLC_S_PANIC_NO_DUMP(config->dynamicId,
+                          "Can only split ComputeS from UpdateS.");
+    }
+
+    // Keep the original one as the ComputeS, with the new one as LoadS.
+    // TODO: Add a StoreS.
+    auto computeCfg = config;
+    auto loadCfg = std::make_shared<CacheStreamConfigureData>(*config);
+
+    // Increment the instance id.
+    loadCfg->dynamicId.streamInstance += DynStreamId::MemOnlyInstanceOffset;
+    // Add the dependence LoadCfg -> ComputeCfg.
+    loadCfg->clearEdges();
+    loadCfg->addSendTo(computeCfg, 1 /* reuse */, 0 /* skip */);
+    loadCfg->clearLoadStoreCallback();
+    loadCfg->overrideAsMemOnly = true;
+
+    // Keep the ComputeCfg to LLC.
+    // We assume here only one FloatChangePoint.
+    computeCfg->floatPlan.changePoints.at(0).floatMachineType =
+        ruby::MachineType_L2Cache;
+    computeCfg->overrideAsCmpOnly = true;
+    computeCfg->addBaseOn(loadCfg, 1 /* reuse */, 0 /* skip */);
+
+    newConfigs.push_back(loadCfg);
+    newConfigs.push_back(computeCfg);
+  }
+
+  // Replace with the new configs.
+  configs = newConfigs;
 }
 } // namespace gem5

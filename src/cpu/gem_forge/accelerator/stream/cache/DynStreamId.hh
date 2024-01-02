@@ -21,6 +21,10 @@ struct DynStreamId {
   int coreId = -1;
   StaticId staticId = 0;
   InstanceId streamInstance = 0;
+  // Some offset on instance to distinguish newly split in mem hierarchy.
+  static constexpr InstanceId MemOnlyInstanceOffset = 10000;
+  static constexpr InstanceId PrefetchInstanceOffset = 1000000;
+
   // Used for debug purpose. User should guarantee the life cycle of name.
   // TODO: How to improve this?
   const char *streamName = "Unknown_Stream";

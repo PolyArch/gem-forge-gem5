@@ -243,6 +243,9 @@ public:
   bool isLoadComputeStream() const {
     return this->isLoadStream() && this->getEnabledLoadFunc();
   }
+  bool hasComputation() const {
+    return this->getEnabledLoadFunc() || this->getEnabledStoreFunc();
+  }
   bool trackedByPEB() const {
     return this->isLoadStream() && !this->getFloatManual();
   }

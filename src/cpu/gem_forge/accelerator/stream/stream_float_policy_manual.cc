@@ -54,6 +54,8 @@ void StreamFloatPolicy::setFloatPlanManual(DynStream &dynS) {
       "gap.pr_push.atomic.out_v.ld", "gap.bfs_push.out_v.ld",
       "gap.sssp.out_v.ld",           "gap.sssp.out_w.ld",
       "gap.pr_pull.acc.in_v.ld",     "gap.bfs_pull.in_v.ld",
+      "bb10-gfm.acc_gen_mm.A.ld",    "bb10-gfm.acc_gen_mm.B.ld",
+      "bb10-gfm.acc_gen_mm.C.ld",
   };
 
   if (manualFloatToMemSet.count(streamName)) {

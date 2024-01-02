@@ -353,6 +353,9 @@ parser.add_argument("--gem-forge-enable-stream-nuca", type=int,
 parser.add_argument("--gem-forge-stream-nuca-force-distribute-array", type=int,
                   action="store", default="0",
                   help="Force NUCA distribute the array.")
+parser.add_argument("--gem-forge-stream-split-compute-stream", type=int,
+                  action="store", default="0",
+                  help="Split out the compute stream.")
 parser.add_argument("--gem-forge-enable-stream-strand", type=int,
                   action="store", default="0",
                   help="Enable stream strand auto parallelization.")

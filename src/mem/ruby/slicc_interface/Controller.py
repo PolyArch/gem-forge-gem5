@@ -177,9 +177,11 @@ class RubyStreamAwareController(RubyController):
     reuse_buffer_lines_per_core = Param.UInt32(0, "Number of cache lines per core in the reuse buffer.")
 
     # Handle reused tile between sending and receiving streams.
-    stream_reuse_tile_elems \
-        = Param.UInt32(0, "Number of stream elems in the reused tile buffer.")
+    stream_reuse_tile_elems = \
+        Param.UInt32(0, "Number of stream elems in the reused tile buffer.")
 
+    stream_split_compute_stream = \
+        Param.Bool(False, "Whether to split ComputeS out.")
     enable_stream_strand = \
         Param.Bool(False, "Whether to enable stream strand auto parallelization.")
     enable_stream_strand_elem_split = \
