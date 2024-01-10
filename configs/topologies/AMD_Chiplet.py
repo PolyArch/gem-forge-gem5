@@ -301,10 +301,24 @@ class AMD_Chiplet(SimpleTopology):
 
         cpu_chiplets_per_io_router = int(num_cpu_chiplets / num_dir_nodes)  # 1 per router in this case
 
-        chiplets_connected = 0  # determine which router connecting (not correspond to router_id)
+        #        chiplets_connected = 0  # determine which router connecting (not correspond to router_id)
+        assert(num_cpu_chiplets == 4)
+        # we want a topology with top-left, top-right, bot-left, bot-right chiplets
+        chiplet_routers = None
+        if num_cpus == 64:
+            chiplet_routers = [15, 28, 35, 48]
+        elif num_cpus == 16:
+            chiplet_routers = [3, 6, 9, 12]
+        elif num_cpus == 4:
+            chiplet_routers = [0, 1, 2, 3]
+        else:
+            print('not implemented or invalid')
+            assert(False)
+
+        chiplets_connected = 0
         for io_router_id in range(self.num_routers - num_dir_nodes, self.num_routers):
             for cpu_chiplet in range(cpu_chiplets_per_io_router):
-                cpu_router_id = (chiplets_connected * num_cpus_per_chiplet)
+                cpu_router_id = chiplet_routers[chiplets_connected]
                 int_links.append(IntLink(link_id=self.link_count,
                                          src_node=routers[io_router_id],
                                          dst_node=routers[cpu_router_id],

@@ -194,7 +194,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                     is_ideal=options.gem_forge_ideal_ruby,
                                     max_outstanding_data_requests=options.gem_forge_ruby_max_infly_data_req,
                                     max_outstanding_inst_requests=options.gem_forge_ruby_max_infly_inst_req,
-                                    deadlock_threshold=400000,
+                                    deadlock_threshold=1000000,
                                     )
             if options.gem_forge_prefetcher == 'imp':
                 if not options.gem_forge_prefetch_on_access:
@@ -520,6 +520,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.responseFromDir.out_port = ruby_system.network.in_port
         dir_cntrl.requestFromDir = MessageBuffer()
         dir_cntrl.requestFromDir.out_port = ruby_system.network.in_port
+        # order doesn't help
         dir_cntrl.requestToMemory = MessageBuffer()
         dir_cntrl.responseFromMemory = MessageBuffer()
 

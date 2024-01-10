@@ -114,7 +114,7 @@ def define_options(parser):
         "--garnet-deadlock-threshold",
         action="store",
         type=int,
-        default=500000,
+        default=1000000,
         help="network-level deadlock threshold.",
     )
     parser.add_argument(

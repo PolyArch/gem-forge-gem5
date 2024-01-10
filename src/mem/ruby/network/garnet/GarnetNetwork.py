@@ -49,7 +49,7 @@ class GarnetNetwork(RubyNetwork):
     enable_fault_model = Param.Bool(False, "enable network fault model")
     fault_model = Param.FaultModel(NULL, "network fault model")
     garnet_deadlock_threshold = Param.UInt32(
-        50000, "network-level deadlock threshold"
+        1000000, "network-level deadlock threshold"
     )
     enable_multicast = Param.Bool(False, "enable multicast")
     ideal_noc_hops = Param.Int(-1, "ideal NoC hops (-1 to disable)")

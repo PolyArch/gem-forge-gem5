@@ -46,6 +46,9 @@
 
 #include "mem/ruby/common/Address.hh"
 
+#include "base/logging.hh"
+#include "debug/ProtocolTrace.hh"
+
 namespace gem5
 {
 
@@ -67,6 +70,10 @@ class TBETable
     bool
     areNSlotsAvailable(int n, Tick current_time) const
     {
+        DPRINTF(ProtocolTrace, "AreNSlotsAvailable: "
+                "number of TBE: %d, "
+                "map size: %d, "
+                "n: %d\n", m_number_of_TBEs, m_map.size(), n);
         return (m_number_of_TBEs - m_map.size()) >= n;
     }
     int size() const {

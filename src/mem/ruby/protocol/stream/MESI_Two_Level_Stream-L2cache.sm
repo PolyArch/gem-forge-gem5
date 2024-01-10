@@ -1319,11 +1319,11 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     zz_stallAndWaitL1RequestQueue;
   }
 
-  transition({IM, IS, ISS, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, MEM_Inv) {
+  transition({IM, IS, ISS, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, {MEM_Inv_Pushback, MEM_Inv}) {
     zn_recycleResponseNetwork;
   }
 
-  transition({I_I, S_I, M_I, MT_I, MCT_I, NP}, MEM_Inv) {
+  transition({I_I, S_I, M_I, MT_I, MCT_I, NP}, {MEM_Inv, MEM_Inv_Pushback}) {
     o_popIncomingResponseQueue;
   }
   transition({I_I, S_I, MT_I, MCT_I, NP}, Mem_InvGetR) {
