@@ -484,7 +484,7 @@ LLCStreamSlicePtr LLCDynStream::allocNextSlice(LLCStreamEngine *se) {
       }
     }
     LLC_SLICE_DPRINTF(sliceId, "Allocated SliceIdx %llu VAddr %#x.\n",
-                      this->nextAllocSliceIdx, slice->getSliceId().vaddr);
+                      this->nextAllocSliceIdx, sliceId.vaddr);
     this->invokeSliceAllocCallbacks(this->nextAllocSliceIdx);
     this->nextAllocSliceIdx++;
     this->lastAllocSliceId = sliceId;
@@ -497,6 +497,51 @@ LLCStreamSlicePtr LLCDynStream::allocNextSlice(LLCStreamEngine *se) {
   }
 
   LLC_S_PANIC(this->getDynStrandId(), "No Initialized Slice to allocate from.");
+}
+
+float LLCDynStream::getMinRecvStrandProgress(
+    const DynStreamSliceId &sliceId) const {
+
+  float minProgress = 1.0f;
+
+  for (const auto &sendToEdge : this->sendToEdges) {
+
+    auto recvConfig = sendToEdge.data;
+
+    auto sendStrandElemIdx = sliceId.getStartIdx();
+    if (this->isOneIterationBehind()) {
+      assert(sendStrandElemIdx > 0);
+      sendStrandElemIdx--;
+    }
+
+    const auto &sendConfig = this->configData;
+
+    auto translation = sendConfig->translateSendToRecv(sendToEdge, sendConfig,
+                                                       sendStrandElemIdx);
+    auto recvStrandId = std::get<0>(translation);
+    auto recvStrandElemIdx = std::get<1>(translation);
+
+    if (auto recvDynS = LLCDynStream::getLLCStream(recvStrandId)) {
+      assert(recvDynS->getTotalTripCount());
+      auto recvStrandTotalTripCount = recvDynS->getTotalTripCount();
+
+      auto progress = static_cast<float>(recvStrandElemIdx) /
+                      static_cast<float>(recvStrandTotalTripCount);
+      LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s %lu/%lu %.4f.\n",
+                        recvStrandId, recvStrandElemIdx,
+                        recvStrandTotalTripCount, progress * 100.f);
+      if (progress < minProgress) {
+        minProgress = progress;
+      }
+    } else {
+      LLC_SLICE_DPRINTF(sliceId, "[Fwd] Check Progress %s No RecvDynS.\n",
+                        recvStrandId);
+    }
+  }
+
+  LLC_SLICE_DPRINTF(sliceId, "[Fwd] MinRecvProgress %.4f.\n",
+                    minProgress * 100.f);
+  return minProgress;
 }
 
 const DynStreamSliceId &LLCDynStream::peekNextAllocSliceId() const {
@@ -579,6 +624,7 @@ void LLCDynStream::initNextElem(Addr vaddr) {
    */
   if (this->getStaticS()->isDirectMemStream() &&
       this->getMemElementSize() >= 64 &&
+      this->getMemElementSize() != 1024 && // Hack: Experiment with AMX.
       !this->getStaticS()->isOnlyDirectLoadStream()) {
     if (this->idxToElementMap.size() >= 2048) {
       int sliceNotReleasedElements = 0;

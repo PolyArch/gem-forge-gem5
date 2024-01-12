@@ -178,6 +178,11 @@ public:
     sampleSrcDest(getStaticStat(this->staticStreamId).numRemoteNestConfig, from,
                   to);
   }
+  SrcDestStatsT numIndReq;
+  void sampleIndReq(int from, int to) {
+    sampleSrcDest(this->numIndReq, from, to);
+    sampleSrcDest(getStaticStat(this->staticStreamId).numIndReq, from, to);
+  }
 
   // Ideal stream data traffic.
   size_t idealDataTrafficFix = 0;
@@ -193,7 +198,9 @@ public:
     MulticastPolicy,
     IssueClearCycle,
     MaxInflyRequest,
-    MaxEngineInflyRequest,
+    MaxSEInqueueRequest,
+    MaxSEInflyRequest,
+    InsufficientIssueBurst,
     MaxIssueWidth,
     PendingMigrate,
     AliasedIndirectUpdate,

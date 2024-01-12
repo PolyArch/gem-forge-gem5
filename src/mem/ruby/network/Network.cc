@@ -332,18 +332,27 @@ Network::maskAddrForNUMA(Addr addr)
 
 void
 Network::addNUMAInterleavePool(Addr start, Addr end,
-    const std::vector<Addr> &masks, int nodes, int transposeRow)
+    const std::vector<Addr> &masks, int nodes, int customize)
 {
 
-    auto getInterleaveMatch = [transposeRow, nodes](int nodeId) -> int {
-        if (transposeRow == -1) {
-            // No need to transpose.
+    auto getInterleaveMatch = [customize, nodes](int nodeId) -> int {
+        if (customize == NUMACustomizeTranspose) {
+            assert(nodes == 16);
+            auto rows = 8;
+            auto cols = nodes / rows;
+            auto row = nodeId / cols;
+            auto col = nodeId % cols;
+            return col * rows + row;
+        } else if (customize == NUMACustomizeMirrorHorizontal) {
+            assert(nodes == 16);
+            auto rows = 8;
+            auto cols = nodes / rows;
+            auto row = nodeId / cols;
+            auto col = nodeId % cols;
+            return row * cols + (cols - col - 1);
+       } else {
             return nodeId;
-        }
-        auto transposeCol = nodes / transposeRow;
-        auto row = nodeId / transposeCol;
-        auto col = nodeId % transposeCol;
-        return col * transposeRow + row;
+       }
     };
     auto mtype = MachineType_Directory;
     const auto &matching_ranges = addrMap.equal_range(mtype);

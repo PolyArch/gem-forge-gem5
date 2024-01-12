@@ -114,7 +114,10 @@ class MemPools : public Serializable
       Addr npages = 0;
       Addr interleave = 0;
       std::vector<Addr> masks;
-      int transposeRows = -1;
+      static constexpr int NUMACustomizeDefault = 0;
+      static constexpr int NUMACustomizeTranspose = 1;
+      static constexpr int NUMACustomizeMirrorHorizontal = 2;
+      int customize = NUMACustomizeDefault;
     };
     int splitInterleavePool(const InterleavePoolArgs &args, int pool_id=0);
 

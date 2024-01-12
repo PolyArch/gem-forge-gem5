@@ -149,10 +149,17 @@ class Network : public ClockedObject
 
     /**
      * Add NUMA interleave pool.
+     * The last parameter customizes the behaviors.
+     *   0: No customization.
+     *   1: Transpose.
+     *   2: MirrorHorizontal.
      */
+    static constexpr int NUMACustomizeDefault = 0;
+    static constexpr int NUMACustomizeTranspose = 1;
+    static constexpr int NUMACustomizeMirrorHorizontal = 2;
     void addNUMAInterleavePool(Addr start, Addr end,
         const std::vector<Addr> &masks,
-        int nodes, int transposeRow);
+        int nodes, int customize);
 
     Port &
     getPort(const std::string &, PortID idx=InvalidPortID) override

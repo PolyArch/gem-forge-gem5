@@ -223,6 +223,11 @@ public:
   LLCStreamSlicePtr getNextAllocSlice() const;
   LLCStreamSlicePtr allocNextSlice(LLCStreamEngine *se);
 
+  float getMinRecvStrandProgress(const DynStreamSliceId &sliceId) const;
+  float getMinRecvStrandProgress() const {
+    return this->getMinRecvStrandProgress(this->peekNextAllocSliceId());
+  }
+
   void
   traceEvent(const ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType &type);
 

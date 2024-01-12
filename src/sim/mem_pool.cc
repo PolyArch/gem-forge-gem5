@@ -198,7 +198,7 @@ MemPools::splitInterleavePool(const InterleavePoolArgs &args, int pool_id)
         pool.startAddr() + pool.totalBytes(),
         args.masks,
         numNUMANodes,
-        args.transposeRows
+        args.customize
     );
     return pools.size() - 1;
 }

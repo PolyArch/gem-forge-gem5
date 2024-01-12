@@ -46,6 +46,7 @@ public:
     START_VADDR,
     END_VADDR,
     TRANSPOSE_BANK,
+    MIRROR_MEM_CTRL,
   };
   void setProperty(ThreadContext *tc, Addr start, uint64_t property,
                    uint64_t value);
@@ -198,7 +199,7 @@ private:
    */
   void adjustNUMALayoutForRegion(ThreadContext *tc, const StreamRegion &region,
                                  Addr nucaIntrlv, int startNUCANode,
-                                 bool transposeNUCABank);
+                                 bool transposeNUCABank, bool mirrorNUMABank);
 
   /**
    * Helper function to copy region to new paddr.

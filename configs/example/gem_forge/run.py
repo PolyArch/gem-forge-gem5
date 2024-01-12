@@ -277,6 +277,9 @@ parser.add_argument("--gem-forge-stream-engine-llc-stream-engine-migrate-width",
 parser.add_argument("--gem-forge-stream-engine-llc-stream-max-infly-request", action="store",
                   type=int, default="8",
                   help="LLCStream max infly request per stream.")
+parser.add_argument("--gem-forge-stream-engine-llc-engine-max-infly-direct-request", action="store",
+                  type=int, default="0",
+                  help="LLCStreamEngine max infly direct requests (0 no limit).")
 parser.add_argument("--gem-forge-stream-engine-enable-midway-float", action="store_true",
                   default=False,
                   help="Enable midway stream float.")
@@ -442,7 +445,10 @@ parser.add_argument("--gem-forge-stream-engine-float-level-policy", type=str, de
                   help="Policy to choose floating level for streams.")
 parser.add_argument("--gem-forge-stream-engine-mc-stream-max-infly-request", action="store",
                   type=int, default="16",
-                  help="LLCStream max infly request per stream.")
+                  help="MemStream max infly request per stream.")
+parser.add_argument("--gem-forge-stream-engine-mc-engine-max-infly-direct-request", action="store",
+                  type=int, default="0",
+                  help="MemStreamEngine max infly direct requests (0 no limit).")
 parser.add_argument("--gem-forge-stream-engine-mc-neighbor-stream-threshold", action="store",
                   type=int, default="0",
                   help="# of streams threshold to delay migration to neighbor MCC SE. 0 to disable.")
@@ -464,6 +470,9 @@ parser.add_argument("--gem-forge-stream-engine-mc-issue-width", action="store",
 parser.add_argument("--gem-forge-stream-engine-mc-issue-burst", action="store",
                   type=int, default="16",
                   help="Mem StreamEngine issue burst on the same stream.")
+parser.add_argument("--gem-forge-stream-engine-mc-issue-rotate-by-progress", action="store",
+                  type=int, default="0",
+                  help="Mem StreamEngine issue rotate by progress.")
 
 parser.add_argument("--gem-forge-adfa-enable",
                   action="store_true", default=False)

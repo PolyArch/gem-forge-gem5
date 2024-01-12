@@ -55,7 +55,10 @@ LLCStreamEngine::LLCStreamEngine(
       streamResponseMsgBuffer(_streamResponseMsgBuffer),
       issueWidth(_controller->getLLCStreamEngineIssueWidth()),
       migrateWidth(_controller->getLLCStreamEngineMigrateWidth()),
-      maxInqueueRequests(2), translationBuffer(nullptr),
+      maxInqueueRequests(2),
+      maxInflyDirectRequests(
+          _controller->myParams->stream_engine_max_infly_direct_request),
+      translationBuffer(nullptr),
       seTracer(_controller->getMachineID().getNum(),
                std::string(_controller->getMachineTypeString()) + "_SE") {
   this->controller->registerLLCStreamEngine(this);
@@ -354,6 +357,13 @@ void LLCStreamEngine::receiveStreamDataVecFromCache(
   auto readyCycle = this->controller->curCycle() + delayCycle;
 
   this->traceEvent(readyCycle, ::LLVM::TDG::StreamFloatEvent::LOCAL_REQ_DONE);
+  for (const auto &sliceId : sliceIds.sliceIds) {
+    if (auto dynS = LLCDynStream::getLLCStream(sliceId.getDynStrandId())) {
+      dynS->getStaticS()->floatTracer.traceEvent(
+          this->curCycle(), this->controller->getMachineID(),
+          ::LLVM::TDG::StreamFloatEvent::LOCAL_REQ_DONE);
+    }
+  }
 
   this->receiveStreamDataVec(delayCycle, paddrLine, sliceIds, dataBlock,
                              storeValueBlock);
@@ -469,9 +479,16 @@ void LLCStreamEngine::receiveStreamData(
 
   // Update inflyRequests.
   if (dynS->inflyRequests == 0) {
-    LLC_SLICE_PANIC(sliceId, "Negative inflyRequests.\n");
+    LLC_SLICE_PANIC(sliceId, "Negative StrandInflyReq.\n");
   }
   dynS->inflyRequests--;
+  // Update SE infly direct requests.
+  if (!dynS->isIndirect()) {
+    if (this->curInflyDirectRequests == 0) {
+      LLC_SLICE_PANIC(sliceId, "Negative SEInflyDirReq.\n");
+    }
+    this->curInflyDirectRequests--;
+  }
 
   auto S = dynS->getStaticS();
 
@@ -1421,7 +1438,7 @@ void LLCStreamEngine::issueStreams() {
     for (auto dynS : this->streams) {
       auto &statistic = dynS->getStaticS()->statistic;
       statistic.sampleLLCStreamEngineIssueReason(
-          StreamStatistic::LLCStreamEngineIssueReason::MaxEngineInflyRequest);
+          StreamStatistic::LLCStreamEngineIssueReason::MaxSEInqueueRequest);
     }
 
     return;
@@ -1554,7 +1571,7 @@ void LLCStreamEngine::issueStreams() {
     // Move to the next one.
     ++streamIter;
 
-    auto readyS = this->findStreamReadyToIssue(dynS);
+    auto readyS = this->checkDirectStreamReadyToIssue(dynS);
     if (readyS) {
       this->issueStreamDirect(readyS);
       issuedStreams++;
@@ -1570,13 +1587,45 @@ void LLCStreamEngine::issueStreams() {
         this->curIssueBurst.first = readyS->getDynStrandId();
         this->curIssueBurst.second = 1;
       }
-      bool shouldRotate =
-          this->curIssueBurst.second ==
-          this->controller->myParams->llc_stream_engine_issue_burst;
-      if (shouldRotate) {
-        // Push the stream back to the end.
-        this->issuingDirStreamList.splice(streamEnd, this->issuingDirStreamList,
-                                          curIter);
+      // Rotate if we have reached the issue burst or max infly request.
+      bool rotateBack =
+          (this->curIssueBurst.second ==
+           this->controller->myParams->llc_stream_engine_issue_burst) ||
+          (readyS->inflyRequests == readyS->getMaxInflyRequests());
+      if (rotateBack) {
+        // Default round-robin: Push the stream back to the end.
+        // Also we clear the issue burst.
+        auto rotateIter = streamEnd;
+        this->curIssueBurst.first = DynStrandId();
+        this->curIssueBurst.second = 0;
+        if (this->controller->myParams
+                ->llc_stream_engine_issue_rotate_by_progress) {
+          // By progress: Before the one with larger progress.
+          auto curProgress = readyS->getMinRecvStrandProgress();
+          LLC_S_DPRINTF(readyS->getDynStrandId(),
+                        "[RotateBack] Check Progress.\n");
+          for (rotateIter = streamIter; rotateIter != streamEnd; ++rotateIter) {
+            auto rotateS = LLCDynStream::getLLCStreamPanic(*rotateIter,
+                                                           "RotateS Progress.");
+            auto progress = rotateS->getMinRecvStrandProgress();
+            if (progress > curProgress) {
+              break;
+            }
+          }
+        }
+        this->issuingDirStreamList.splice(rotateIter,
+                                          this->issuingDirStreamList, curIter);
+      } else {
+        // Can we just rotate to first?
+        if (this->controller->myParams
+                ->llc_stream_engine_issue_rotate_by_progress) {
+          readyS->getMinRecvStrandProgress();
+        }
+        LLC_S_DPRINTF(readyS->getDynStrandId(),
+                      "[RotateFront] Check Progress.\n");
+        auto rotateIter = this->issuingDirStreamList.begin();
+        this->issuingDirStreamList.splice(rotateIter,
+                                          this->issuingDirStreamList, curIter);
       }
     }
   }
@@ -1590,10 +1639,41 @@ void LLCStreamEngine::issueStreams() {
   }
 }
 
-LLCDynStreamPtr LLCStreamEngine::findStreamReadyToIssue(LLCDynStreamPtr dynS) {
+LLCDynStreamPtr
+LLCStreamEngine::checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS) {
 
   auto S = dynS->getStaticS();
   auto &statistic = S->statistic;
+
+  if (this->maxInflyDirectRequests > 0 &&
+      this->curInflyDirectRequests >= this->maxInflyDirectRequests) {
+    LLC_S_DPRINTF_(LLCRubyStreamNotIssue, dynS->getDynStrandId(),
+                   "[Not Issue] MaxSEInflyDirectReqs.\n");
+    statistic.sampleLLCStreamEngineIssueReason(
+        StreamStatistic::LLCStreamEngineIssueReason::MaxSEInflyRequest);
+    return nullptr;
+  }
+
+  if (this->maxInflyDirectRequests > 0 &&
+      this->curIssueBurst.first != dynS->getDynStrandId() &&
+      this->controller->myParams->llc_stream_engine_issue_burst <=
+          dynS->getMaxInflyRequests() &&
+      (dynS->inflyRequests +
+               this->controller->myParams->llc_stream_engine_issue_burst >
+           dynS->getMaxInflyRequests() ||
+       this->curInflyDirectRequests +
+               this->controller->myParams->llc_stream_engine_issue_burst >
+           this->maxInflyDirectRequests)) {
+    // We have to switch to a new burst and but bounded by InflyReq.
+    LLC_S_DPRINTF_(
+        LLCRubyStreamNotIssue, dynS->getDynStrandId(),
+        "[Not Issue] Insufficient burst. Infly %d SEInfly %d SEMax %d.\n",
+        dynS->inflyRequests, this->curInflyDirectRequests,
+        this->maxInflyDirectRequests);
+    statistic.sampleLLCStreamEngineIssueReason(
+        StreamStatistic::LLCStreamEngineIssueReason::InsufficientIssueBurst);
+    return nullptr;
+  }
 
   if (!dynS->isNextSliceCredited()) {
     LLC_S_DPRINTF_(LLCRubyStreamNotIssue, dynS->getDynStrandId(),
@@ -1876,8 +1956,10 @@ void LLCStreamEngine::issueStreamDirect(LLCDynStream *dynS) {
 
     // Check if we track inflyRequests.
     dynS->inflyRequests++;
-    LLC_SLICE_DPRINTF(sliceId, "Issue, InflyRequests + 1 = %d.\n",
-                      dynS->inflyRequests);
+    this->curInflyDirectRequests++;
+    LLC_SLICE_DPRINTF(sliceId,
+                      "Issue, StrandInflyReq++ = %d, SEInflyDirReq++ = %d.\n",
+                      dynS->inflyRequests, this->curInflyDirectRequests);
 
     /**
      * Normally we should issue, unless we are marked CmpOnly.
@@ -1887,8 +1969,8 @@ void LLCStreamEngine::issueStreamDirect(LLCDynStream *dynS) {
       DynStreamSliceIdVec sliceIds;
       sliceIds.add(sliceId);
       ruby::DataBlock fakeDataBlock;
-      this->receiveStreamDataVecFromCache(Cycles(1), paddrLine, sliceIds,
-                                          fakeDataBlock, fakeDataBlock);
+      this->receiveStreamDataVec(Cycles(1), paddrLine, sliceIds, fakeDataBlock,
+                                 fakeDataBlock);
       LLC_SLICE_DPRINTF(sliceId, "[CmpOnly] Skip issue with fake response.\n");
     } else {
       auto requestIter = this->enqueueRequest(S, sliceId, vaddrLine, paddrLine,
@@ -2534,9 +2616,17 @@ void LLCStreamEngine::issueStreamReqToRemoteBank(const LLCStreamRequest &req) {
     if (dynS) {
       auto totalNodesBeforeLLC =
           ruby::MachineType_base_number(ruby::MachineType_L2Cache);
-      dynS->getStaticS()->statistic.sampleLLCSendTo(
-          selfMachineId.getRawNodeID() - totalNodesBeforeLLC,
-          destMachineId.getRawNodeID() - totalNodesBeforeLLC);
+      if (req.requestType == ruby::CoherenceRequestType_STREAM_FORWARD) {
+        dynS->getStaticS()->statistic.sampleLLCSendTo(
+            selfMachineId.getRawNodeID() - totalNodesBeforeLLC,
+            destMachineId.getRawNodeID() - totalNodesBeforeLLC);
+      } else if (req.requestType == ruby::CoherenceRequestType_STREAM_STORE) {
+        if (dynS->isIndirect()) {
+          dynS->getStaticS()->statistic.sampleIndReq(
+              selfMachineId.getRawNodeID() - totalNodesBeforeLLC,
+              destMachineId.getRawNodeID() - totalNodesBeforeLLC);
+        }
+      }
     }
   }
 
@@ -2558,6 +2648,11 @@ void LLCStreamEngine::issueStreamReqToRemoteBank(const LLCStreamRequest &req) {
         msg, this->controller->clockEdge(),
         this->controller->cyclesToTicks(latency));
     this->traceEvent(::LLVM::TDG::StreamFloatEvent::LOCAL_REQ_START);
+    if (auto dynS = LLCDynStream::getLLCStream(sliceId.getDynStrandId())) {
+      dynS->getStaticS()->floatTracer.traceEvent(
+          this->curCycle(), this->controller->getMachineID(),
+          ::LLVM::TDG::StreamFloatEvent::LOCAL_REQ_START);
+    }
   } else {
     /**
      * Issue to StreamRequestBuffer to enforce
@@ -3309,6 +3404,9 @@ void LLCStreamEngine::receiveStreamIndirectReqImpl(
     auto &statistic = dynS->getStaticS()->statistic;
     statistic.remoteIndReqNoCDelay.sample(networkLatency);
     statistic.getStaticStat().remoteIndReqNoCDelay.sample(networkLatency);
+    dynS->getStaticS()->floatTracer.traceEvent(
+        this->curCycle(), this->controller->getMachineID(),
+        ::LLVM::TDG::StreamFloatEvent::LOCAL_REQ_START);
   }
 
   auto msg = std::make_shared<ruby::RequestMsg>(req);

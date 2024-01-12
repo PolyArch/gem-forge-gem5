@@ -117,8 +117,11 @@ private:
   const int issueWidth;
   std::pair<DynStrandId, int> curIssueBurst;
   const int migrateWidth;
-  // Threshold to limit maximum number of requests in queue;
+  // Threshold to limit maximum number of requests in queue.
   const int maxInqueueRequests;
+  // Threshold to limit maximum number of direct req infly.
+  const int maxInflyDirectRequests;
+  int curInflyDirectRequests = 0;
 
   using StreamSet = std::set<LLCDynStreamPtr>;
   using StreamVec = std::vector<LLCDynStreamPtr>;
@@ -264,10 +267,10 @@ private:
   void issueStreams();
 
   /**
-   * Find a stream ready to issue.
+   * Check if a direct stream is ready to issue.
    * @return nullptr if not found.
    */
-  LLCDynStreamPtr findStreamReadyToIssue(LLCDynStreamPtr dynS);
+  LLCDynStreamPtr checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS);
 
   /**
    * Helper function to manage the issuing streams.

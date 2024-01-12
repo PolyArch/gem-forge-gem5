@@ -232,6 +232,7 @@ void StreamNUCAManager::setProperty(ThreadContext *tc, Addr start,
     CASE(REDUCE_DIM);
     CASE(BROADCAST_DIM);
     CASE(TRANSPOSE_BANK);
+    CASE(MIRROR_MEM_CTRL);
 
 #undef CASE
   }
@@ -596,6 +597,10 @@ void StreamNUCAManager::remapDirectRegionNUCA(ThreadContext *tc,
   if (region.properties.count(RegionProperty::TRANSPOSE_BANK)) {
     transposeBank = region.properties.at(RegionProperty::TRANSPOSE_BANK);
   }
+  bool mirrorBank = false;
+  if (region.properties.count(RegionProperty::MIRROR_MEM_CTRL)) {
+    mirrorBank = region.properties.at(RegionProperty::MIRROR_MEM_CTRL);
+  }
 
   // Remember the interleave and start bank.
   region.properties.emplace(RegionProperty::START_BANK, startBank);
@@ -603,13 +608,13 @@ void StreamNUCAManager::remapDirectRegionNUCA(ThreadContext *tc,
   if (intrlvs.size() == 1) {
     // Uniform interleave.
     region.properties.emplace(RegionProperty::INTERLEAVE, intrlvs.front());
-    NUCA_LOG("Map %s %#x %lux%lu PAddr %#x Intrlv %lu Bank %d T%d.\n",
+    NUCA_LOG("Map %s %#x %lux%lu PAddr %#x Intrlv %lu Bank %d T%d M%d.\n",
              region.name, startVAddr, region.elementSize, region.numElement,
-             startPAddr, intrlvs.front(), startBank, transposeBank);
+             startPAddr, intrlvs.front(), startBank, transposeBank, mirrorBank);
 
     // This must happen before add NUCA map, which needs the physical address.
     this->adjustNUMALayoutForRegion(tc, region, intrlvs.front(), startBank,
-                                    transposeBank);
+                                    transposeBank, mirrorBank);
 
     // It may change the paddr.
     startPAddr = this->translate(startVAddr);
@@ -1663,11 +1668,9 @@ void StreamNUCAManager::makeRegionPAddrContinuous(ThreadContext *tc,
   assert(this->isPAddrContinuous(region));
 }
 
-void StreamNUCAManager::adjustNUMALayoutForRegion(ThreadContext *tc,
-                                                  const StreamRegion &region,
-                                                  Addr nucaIntrlv,
-                                                  int startNUCANode,
-                                                  bool transposeNUCABank) {
+void StreamNUCAManager::adjustNUMALayoutForRegion(
+    ThreadContext *tc, const StreamRegion &region, Addr nucaIntrlv,
+    int startNUCANode, bool transposeNUCABank, bool mirrorBank) {
 
   // Check that custom NUMA interleave is supported.
   if (!StreamNUCAMap::registerNUMAInterleavePool) {
@@ -1689,8 +1692,7 @@ void StreamNUCAManager::adjustNUMALayoutForRegion(ThreadContext *tc,
   if (transposeNUCABank) {
     // Be careful. So far we only support transpose east-west edges.
     // Assume 8x2 NUMA nodes (as they are on east/west edges).
-    args.transposeRows = 8;
-    assert(numNUMANodes == 16);
+    args.customize = SEWorkload::InterleavePoolArgs::NUMACustomizeTranspose;
     args.masks.push_back(nucaIntrlv * 1);
     args.masks.push_back(nucaIntrlv * 2);
     args.masks.push_back(nucaIntrlv * 4);
@@ -1700,6 +1702,10 @@ void StreamNUCAManager::adjustNUMALayoutForRegion(ThreadContext *tc,
     // Simple case for continuous interleave.
     for (Addr i = intrlv; i < intrlv * numNUMANodes; i *= 2) {
       args.masks.push_back(i);
+    }
+    if (mirrorBank) {
+      args.customize =
+          SEWorkload::InterleavePoolArgs::NUMACustomizeMirrorHorizontal;
     }
   }
 

@@ -444,6 +444,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                     options.gem_forge_stream_engine_llc_stream_engine_migrate_width,
                 llc_stream_max_infly_request=\
                     options.gem_forge_stream_engine_llc_stream_max_infly_request,
+                stream_engine_max_infly_direct_request=\
+                    options.gem_forge_stream_engine_llc_engine_max_infly_direct_request,
                 llc_stream_engine_compute_width=\
                     options.gem_forge_stream_engine_compute_width,
                 llc_stream_engine_max_infly_computation=\
@@ -576,8 +578,10 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.llc_stream_engine_issue_width = options.gem_forge_stream_engine_mc_issue_width
         # We make it have some burst to be more friendly to the DRAM.
         dir_cntrl.llc_stream_engine_issue_burst = options.gem_forge_stream_engine_mc_issue_burst
+        dir_cntrl.llc_stream_engine_issue_rotate_by_progress = options.gem_forge_stream_engine_mc_issue_rotate_by_progress
         dir_cntrl.llc_stream_engine_migrate_width = options.gem_forge_stream_engine_llc_stream_engine_migrate_width
         dir_cntrl.llc_stream_max_infly_request = options.gem_forge_stream_engine_mc_stream_max_infly_request
+        dir_cntrl.stream_engine_max_infly_direct_request = options.gem_forge_stream_engine_mc_engine_max_infly_direct_request
         dir_cntrl.llc_stream_engine_compute_width = options.gem_forge_stream_engine_compute_width
         dir_cntrl.llc_stream_engine_max_infly_computation = options.gem_forge_stream_engine_llc_max_infly_computation
         dir_cntrl.llc_access_core_simd_delay = options.gem_forge_stream_engine_llc_access_core_simd_delay
