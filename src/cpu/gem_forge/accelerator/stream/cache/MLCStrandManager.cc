@@ -102,6 +102,8 @@ void MLCStrandManager::receiveStreamConfigure(ConfigVec *configs,
     }
   }
 
+  this->splitReuseStream(*configs);
+
   mlcSE->computeReuseInformation(*configs);
   for (auto config : *configs) {
     this->configureStream(config, requestorId);
@@ -112,7 +114,6 @@ void MLCStrandManager::receiveStreamConfigure(ConfigVec *configs,
 
   // Release the configure vec.
   delete configs;
-  // delete pkt;
 }
 
 void MLCStrandManager::checkShouldBeSliced(ConfigVec &configs) const {
@@ -2372,14 +2373,16 @@ void MLCStrandManager::splitComputeStream(ConfigVec &configs) const {
     loadCfg->clearEdges();
     loadCfg->addSendTo(computeCfg, 1 /* reuse */, 0 /* skip */);
     loadCfg->clearLoadStoreCallback();
-    loadCfg->overrideAsMemOnly = true;
+    loadCfg->disableCmp = true;
 
     // Keep the ComputeCfg to LLC.
     // We assume here only one FloatChangePoint.
     computeCfg->floatPlan.changePoints.at(0).floatMachineType =
         ruby::MachineType_L2Cache;
-    computeCfg->overrideAsCmpOnly = true;
+    computeCfg->disableMem = true;
     computeCfg->addBaseOn(loadCfg, 1 /* reuse */, 0 /* skip */);
+    // Keep ComputeCfg not migrate.
+    computeCfg->disableMigration = true;
 
     newConfigs.push_back(loadCfg);
     newConfigs.push_back(computeCfg);
@@ -2388,4 +2391,156 @@ void MLCStrandManager::splitComputeStream(ConfigVec &configs) const {
   // Replace with the new configs.
   configs = newConfigs;
 }
+
+void MLCStrandManager::splitReuseStream(ConfigVec &configs) const {
+
+  /**
+   *
+   * When we have complex reuse pattern between SendS and RecvS,
+   * instead of managing the reuse magically, here we actually split
+   * the reuse pattern:
+   *
+   * SendS(A) -> ReuseS(A) -> RecvS(B)
+   *
+   * So far we just support GEMM.
+   */
+  if (!this->controller->myParams->stream_split_compute_stream) {
+    return;
+  }
+
+  // Clear trip 1 dimensions for simplicity.
+  for (auto &config : configs) {
+    config->addrGenFormalParams =
+        removeTripOneFromAffinePattern(config->addrGenFormalParams);
+  }
+
+  ConfigVec newConfigs;
+
+  for (auto &config : configs) {
+
+    auto S = config->stream;
+    if (S->hasComputation() && !config->disableCmp) {
+      newConfigs.push_back(config);
+      continue;
+    }
+
+    bool hasOnlySendTo = true;
+    for (const auto &depEdge : config->depEdges) {
+      if (depEdge.type != CacheStreamConfigureData::DepEdge::Type::SendTo) {
+        hasOnlySendTo = false;
+        break;
+      }
+    }
+    if (!hasOnlySendTo) {
+      newConfigs.push_back(config);
+      continue;
+    }
+
+    auto splited = 0;
+    for (auto &depEdge : config->depEdges) {
+      // Iterate through all SendTo edges.
+      auto recvCfg = depEdge.data;
+      auto reuseInfo = depEdge.reuseInfo;
+      STRAND_LOG_(MLCRubyStrandSplit, config->getStrandId(),
+                  "SplitReuse %s %s -> %s %s.\n",
+                  printAffinePatternParams(config->addrGenFormalParams),
+                  reuseInfo, recvCfg->getStrandId(),
+                  printAffinePatternParams(recvCfg->addrGenFormalParams));
+      // For now just peel off one reuse level.
+      auto tiles = reuseInfo.getReusedTiles();
+      assert(tiles.size() > 0);
+
+      StreamReuseInfo outerReuse(tiles.back());
+      tiles.pop_back();
+      if (tiles.empty()) {
+        // Create a default one-reuse tile.
+        tiles.emplace_back();
+      }
+      StreamReuseInfo innerReuse(tiles);
+
+      auto sendCfg = config;
+      auto reuseCfg = std::make_shared<CacheStreamConfigureData>(*config);
+
+      // Increment the instance id.
+      splited++;
+      reuseCfg->dynamicId.streamInstance +=
+          DynStreamId::ReuseInstanceOffset * splited;
+
+      // Fix SendCfg -> ReuseCfg
+      depEdge.data = reuseCfg;
+      depEdge.reuseInfo = outerReuse;
+      reuseCfg->clearEdges();
+      reuseCfg->addBaseOn(sendCfg, outerReuse, 0 /* skip */);
+      reuseCfg->baseEdges.back().isStrandSendTo = true;
+
+      // Fix ReuseCfg -> RecvCfg
+      reuseCfg->addSendTo(recvCfg, innerReuse, 0 /* skip */);
+      bool replacedRecvBaseEdge = false;
+      for (auto &baseEdge : recvCfg->baseEdges) {
+        auto baseCfg = baseEdge.data.lock();
+        assert(baseCfg && "Missing BaseCfg.");
+        if (baseCfg == sendCfg) {
+          baseEdge.data = reuseCfg;
+          baseEdge.reuseInfo = innerReuse;
+          baseEdge.dynStreamId = reuseCfg->dynamicId;
+          replacedRecvBaseEdge = true;
+        }
+      }
+      if (!replacedRecvBaseEdge) {
+        MLC_S_PANIC_NO_DUMP(sendCfg->getStrandId(),
+                            "Failed to find the BaseEdge in %s.",
+                            recvCfg->getStrandId());
+      }
+
+      // Fix the ReuseCfg pattern to expand with the reuse dimension.
+      // HACK: No need to do this if we have reuse 1.
+      if (outerReuse.getTotalReuse() != 1) {
+        reuseCfg->addrGenFormalParams = expandReuseInAffinePattern(
+            reuseCfg->addrGenFormalParams,
+            outerReuse.getReusedTiles().back().reuseTileSize,
+            outerReuse.getTotalReuse());
+        reuseCfg->totalTripCount *= outerReuse.getTotalReuse();
+      }
+
+      // The ReuseCfg is marked no cmp/mem for now.
+      reuseCfg->disableMem = true;
+      reuseCfg->disableCmp = true;
+      reuseCfg->trackBaseElemBeforeIssue = true;
+
+      // Keep the FloatPlan of the RecvCfg to ReuseCfg.
+      reuseCfg->floatPlan = recvCfg->floatPlan;
+
+      // Make sure the reuseCfg is offloaded to the same place of recvCfg.
+      if (!recvCfg->initPAddrValid || !recvCfg->disableMigration) {
+        MLC_S_PANIC_NO_DUMP(
+            sendCfg->getStrandId(),
+            "RecvStrand %s not fixed, paddr_valid %d no_migrate %d.",
+            recvCfg->getStrandId(), recvCfg->initPAddrValid,
+            recvCfg->disableMigration);
+      }
+      reuseCfg->initVAddr = recvCfg->initVAddr;
+      reuseCfg->initPAddr = recvCfg->initPAddr;
+      reuseCfg->initPAddrValid = recvCfg->initPAddrValid;
+      reuseCfg->disableMigration = recvCfg->disableMigration;
+
+      newConfigs.push_back(reuseCfg);
+
+      STRAND_LOG_(MLCRubyStrandSplit, config->getStrandId(),
+                  "SplitReuse %s -> %s %s %s -> %s %s @ paddr %#x %s.\n",
+                  outerReuse, reuseCfg->getStrandId(),
+                  printAffinePatternParams(reuseCfg->addrGenFormalParams),
+                  reuseCfg->floatPlan, recvCfg->getStrandId(),
+                  printAffinePatternParams(recvCfg->addrGenFormalParams),
+                  recvCfg->initPAddr,
+                  this->controller->mapAddressToLLCOrMem(
+                      recvCfg->initPAddr, ruby::MachineType_L2Cache));
+    }
+
+    newConfigs.push_back(config);
+  }
+
+  // Replace with the new configs.
+  configs = newConfigs;
+}
+
 } // namespace gem5

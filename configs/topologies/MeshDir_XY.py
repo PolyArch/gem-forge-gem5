@@ -196,6 +196,53 @@ class MeshDir_XY(SimpleTopology):
             print(f'[MeshDirTile] NUMA Router {router_row}x{router_col} -> Dir {tile_row}x{tile_col}.')
             self.numa_nodes[dir_idx].append(i)
 
+    def makeDirEastOrWestEdgeTopology(self, ExtLink, dir_nodes, routers, ext_links, isEast):
+        num_dir_columns = len(dir_nodes) // self.num_rows
+        num_dir_rows = len(dir_nodes) // num_dir_columns
+        assert(num_dir_rows * num_dir_columns == len(dir_nodes))
+        assert(num_dir_rows == self.num_rows)
+        assert(num_dir_columns <= self.num_columns)
+
+        """
+        Connect the dir nodes in east and west edges, 8x8 mesh:
+        [2XX]  01   02   03   04   05   06   07
+        [2XX]  09   0A   0B   0C   0D   0E   0F
+        [2XX]  11   12   13   14   15   16   17
+        [2XX]  19   1A   1B   1C   1D   1E   1F
+        [2XX]  21   22   23   24   25   26   27
+        [2XX]  29   2A   2B   2C   2D   2E   2F
+        [2XX]  31   32   33   34   35   36   37
+        [2XX]  39   3A   3B   3C   3D   3E   3F
+        """
+        for i in range(num_dir_rows):
+            for j in range(num_dir_columns):
+                dir_idx = i * num_dir_columns + j
+                # Connect both directory to the 
+                tile_row = i 
+                tile_col = self.num_columns - 1 if isEast else 0
+                router_idx = tile_row * self.num_columns + tile_col
+                print(f'[MeshDirEastEdge] Dir {i}x{j} -> Router {tile_row}x{tile_col}.')
+                dir_nodes[dir_idx].router_id = router_idx
+                ext_links.append(
+                    ExtLink(
+                        link_id=self.link_count,
+                        ext_node=dir_nodes[dir_idx],
+                        int_node=routers[router_idx],
+                        latency=self.link_latency))
+                self.link_count += 1
+
+        # NUMA Node for routers in the tile.
+        self.numa_nodes = []
+        for i in range(len(dir_nodes)):
+            self.numa_nodes.append(list())
+        for i in range(self.num_routers):
+            router_row, router_col = divmod(i, self.num_columns)
+            tile_row = router_row 
+            tile_col = self.num_columns - 1 if isEast else 0
+            dir_idx = tile_row * num_dir_columns + tile_col
+            print(f'[MeshDirTile] NUMA Router {router_row}x{router_col} -> Dir {tile_row}x{tile_col}.')
+            self.numa_nodes[dir_idx].append(i)
+
     def makeDirEastWestEdgeTopology(self, ExtLink, dir_nodes, routers, ext_links):
         num_dir_columns = 2
         num_dir_rows = len(dir_nodes) // num_dir_columns
@@ -241,6 +288,53 @@ class MeshDir_XY(SimpleTopology):
             dir_idx = tile_row * num_dir_columns + tile_col
             print(f'[MeshDirTile] NUMA Router {router_row}x{router_col} -> Dir {tile_row}x{tile_col}.')
             self.numa_nodes[dir_idx].append(i)
+
+    def makeDirNorthOrSouthEdgeTopology(self, ExtLink, dir_nodes, routers, ext_links, isSouth):
+        num_dir_rows = len(dir_nodes) // self.num_columns
+        num_dir_columns = len(dir_nodes) // num_dir_rows
+        assert(num_dir_rows * num_dir_columns == len(dir_nodes))
+        assert(num_dir_columns == self.num_columns)
+        assert(num_dir_rows <= self.num_rows)
+
+        """
+        Connect the dir nodes in north or south edges, 8x8 mesh:
+        [00  01   02   03   04   05   06   07]
+         08  09   0A   0B   0C   0D   0E   0F
+         10  11   12   13   14   15   16   17
+         18  19   1A   1B   1C   1D   1E   1F
+         20  21   22   23   24   25   26   27
+         28  29   2A   2B   2C   2D   2E   2F
+         30  31   32   33   34   35   36   37
+        [38  39   3A   3B   3C   3D   3E   3F]
+        """
+        for i in range(num_dir_rows):
+            for j in range(num_dir_columns):
+                dir_idx = i * num_dir_columns + j
+                tile_row = self.num_rows - 1 if isSouth else 0
+                tile_col = j
+                router_idx = tile_row * self.num_columns + tile_col
+                print(f'[MeshDirEastOrWestEdge] Dir {i}x{j} -> Router {tile_row}x{tile_col}.')
+                dir_nodes[dir_idx].router_id = router_idx
+                ext_links.append(
+                    ExtLink(
+                        link_id=self.link_count,
+                        ext_node=dir_nodes[dir_idx],
+                        int_node=routers[router_idx],
+                        latency=self.link_latency))
+                self.link_count += 1
+
+        # NUMA Node for routers in the tile.
+        self.numa_nodes = []
+        for i in range(len(dir_nodes)):
+            self.numa_nodes.append(list())
+        for i in range(self.num_routers):
+            router_row, router_col = divmod(i, self.num_columns)
+            tile_row = self.num_rows - 1 if isSouth else 0
+            tile_col = router_col
+            dir_idx = tile_row * num_dir_columns + tile_col
+            print(f'[MeshDirTile] NUMA Router {router_row}x{router_col} -> Dir {tile_row}x{tile_col}.')
+            self.numa_nodes[dir_idx].append(i)
+
 
     def makeDirNorthSouthEdgeTopology(self, ExtLink, dir_nodes, routers, ext_links):
         num_dir_rows = 2
@@ -398,6 +492,12 @@ class MeshDir_XY(SimpleTopology):
             self.makeDirDiagTopology(ExtLink, dir_nodes, routers, ext_links)
         elif options.ruby_mesh_dir_location == 'east-west-edge':
             self.makeDirEastWestEdgeTopology(ExtLink, dir_nodes, routers, ext_links)
+        elif options.ruby_mesh_dir_location == 'east-edge':
+            self.makeDirEastOrWestEdgeTopology(ExtLink, dir_nodes, routers, ext_links, isEast=True)
+        elif options.ruby_mesh_dir_location == 'west-edge':
+            self.makeDirEastOrWestEdgeTopology(ExtLink, dir_nodes, routers, ext_links, isEast=False)
+        elif options.ruby_mesh_dir_location == 'north-edge':
+            self.makeDirNorthOrSouthEdgeTopology(ExtLink, dir_nodes, routers, ext_links, isSouth=False)
         elif options.ruby_mesh_dir_location == 'north-south-edge':
             self.makeDirNorthSouthEdgeTopology(ExtLink, dir_nodes, routers, ext_links)
         else:

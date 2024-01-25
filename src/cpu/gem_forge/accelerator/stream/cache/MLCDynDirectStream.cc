@@ -671,11 +671,10 @@ void MLCDynDirectStream::sendCreditToLLC(const LLCSegmentPosition &segment) {
   auto remoteBank =
       this->controller->mapAddressToLLCOrMem(remotePAddr, startElemMachineType);
 
-  MLC_S_DPRINTF_(
-      MLCRubyStreamLife, this->strandId,
-      "Extended %lu (Elem %lu) -> %lu at %s (DisableMigration %d).\n",
-      segment.startSliceIdx, startElemIdx, segment.endSliceIdx, remoteBank,
-      this->config->disableMigration);
+  MLC_S_DPRINTF_(MLCRubyStreamLife, this->strandId,
+                 "Extended %lu (Elem %lu) -> %lu at %s (NoMigrate %d).\n",
+                 segment.startSliceIdx, startElemIdx, segment.endSliceIdx,
+                 remoteBank, this->config->disableMigration);
   auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
   msg->m_addr = ruby::makeLineAddress(remotePAddr);
   msg->m_Type = ruby::CoherenceRequestType_STREAM_FLOW;

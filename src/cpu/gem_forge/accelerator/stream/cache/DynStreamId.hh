@@ -23,7 +23,8 @@ struct DynStreamId {
   InstanceId streamInstance = 0;
   // Some offset on instance to distinguish newly split in mem hierarchy.
   static constexpr InstanceId MemOnlyInstanceOffset = 10000;
-  static constexpr InstanceId PrefetchInstanceOffset = 1000000;
+  static constexpr InstanceId ReuseInstanceOffset = 100000;
+  static constexpr InstanceId PrefetchInstanceOffset = 10000000;
 
   // Used for debug purpose. User should guarantee the life cycle of name.
   // TODO: How to improve this?

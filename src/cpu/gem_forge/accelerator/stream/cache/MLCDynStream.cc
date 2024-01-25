@@ -93,6 +93,11 @@ MLCDynStream::WaitType MLCDynStream::checkWaiting() const {
     MLC_S_DPRINTF(this->getDynStrandId(), "PseudoFloat. Wait Nothing.\n");
     return WaitType::Nothing;
   }
+  if (this->config->disableCmp && this->config->disableMem) {
+    MLC_S_DPRINTF(this->getDynStrandId(),
+                  "Middle Hierarchical Stream. Wait Nothing.\n");
+    return WaitType::Nothing;
+  }
   if (this->stream->isStoreStream()) {
     MLC_S_DPRINTF(this->getDynStrandId(), "StoreStream. Wait Ack.\n");
     return WaitType::Ack;

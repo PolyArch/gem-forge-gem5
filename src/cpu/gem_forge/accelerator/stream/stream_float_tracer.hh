@@ -39,6 +39,8 @@ public:
 private:
   void initialize() const;
 
+  static bool traceFolderCleared;
+
   const int cpuId;
   const std::string name;
   static constexpr int DUMP_THRESHOLD = 1024;

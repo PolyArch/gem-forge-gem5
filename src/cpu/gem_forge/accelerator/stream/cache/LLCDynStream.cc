@@ -120,10 +120,9 @@ LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
     std::vector<LLCDynStreamPtr> pumPrefetchStreams;
     auto iter = GlobalLLCDynStreamMap.begin();
     while (iter != GlobalLLCDynStreamMap.end()) {
-      if (iter->first.dynStreamId == this->getDynStreamId()) {
+      if (iter->first.dynStreamId == this->getDynStreamId() &&
+          iter->second->configData->isPUMPrefetch) {
         auto dynS = iter->second;
-        assert(dynS->configData->isPUMPrefetch &&
-               "This should be PUMPrefetchStream.");
         assert(dynS->state == State::TERMINATED &&
                "PUMPrefetchStream should be terminated.");
         pumPrefetchStreams.push_back(dynS);
@@ -525,11 +524,25 @@ float LLCDynStream::getMinRecvStrandProgress(
       assert(recvDynS->getTotalTripCount());
       auto recvStrandTotalTripCount = recvDynS->getTotalTripCount();
 
-      auto progress = static_cast<float>(recvStrandElemIdx) /
-                      static_cast<float>(recvStrandTotalTripCount);
-      LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s %lu/%lu %.4f.\n",
-                        recvStrandId, recvStrandElemIdx,
-                        recvStrandTotalTripCount, progress * 100.f);
+      // Let's recursively get the MinRecvProgress if there is a chain of
+      // sending.
+      float progress = 0.0f;
+      if (!recvDynS->sendToEdges.empty()) {
+        DynStreamSliceId recvSliceId;
+        recvSliceId.getDynStrandId() = recvStrandId;
+        recvSliceId.getStartIdx() = recvStrandElemIdx;
+        recvSliceId.getEndIdx() = recvStrandElemIdx + 1;
+        progress = recvDynS->getMinRecvStrandProgress(recvSliceId);
+        LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s Recursive %.4f.\n",
+                          recvStrandId, progress * 100.f);
+      } else {
+        progress = static_cast<float>(recvStrandElemIdx) /
+                   static_cast<float>(recvStrandTotalTripCount);
+        LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s %lu/%lu %.4f.\n",
+                          recvStrandId, recvStrandElemIdx,
+                          recvStrandTotalTripCount, progress * 100.f);
+      }
+
       if (progress < minProgress) {
         minProgress = progress;
       }
@@ -1207,6 +1220,11 @@ void LLCDynStream::remoteConfigured(
   LLC_S_DPRINTF_(LLCRubyStreamLife, this->getDynStrandId(),
                  "RemoteConfig at %s.\n", llcCtrl->getMachineID());
   if (auto *dynS = this->getStaticS()->getDynStream(this->getDynStreamId())) {
+    if (this->prevConfiguredCycle < dynS->configCycle) {
+      LLC_S_DPRINTF(this->getDynStrandId(),
+                    "WTF PrevConfig %ld < DynSConfig %ld.\n",
+                    this->prevConfiguredCycle, dynS->configCycle);
+    }
     stats.numRemoteConfigCycle += this->prevConfiguredCycle - dynS->configCycle;
   }
 }

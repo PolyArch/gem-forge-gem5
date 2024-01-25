@@ -479,7 +479,10 @@ private:
    * Helper function to check if a stream should
    * be migrated.
    */
-  bool canMigrateStream(LLCDynStream *dynS) const;
+  struct CanMigrateArgs {
+    bool checkIndBufferReq = true;
+  };
+  bool canMigrateStream(LLCDynStream *dynS, const CanMigrateArgs &args) const;
 
   /**
    * Helper function to process stream data for indirect/update.

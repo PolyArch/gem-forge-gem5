@@ -117,8 +117,10 @@ public:
   ExecFuncPtr storeCallback;
   DynStreamFormalParamV loadFormalParams;
   ExecFuncPtr loadCallback;
-  bool overrideAsMemOnly = false;
-  bool overrideAsCmpOnly = false;
+  bool disableCmp = false;
+  bool disableMem = false;
+  // Ugly ugly ugly to implement hierarchical stream.
+  bool trackBaseElemBeforeIssue = false;
   void clearLoadStoreCallback() {
     this->storeFormalParams.clear();
     this->loadFormalParams.clear();

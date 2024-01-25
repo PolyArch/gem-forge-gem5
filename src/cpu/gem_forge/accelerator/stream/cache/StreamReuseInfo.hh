@@ -11,6 +11,39 @@ namespace gem5 {
 
 class StreamReuseInfo {
 public:
+  struct ReusedTile {
+    int64_t reuseDim = InvalidReuseDim;
+    int64_t reuseDimEnd = InvalidReuseDim;
+    int64_t reuseCount = 1;
+    int64_t reuseTileSize = 1;
+
+    ReusedTile() = default;
+    ReusedTile(int64_t _reuseCount) : reuseCount(_reuseCount) {}
+    ReusedTile(int64_t _reuseDim, int64_t _reuseDimEnd, int64_t _reuseCount,
+               int64_t _reuseTileSize)
+        : reuseDim(_reuseDim), reuseDimEnd(_reuseDimEnd),
+          reuseCount(_reuseCount), reuseTileSize(_reuseTileSize) {}
+    bool operator==(const ReusedTile &other) const {
+      return this->reuseDim == other.reuseDim &&
+             this->reuseDimEnd == other.reuseDimEnd &&
+             this->reuseCount == other.reuseCount &&
+             this->reuseTileSize == other.reuseTileSize;
+    }
+    bool operator!=(const ReusedTile &other) const {
+      return !this->operator==(other);
+    }
+
+    bool hasReuse() const { return reuseCount != 1; }
+    bool isReuseTiled() const { return reuseTileSize > 1; }
+
+    int64_t getTotalReuse() const { return reuseCount; }
+
+    uint64_t convertBaseToDepElemIdx(uint64_t baseElemIdx) const;
+    uint64_t convertDepToBaseElemIdx(uint64_t depElemIdx) const;
+    void transformStrideAndTrip(std::vector<int64_t> &strides,
+                                std::vector<int64_t> &trips) const;
+  };
+
   /**
    * Construct a simple RueseInfo.
    */
@@ -20,7 +53,17 @@ public:
                   int64_t _reuseTileSize) {
     this->addTile(_reuseDim, _reuseDimEnd, _reuseCount, _reuseTileSize);
   }
+  StreamReuseInfo(const ReusedTile &tile) { this->addTile(tile); }
+  StreamReuseInfo(const std::vector<ReusedTile> &tiles) {
+    for (const auto &tile : tiles) {
+      this->addTile(tile);
+    }
+  }
 
+  void addTile(const ReusedTile &tile) {
+    this->addTile(tile.reuseDim, tile.reuseDimEnd, tile.reuseCount,
+                  tile.reuseTileSize);
+  }
   void addTile(int64_t _reuseDim, int64_t _reuseDimEnd, int64_t _reuseCount,
                int64_t _reuseTileSize);
 
@@ -61,43 +104,13 @@ public:
    */
   StreamReuseInfo mergeInnerLoopReuse(const StreamReuseInfo &reuseInfo) const;
 
+  const std::vector<ReusedTile> &getReusedTiles() const { return this->tiles; }
+
 private:
   friend std::ostream &operator<<(std::ostream &os,
                                   const StreamReuseInfo &info);
 
   static constexpr int64_t InvalidReuseDim = -1;
-  struct ReusedTile {
-    int64_t reuseDim = InvalidReuseDim;
-    int64_t reuseDimEnd = InvalidReuseDim;
-    int64_t reuseCount = 1;
-    int64_t reuseTileSize = 1;
-
-    ReusedTile() = default;
-    ReusedTile(int64_t _reuseCount) : reuseCount(_reuseCount) {}
-    ReusedTile(int64_t _reuseDim, int64_t _reuseDimEnd, int64_t _reuseCount,
-               int64_t _reuseTileSize)
-        : reuseDim(_reuseDim), reuseDimEnd(_reuseDimEnd),
-          reuseCount(_reuseCount), reuseTileSize(_reuseTileSize) {}
-    bool operator==(const ReusedTile &other) const {
-      return this->reuseDim == other.reuseDim &&
-             this->reuseDimEnd == other.reuseDimEnd &&
-             this->reuseCount == other.reuseCount &&
-             this->reuseTileSize == other.reuseTileSize;
-    }
-    bool operator!=(const ReusedTile &other) const {
-      return !this->operator==(other);
-    }
-
-    bool hasReuse() const { return reuseCount != 1; }
-    bool isReuseTiled() const { return reuseTileSize > 1; }
-
-    int64_t getTotalReuse() const { return reuseCount; }
-
-    uint64_t convertBaseToDepElemIdx(uint64_t baseElemIdx) const;
-    uint64_t convertDepToBaseElemIdx(uint64_t depElemIdx) const;
-    void transformStrideAndTrip(std::vector<int64_t> &strides,
-                                std::vector<int64_t> &trips) const;
-  };
   std::vector<ReusedTile> tiles;
   int64_t totalReuseCount;
 

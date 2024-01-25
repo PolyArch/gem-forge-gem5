@@ -68,6 +68,11 @@ private:
   void splitComputeStream(ConfigVec &configs) const;
 
   /**
+   * Split a ReuseS to manager the Tile.
+   */
+  void splitReuseStream(ConfigVec &configs) const;
+
+  /**
    * Check if streams can be sliced.
    */
   void checkShouldBeSliced(ConfigVec &configs) const;

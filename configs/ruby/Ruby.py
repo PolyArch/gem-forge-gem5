@@ -131,7 +131,8 @@ def define_options(parser):
         type=str,
         default='corner',
         choices=['corner', 'middle', 'tile', 'diag',
-            'east-west-edge', 'north-south-edge', ],
+            'east-west-edge', 'east-edge', 'west-edge',
+            'north-south-edge', 'north-edge',],
         help='How to place directories in the mesh network.',
     )
 

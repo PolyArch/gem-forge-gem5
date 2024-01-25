@@ -1727,7 +1727,9 @@ void StreamNUCAManager::adjustNUMALayoutForRegion(
   auto seWorkload = this->process->seWorkload;
 
   // Default create a new interleave pool.
-  auto poolBytes = roundUp(numPages * pageSize, intrlv * numNUMANodes);
+  // Allocate for one more round.
+  auto poolBytes = roundUp(numPages * pageSize + intrlv * numNUMANodes,
+                           intrlv * numNUMANodes);
   auto poolPages = (poolBytes + pageSize - 1) / pageSize;
 
   args.npages = poolPages;
@@ -1743,7 +1745,7 @@ void StreamNUCAManager::adjustNUMALayoutForRegion(
            newStartPagePAddr, newStartNUMANode);
 
   if (newStartNUMANode != startNUMANode) {
-    panic("We need to implement the adjustment for startNUMANode.");
+    warn("We need to implement the adjustment for startNUMANode.");
   }
 
   this->copyRegionToContinuousPAddr(tc, startPageVAddr, newStartPagePAddr,

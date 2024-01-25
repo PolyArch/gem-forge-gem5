@@ -838,7 +838,8 @@ bool LLCStreamEngine::isNextElemHandledHere(LLCDynStreamPtr dynS) const {
   return false;
 }
 
-bool LLCStreamEngine::canMigrateStream(LLCDynStream *dynS) const {
+bool LLCStreamEngine::canMigrateStream(LLCDynStream *dynS,
+                                       const CanMigrateArgs &args) const {
   /**
    * In this implementation, the stream will aggressively
    * migrate to the next element bank, even the credit has only been
@@ -866,10 +867,13 @@ bool LLCStreamEngine::canMigrateStream(LLCDynStream *dynS) const {
    * after marking the stream "canMigrate" we see more
    * inqueue requests. Use this at your cost before I fix it.
    */
-  int maxBufferedAndInqueueIndReqsBeforeMigration = 4;
-  if (this->indReqBuffer->getNumBufferedAndInqueueReqs(dynS->getDynStrandId()) >
-      maxBufferedAndInqueueIndReqsBeforeMigration) {
-    return false;
+  if (args.checkIndBufferReq) {
+    int maxBufferedAndInqueueIndReqsBeforeMigration = 4;
+    if (this->indReqBuffer->getNumBufferedAndInqueueReqs(
+            dynS->getDynStrandId()) >
+        maxBufferedAndInqueueIndReqsBeforeMigration) {
+      return false;
+    }
   }
   /**
    * We can only enable AdvanceMigrate for DirectStreams.
@@ -1574,7 +1578,14 @@ void LLCStreamEngine::issueStreams() {
     auto readyS = this->checkDirectStreamReadyToIssue(dynS);
     if (readyS) {
       this->issueStreamDirect(readyS);
-      issuedStreams++;
+      if (!(readyS->isCmpDisabled() && readyS->isMemDisabled())) {
+        /**
+         * If this is a hierarchical reuse stream, do not count it as issued.
+         * This is to avoid blocking the real CmpS from issuing.
+         * TODO: Fix this with separate hierarchical SE.
+         */
+        issuedStreams++;
+      }
       /**
        * Implement the burst behavior to stick to the same stream.
        * NOTE: This only works properly when the issue width is 1.
@@ -1781,7 +1792,7 @@ LLCStreamEngine::checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS) {
    * StoreS should have StoreValue ready.
    */
   if (dynS->isStoreComputeStream() || S->isAtomicComputeStream() ||
-      dynS->isUpdateStream()) {
+      dynS->isUpdateStream() || dynS->trackBaseElemBeforeIssue()) {
     auto nextSlice = dynS->getNextAllocSlice();
     if (!nextSlice) {
       LLC_S_PANIC(dynS->getDynStrandId(), "Failed to get next alloc slice.");
@@ -1843,7 +1854,7 @@ LLCStreamEngine::checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS) {
           return nullptr;
         }
       }
-    } else if (S->isUpdateStream()) {
+    } else if (S->isUpdateStream() || dynS->trackBaseElemBeforeIssue()) {
       for (auto idx = nextSliceId.getStartIdx(); idx < nextSliceId.getEndIdx();
            ++idx) {
         auto elem = dynS->getElemPanic(idx, "Check UpdateBaseElem Ready.");
@@ -1867,7 +1878,29 @@ LLCStreamEngine::checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS) {
 }
 
 void LLCStreamEngine::addIssuingDirDynS(LLCDynStreamPtr dynS) {
-  this->issuingDirStreamList.push_back(dynS->getDynStrandId());
+
+  /**
+   * Either add to the back or by progress.
+   */
+  auto streamEnd = this->issuingDirStreamList.end();
+  auto insertIter = streamEnd;
+  if (this->controller->myParams->llc_stream_engine_issue_rotate_by_progress) {
+    // By progress: Before the one with larger progress.
+    auto curProgress = dynS->getMinRecvStrandProgress();
+    LLC_S_DPRINTF(dynS->getDynStrandId(), "[MigrateInsert] Check Progress.\n");
+    auto streamBegin = this->issuingDirStreamList.begin();
+    // Skip the first current issuing one.
+    streamBegin++;
+    for (insertIter = streamBegin; insertIter != streamEnd; ++insertIter) {
+      auto rotateS =
+          LLCDynStream::getLLCStreamPanic(*insertIter, "MigrateInsert");
+      auto progress = rotateS->getMinRecvStrandProgress();
+      if (progress > curProgress) {
+        break;
+      }
+    }
+  }
+  this->issuingDirStreamList.insert(insertIter, dynS->getDynStrandId());
 }
 
 LLCStreamEngine::StrandIdList::iterator
@@ -1965,7 +1998,7 @@ void LLCStreamEngine::issueStreamDirect(LLCDynStream *dynS) {
      * Normally we should issue, unless we are marked CmpOnly.
      * In such case, we directly enqueue a fake response.
      */
-    if (dynS->isOverrideCmpOnly()) {
+    if (dynS->isMemDisabled()) {
       DynStreamSliceIdVec sliceIds;
       sliceIds.add(sliceId);
       ruby::DataBlock fakeDataBlock;
@@ -3170,7 +3203,9 @@ void LLCStreamEngine::findMigratingStreams() {
     const auto &dynStrandId = *iter;
     auto dynS =
         LLCDynStream::getLLCStreamPanic(dynStrandId, "Find Migrating DynS");
-    if (this->canMigrateStream(dynS)) {
+    CanMigrateArgs args;
+    args.checkIndBufferReq = true;
+    if (this->canMigrateStream(dynS, args)) {
       this->migratingStreams.emplace_back(dynS);
       iter = this->removeIssuingDirDynS(iter);
       this->removeDynS(dynS);
@@ -3202,7 +3237,11 @@ void LLCStreamEngine::migrateStreams() {
       continue;
     }
 
-    assert(this->canMigrateStream(dynS) && "Can't migrate.");
+    CanMigrateArgs args;
+    args.checkIndBufferReq = false;
+    if (!this->canMigrateStream(dynS, args)) {
+      LLC_S_PANIC(dynS->getDynStrandId(), "Regret on CanMigrate.");
+    }
     /**
      * Check the migrate controller.
      */

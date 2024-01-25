@@ -78,14 +78,17 @@ public:
   }
 
   Stream *getStaticS() const { return this->configData->stream; }
-  bool isOverrideCmpOnly() const { return this->configData->overrideAsCmpOnly; }
-  bool isOverrideMemOnly() const { return this->configData->overrideAsMemOnly; }
+  bool isMemDisabled() const { return this->configData->disableMem; }
+  bool isCmpDisabled() const { return this->configData->disableCmp; }
+  bool trackBaseElemBeforeIssue() const {
+    return this->configData->trackBaseElemBeforeIssue;
+  }
   bool isUpdateStream() const {
-    return !this->configData->overrideAsMemOnly &&
+    return !this->configData->disableCmp &&
            this->getStaticS()->isUpdateStream();
   }
   bool isStoreComputeStream() const {
-    return !this->configData->overrideAsMemOnly &&
+    return !this->configData->disableCmp &&
            this->getStaticS()->isStoreComputeStream();
   }
   DynStream *getCoreDynS() const {
