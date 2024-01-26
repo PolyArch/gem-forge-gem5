@@ -43,6 +43,9 @@
                     0x1: VPERMILPD(VYdo, WYdo, Ib);
                     0x0: VPERMILPD(Vo, Wo, Ib);
                 }
+                0x06: decode EVEX_L {
+                    0x1: VPERM2F128(VYdo, WYdo, Ib);
+                }
                 0x0C: decode EVEX_L {
                     0x1: VBLENDPS(VYdo, WYdo, Ib);
                     0x0: VBLENDPS(Vo, Wo, Ib);
@@ -81,6 +84,11 @@
                 0x21: decode EVEX_L {
                     0x0: VINSERTPS(Vo, Wo, Ib);
                 }
+                0x31: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x1: KSHIFTRQ(Gq, Rq, Ib);
+                    }
+                }
                 0x38: decode EVEX_L {
                     0x1: VINSERT128(VYdo, Wo, Ib);
                 }
@@ -89,6 +97,9 @@
                         0x0: VEXTRACT128L(Wo, VYdo, Ib);
                         0x1: VEXTRACT128H(Wo, VYdo, Ib);
                     }
+                }
+                0x46: decode EVEX_L {
+                    0x1: VPERM2I128(VYdo, WYdo, Ib);
                 }
             }
         }

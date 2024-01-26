@@ -188,5 +188,16 @@ namespace X86ISA {
 
         return true;
     }
+
+    bool doCpuidInst(ThreadContext * tc, uint32_t function,
+            uint32_t index, CpuidResult &result)
+    {
+        ISA *isa = dynamic_cast<ISA *>(tc->getIsaPtr());
+        const auto &realCPUId = isa->getRealCPUId();
+        if (realCPUId.empty()) {
+            return doCpuid(tc, function, index, result);
+        }
+        return doCpuidWithRealCPU(realCPUId, tc, function, index, result);
+    }
 } // namespace X86ISA
 } // namespace gem5

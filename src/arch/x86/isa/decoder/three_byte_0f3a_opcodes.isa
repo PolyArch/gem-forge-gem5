@@ -38,7 +38,7 @@ format WarnUnimpl {
             0x0C: blendps_Vdq_Wdq_Ib();
             0x0D: blendpd_Vdq_Wdq_Ib();
             0x0E: pblendw_Vdq_Wdq_Ib();
-            0x0F: palignr_Vdq_Wdq_Ib();
+            // 0x0F: palignr_Vdq_Wdq_Ib();
             0x14: pextrb_Rd_or_Mb_Vdq_Ib();
             0x15: decode MODRM_MOD {
                 0x3: Inst::PEXTRW(Rd,Vdq,Ib);
@@ -53,7 +53,7 @@ format WarnUnimpl {
             0x41: dppd_Vdq_Wdq_Ib();
             0x42: pcmpistrm_Vdq_Wdq_Ib();
             0x43: pcmpistri_Vdq_Wdq_Ib();
-            default: Inst::UD2();
+            // default: Inst::UD2();
         }
         default: decode OPCODE_OP {
             0x0F: palignr_Pq_Qq_Ib();

@@ -93,6 +93,11 @@ MLCDynStream::WaitType MLCDynStream::checkWaiting() const {
     MLC_S_DPRINTF(this->getDynStrandId(), "PseudoFloat. Wait Nothing.\n");
     return WaitType::Nothing;
   }
+  if (this->config->disableCmp && this->config->disableMem) {
+    MLC_S_DPRINTF(this->getDynStrandId(),
+                  "Middle Hierarchical Stream. Wait Nothing.\n");
+    return WaitType::Nothing;
+  }
   if (this->stream->isStoreStream()) {
     MLC_S_DPRINTF(this->getDynStrandId(), "StoreStream. Wait Ack.\n");
     return WaitType::Ack;
@@ -119,6 +124,11 @@ MLCDynStream::WaitType MLCDynStream::checkWaiting() const {
                         "CoreSE Not Issue. Non-Dist IndReduce. Wait Ack.\n");
           return WaitType::Ack;
         }
+      } else if (this->stream->isOnlyDirectLoadStream() &&
+                 !this->shouldRangeSync()) {
+        MLC_S_DPRINTF(this->getDynStrandId(),
+                      "CoreSE Not Issue. Only DirectLoadS. Wait Ack.\n");
+        return WaitType::Ack;
       } else {
         // Other streams does not write. Need nothing.
         MLC_S_DPRINTF(this->getDynStrandId(),
@@ -197,7 +207,8 @@ void MLCDynStream::recvCoreReqHit(const DynStreamSliceId &sliceId) {
 
 bool MLCDynStream::checkRecvDynSForPop(const DynStreamSliceId &sliceId) {
 
-  auto strandElemIdx = sliceId.getEndIdx();
+  assert(sliceId.getEndIdx() > 0 && "Impossible.");
+  auto strandElemIdx = sliceId.getEndIdx() - 1;
 
   // Handle merged broadcast including myself.
   auto broadcastStrands = this->config->broadcastStrands;
@@ -472,13 +483,15 @@ void MLCDynStream::makeAck(MLCStreamSlice &slice) {
                         this->slices.front().coreStatus));
   // Send back ack.
   auto dynS = this->getCoreDynS();
-  for (auto &ackSlice : this->slices) {
-    if (ackSlice.coreStatus == MLCStreamSlice::CoreStatusE::DONE) {
-      continue;
-    }
-    if (ackSlice.coreStatus != MLCStreamSlice::CoreStatusE::ACK_READY) {
-      continue;
-    }
+  // for (auto &ackSlice : this->slices) {
+  //   if (ackSlice.coreStatus == MLCStreamSlice::CoreStatusE::DONE) {
+  //     continue;
+  //   }
+  //   if (ackSlice.coreStatus != MLCStreamSlice::CoreStatusE::ACK_READY) {
+  //     continue;
+  //   }
+  {
+    auto &ackSlice = slice;
     const auto &ackSliceId = ackSlice.sliceId;
     // Set the core status to DONE.
     ackSlice.coreStatus = MLCStreamSlice::CoreStatusE::DONE;

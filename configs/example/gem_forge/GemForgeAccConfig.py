@@ -52,6 +52,8 @@ def initializeStreamEngine(args):
         args.gem_forge_stream_engine_yield_core_when_blocked
 
     se.streamEngineEnableFloat = args.gem_forge_stream_engine_enable_float
+    se.noSpeculateFloat = \
+        args.gem_forge_stream_engine_no_speculate_float
     se.streamEngineFloatPolicy = args.gem_forge_stream_engine_float_policy
     se.enableFloatHistory = \
         args.gem_forge_stream_engine_enable_float_history

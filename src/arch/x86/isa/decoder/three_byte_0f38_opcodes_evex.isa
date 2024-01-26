@@ -35,6 +35,11 @@
         1: decode LEGACY_DECODEVAL {
             // 0x66
             0x1: decode OPCODE_OP {
+                0x16: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x2: VPERMPS(VZqo, WZqo);
+                    }
+                }
                 0x18: decode EVEX_L_EXTEND {
                     0x2: VBROADCASTSS(VZqo, Wq);
                 }
@@ -42,6 +47,16 @@
                     0x1: decode EVEX_L_EXTEND {
                         0x2: VBROADCASTSD(VZqo, Wq);
                         0x1: VBROADCASTSD(VYdo, Wq);
+                    }
+                }
+                0x1A: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x2: VBROADCASTF32X4(VZqo, Mqo);
+                    }
+                }
+                0x1B: decode REX_W {
+                    0x1: decode EVEX_L_EXTEND {
+                        0x2: VBROADCASTF64X4(VZqo, Mqo);
                     }
                 }
                 0x28: decode REX_W {
@@ -56,6 +71,16 @@
                         0x2: VPACKUSDW(VZqo, WZqo);
                         0x1: VPACKUSDW(VYdo, WYdo);
                         0x0: VPACKUSDW(Vo, Wo);
+                    }
+                }
+                0x36: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x2: VPERMD(VZqo, WZqo);
+                    }
+                }
+                0x37: decode REX_W {
+                    0x1: decode EVEX_L_EXTEND {
+                        0x2: VPCMPGTQ(VZqo, WZqo);
                     }
                 }
                 0x39: decode REX_W {
@@ -75,6 +100,13 @@
                         0x2: VPMULLD(VZqo, WZqo);
                         0x1: VPMULLD(VYdo, WYdo);
                         0x0: VPMULLD(Vo, Wo);
+                    }
+                }
+                0x50: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x2: VPDPBUSD(VZqo, WZqo);
+                        0x1: VPDPBUSD(VYdo, WYdo);
+                        0x0: VPDPBUSD(Vo, Wo);
                     }
                 }
                 0x58: decode REX_W {
@@ -138,6 +170,11 @@
                         0x1: decode EVEX_L_EXTEND {
                             0x2: VFMADD213PSBROADCAST(VZqo, WZqo);
                         }
+                    }
+                }
+                0xA9: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x0: VFMADD213SS(Vo, Wq);
                     }
                 }
                 0xAC: decode REX_W {

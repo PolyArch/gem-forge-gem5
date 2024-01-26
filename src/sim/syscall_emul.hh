@@ -547,6 +547,8 @@ SyscallReturn pipePseudoFunc(SyscallDesc *desc, ThreadContext *tc);
 /// real-world time) to keep simulations repeatable.
 const unsigned seconds_since_epoch = 1000 * 1000 * 1000;
 
+extern unsigned long elapsedTimeOffset;
+
 /// Helper function to convert current elapsed time to seconds and
 /// microseconds.
 template <class T1, class T2>
@@ -558,6 +560,14 @@ getElapsedTimeMicro(T1 &sec, T2 &usec)
     uint64_t elapsed_usecs = curTick() / sim_clock::as_int::us;
     sec = elapsed_usecs / OneMillion;
     usec = elapsed_usecs % OneMillion;
+
+    /**
+     * I don't know but MKL uses time() and will spin until it increaments.
+     * This takes too long in gem5, I don't know what to do.
+     * Evil Hack: increment it every time I called it.
+     */
+    sec += elapsedTimeOffset;
+    elapsedTimeOffset++;
 }
 
 /// Helper function to convert current elapsed time to seconds and

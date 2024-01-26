@@ -99,7 +99,7 @@ MLCDynDirectStream::MLCDynDirectStream(
       auto sendToMemElementSize = sendToConfig->stream->getMemElementSize();
 
       // Adjust for the reuse.
-      sendToMemElementSize *= sendToEdge.reuse;
+      sendToMemElementSize *= sendToEdge.reuseInfo.getTotalReuse();
 
       auto ratio = sendToMemElementSize / memElementSize;
       maxRatio = std::max(maxRatio, ratio);
@@ -239,7 +239,7 @@ void MLCDynDirectStream::advanceStream() {
     assert(dynIS->getTailSliceIdx() >= dynIS->getHeadSliceIdx() &&
            "Illegal Head/TailSliceIdx.\n");
     // Adjust effective ISElems based on IS reuse.
-    auto reuse = dynIS->getBaseStreamReuse();
+    auto reuse = dynIS->getBaseStreamReuseInfo().getTotalReuse();
     auto ISElems =
         (dynIS->getTailSliceIdx() - dynIS->getHeadSliceIdx()) / reuse;
     if (ISElems > maxISElems) {
@@ -617,8 +617,7 @@ bool MLCDynDirectStream::checkWaitForLLCRecvS(
       const auto &sendToConfig = sendToEdge.data;
       auto recvStreamElemIdx =
           CacheStreamConfigureData::convertBaseToDepElemIdx(
-              indStreamElemIdxRhs, sendToEdge.reuse, sendToEdge.reuseTileSize,
-              sendToEdge.skip);
+              indStreamElemIdxRhs, sendToEdge.reuseInfo, sendToEdge.skip);
 
       auto recvStrandId =
           sendToConfig->getStrandIdFromStreamElemIdx(recvStreamElemIdx);
@@ -672,11 +671,10 @@ void MLCDynDirectStream::sendCreditToLLC(const LLCSegmentPosition &segment) {
   auto remoteBank =
       this->controller->mapAddressToLLCOrMem(remotePAddr, startElemMachineType);
 
-  MLC_S_DPRINTF_(
-      MLCRubyStreamLife, this->strandId,
-      "Extended %lu (Elem %lu) -> %lu at %s (DisableMigration %d).\n",
-      segment.startSliceIdx, startElemIdx, segment.endSliceIdx, remoteBank,
-      this->config->disableMigration);
+  MLC_S_DPRINTF_(MLCRubyStreamLife, this->strandId,
+                 "Extended %lu (Elem %lu) -> %lu at %s (NoMigrate %d).\n",
+                 segment.startSliceIdx, startElemIdx, segment.endSliceIdx,
+                 remoteBank, this->config->disableMigration);
   auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
   msg->m_addr = ruby::makeLineAddress(remotePAddr);
   msg->m_Type = ruby::CoherenceRequestType_STREAM_FLOW;
@@ -795,9 +793,6 @@ void MLCDynDirectStream::receiveStreamData(const DynStreamSliceId &sliceId,
   } else if (slice->coreStatus == MLCStreamSlice::CoreStatusE::WAIT_ACK) {
     // Ack the stream element.
     // TODO: Send the packet back via normal message buffer.
-    // hack("Indirect slices acked element %llu size %llu header %llu.\n",
-    //      sliceId.getStartIdx(), this->slices.size(),
-    //      this->slices.front().sliceId.getStartIdx());
     this->makeAck(*slice);
   } else if (slice->coreStatus == MLCStreamSlice::CoreStatusE::ACK_READY) {
     MLC_SLICE_PANIC(sliceId, "Received multiple acks.");
@@ -938,20 +933,28 @@ MLCDynDirectStream::findSliceForLLC(const DynStreamSliceId &llc) {
    * A quick path to estimate where the slice is.
    */
   if (!this->slices.empty()) {
-    auto startSliceElemIdx = this->slices.front().sliceId.getStartIdx();
-    auto llcSliceElemIdx = llc.getStartIdx();
     auto elemPerSlice =
         static_cast<int64_t>(this->slicedStream.getElemPerSlice());
+    int64_t estimatedSliceOffset = -1;
     if (elemPerSlice >= 1) {
-      // For huge elements, we can not estimate.
-      auto estimatedSliceOffset =
+      // Estimate via element offset.
+      auto startSliceElemIdx = this->slices.front().sliceId.getStartIdx();
+      auto llcSliceElemIdx = llc.getStartIdx();
+      estimatedSliceOffset =
           (llcSliceElemIdx - startSliceElemIdx) / elemPerSlice;
-      if (estimatedSliceOffset < this->slices.size()) {
-        auto sliceIter = this->slices.begin() + estimatedSliceOffset;
-        if (this->matchLLCSliceId(sliceIter->sliceId, llc)) {
-          // Found it.
-          return sliceIter;
-        }
+    } else {
+      // Estimate via vaddr offset. This only works for continuous stream.
+      auto startSliceVAddr = this->slices.front().sliceId.vaddr;
+      auto llcSliceVAddr = llc.vaddr;
+      estimatedSliceOffset = (llcSliceVAddr - startSliceVAddr) /
+                             ruby::RubySystem::getBlockSizeBytes();
+    }
+    if (estimatedSliceOffset >= 0 &&
+        estimatedSliceOffset < this->slices.size()) {
+      auto sliceIter = this->slices.begin() + estimatedSliceOffset;
+      if (this->matchLLCSliceId(sliceIter->sliceId, llc)) {
+        // Found it.
+        return sliceIter;
       }
     }
   }

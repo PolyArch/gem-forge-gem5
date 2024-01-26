@@ -146,10 +146,16 @@ class RubyStreamAwareController(RubyController):
         Param.Bool(True, "When MLCStream pop, ideally check LLCStream progress.")
     llc_stream_engine_issue_width = \
         Param.UInt32(1, "Issue width of LLCStreamEngine.")
+    llc_stream_engine_issue_burst = \
+        Param.UInt32(1, "Issue burst of LLCStreamEngine.")
+    llc_stream_engine_issue_rotate_by_progress = \
+        Param.Bool(False, "How to rotate (default by round-robin) LLCStreamEngine.")
     llc_stream_engine_migrate_width = \
         Param.UInt32(1, "Issue width of LLCStreamEngine.")
     llc_stream_max_infly_request = \
         Param.UInt32(8, "Max infly requests per LLC stream.")
+    stream_engine_max_infly_direct_request = \
+        Param.UInt32(32, "Max infly direct requests per LLCStreamEngine.")
     enable_stream_llc_issue_clear = Param.Bool(True, "Whether to enable llc stream issue clear.")
     llc_stream_engine_compute_width = \
         Param.UInt32(1, "Compute width of LLCStreamEngine.")
@@ -177,9 +183,11 @@ class RubyStreamAwareController(RubyController):
     reuse_buffer_lines_per_core = Param.UInt32(0, "Number of cache lines per core in the reuse buffer.")
 
     # Handle reused tile between sending and receiving streams.
-    stream_reuse_tile_elems \
-        = Param.UInt32(0, "Number of stream elems in the reused tile buffer.")
+    stream_reuse_tile_elems = \
+        Param.UInt32(0, "Number of stream elems in the reused tile buffer.")
 
+    stream_split_compute_stream = \
+        Param.Bool(False, "Whether to split ComputeS out.")
     enable_stream_strand = \
         Param.Bool(False, "Whether to enable stream strand auto parallelization.")
     enable_stream_strand_elem_split = \

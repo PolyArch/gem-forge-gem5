@@ -34,6 +34,8 @@
 #include "base/addr_range.hh"
 #include "base/logging.hh"
 
+#include "sim/stream_nuca/stream_nuca_map.hh"
+
 namespace gem5
 {
 
@@ -117,10 +119,20 @@ MemPool::allocate(Addr npages)
     Addr return_addr = freePageAddr();
     freePageNum += npages;
 
-    fatal_if(freePages() <= 0,
+    fatal_if(freePages() < 0,
             "Out of memory, please increase size of physical memory.");
 
     return return_addr;
+}
+
+Addr
+MemPool::shrink(Addr npages)
+{
+    fatal_if(freePages() < npages, "Out of memory to shrink.");
+
+    _totalPages -= npages;
+
+    return (startPageNum + _totalPages) << pageShift;
 }
 
 void
@@ -130,6 +142,7 @@ MemPool::serialize(CheckpointOut &cp) const
     paramOut(cp, "start_page", startPageNum);
     paramOut(cp, "free_page_num", freePageNum);
     paramOut(cp, "total_pages", _totalPages);
+    paramOut(cp, "interleave", interleave);
 }
 
 void
@@ -139,6 +152,7 @@ MemPool::unserialize(CheckpointIn &cp)
     paramIn(cp, "start_page", startPageNum);
     paramIn(cp, "free_page_num", freePageNum);
     paramIn(cp, "total_pages", _totalPages);
+    paramIn(cp, "interleave", interleave);
 }
 
 void
@@ -164,6 +178,42 @@ Addr
 MemPools::freeMemSize(int pool_id) const
 {
     return pools[pool_id].freeBytes();
+}
+
+int 
+MemPools::splitInterleavePool(const InterleavePoolArgs &args, int pool_id)
+{
+    auto npages = args.npages;
+    auto interleave = args.interleave;
+
+    auto addr = pools.at(pool_id).shrink(npages);
+    pools.emplace_back(pageShift, addr, addr + (npages << pageShift));
+    pools.back().interleave = interleave;
+
+    const auto &pool = pools.back();
+    auto numNUMANodes = StreamNUCAMap::getNUMANodes().size();
+    assert(StreamNUCAMap::registerNUMAInterleavePool);
+    StreamNUCAMap::registerNUMAInterleavePool->operator()(
+        pool.startAddr(),
+        pool.startAddr() + pool.totalBytes(),
+        args.masks,
+        numNUMANodes,
+        args.customize
+    );
+    return pools.size() - 1;
+}
+
+int
+MemPools::getInterleavePool(Addr interleave) const
+{
+    for (int i = 0; i < pools.size(); ++i)
+    {
+        if (pools[i].interleave == interleave)
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void

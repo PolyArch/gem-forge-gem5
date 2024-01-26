@@ -97,6 +97,7 @@ void StreamFloatController::floatStreams(
   bool hasOffloadStoreFunc = false;
   bool hasOffloadPointerChase = false;
   bool enableFloatMem = this->se->myParams->enableFloatMem;
+  bool noSpeculateFloat = this->se->myParams->noSpeculateFloat;
   bool hasDepNestRegion = false;
   for (auto &dynS : dynStreams) {
     auto S = dynS->stream;
@@ -137,7 +138,8 @@ void StreamFloatController::floatStreams(
       MemCmd::Command::StreamConfigReq,
       reinterpret_cast<uint64_t>(cacheStreamConfigVec));
   if (hasOffloadStoreFunc || hasOffloadPointerChase ||
-      hasOffloadFaultedInitPAddr || enableFloatMem || hasDepNestRegion) {
+      hasOffloadFaultedInitPAddr || noSpeculateFloat || enableFloatMem ||
+      hasDepNestRegion) {
     /**
      * There are some scenarios we want to delay offloading until StreamConfig
      * is committed.

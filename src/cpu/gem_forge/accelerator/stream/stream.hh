@@ -229,6 +229,7 @@ public:
   bool isMemStream() const;
   bool isAffineIVStream() const;
   bool isDirectLoadStream() const;
+  bool isOnlyDirectLoadStream() const;
   bool isDirectStoreStream() const;
   bool isIndirectLoadStream() const;
   bool isDirectMemStream() const;
@@ -241,6 +242,9 @@ public:
   }
   bool isLoadComputeStream() const {
     return this->isLoadStream() && this->getEnabledLoadFunc();
+  }
+  bool hasComputation() const {
+    return this->getEnabledLoadFunc() || this->getEnabledStoreFunc();
   }
   bool trackedByPEB() const {
     return this->isLoadStream() && !this->getFloatManual();
@@ -559,6 +563,9 @@ public:
   Cycles getEstimatedComputationLatency() const;
   bool isSIMDComputation() const {
     return this->getComputeCallback()->hasSIMD();
+  }
+  bool isSIMDMatrixComputation() const {
+    return this->getComputeCallback()->hasSIMDMatrix();
   }
   enum ComputationType {
     UnknownComputationType = 0,

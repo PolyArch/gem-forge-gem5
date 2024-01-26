@@ -441,9 +441,19 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
         total_lat = Cycles(0);
     }
 
-    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s %d cycles\n",
-             curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
-             "", "", printAddress(srequest->pkt->getAddr()), total_lat);
+    Addr pc = 0x0;
+    auto hitLevel = ReqHitPlaceE::INVALID;
+    if (srequest->pkt->req->hasPC()) {
+        pc = srequest->pkt->req->getPC();
+        if (auto stat = srequest->pkt->req->getStatistic()) {
+            hitLevel = stat->hitCacheLevel;
+        }
+    }
+    DPRINTF(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s "
+            "%d-cy pc %#x hit %d\n",
+            curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
+            "", "", printAddress(srequest->pkt->getAddr()),
+            total_lat, pc, hitLevel);
 
     m_latencyHist.sample(total_lat);
     m_typeLatencyHist[type]->sample(total_lat);
@@ -458,12 +468,16 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
         auto pc = pkt->req->getPC();
         auto isStream = false;
         const char *streamName = nullptr;
+        auto hitLevel = RequestStatistic::HitPlaceE::INVALID;
         if (pkt->req->hasStatistic()) {
-            isStream = pkt->req->getStatistic()->isStream;
-            streamName = pkt->req->getStatistic()->streamName;
+            auto stats = pkt->req->getStatistic();
+            isStream = stats->isStream;
+            streamName = stats->streamName;
+            hitLevel = stats->hitCacheLevel;
         }
         auto latency = completion_time - issued_time;
-        this->pcReqRecorder.recordReq(pc, type, isStream, streamName, latency);
+        this->pcReqRecorder.recordReq(pc, type, isStream, streamName,
+            latency, hitLevel);
     }
 
     if (isExternalHit) {

@@ -14,6 +14,14 @@
 
 #include "debug/StreamNUCAManager.hh"
 
+#define NUCA_LOG_(X, format, args...)                                          \
+  {                                                                            \
+    DPRINTF(X, "[StreamNUCA] " format, ##args);                                \
+    ccprintf(*log->stream(), "[StreamNUCA] " format, ##args);                  \
+  }
+
+#define NUCA_LOG(format, args...) NUCA_LOG_(StreamNUCAManager, format, ##args)
+
 namespace gem5 {
 
 std::shared_ptr<StreamNUCAManager> StreamNUCAManager::singleton = nullptr;
@@ -223,6 +231,8 @@ void StreamNUCAManager::setProperty(ThreadContext *tc, Addr start,
     CASE(PUM_TILE_SIZE_DIM0);
     CASE(REDUCE_DIM);
     CASE(BROADCAST_DIM);
+    CASE(TRANSPOSE_BANK);
+    CASE(MIRROR_MEM_CTRL);
 
 #undef CASE
   }
@@ -533,7 +543,7 @@ void StreamNUCAManager::remapRegions(ThreadContext *tc,
       break;
     }
     case REMAP_NUCA: {
-      this->remapDirectRegionNUCA(region);
+      this->remapDirectRegionNUCA(tc, region);
       break;
     }
     case REMAP_PUM: {
@@ -567,56 +577,63 @@ void StreamNUCAManager::remapRegions(ThreadContext *tc,
   }
 }
 
-void StreamNUCAManager::remapDirectRegionNUCA(StreamRegion &region) {
+void StreamNUCAManager::remapDirectRegionNUCA(ThreadContext *tc,
+                                              StreamRegion &region) {
   if (!this->isPAddrContinuous(region)) {
     panic("[StreamNUCA] Region %s %#x PAddr is not continuous.", region.name,
           region.vaddr);
   }
   auto startVAddr = region.vaddr;
-  auto startPAddr = this->translate(startVAddr);
 
+  auto startPAddr = this->translate(startVAddr);
   auto endPAddr = startPAddr + region.elementSize * region.numElement;
 
-  auto interleave = this->determineInterleave(region);
-  int startBank = this->determineStartBank(region, interleave.front());
+  auto intrlvs = this->determineInterleave(region);
+  int startBank = this->determineStartBank(region, intrlvs.front());
   int startSet = 0;
+
+  // Get if we want to transpose the bank.
+  bool transposeBank = false;
+  if (region.properties.count(RegionProperty::TRANSPOSE_BANK)) {
+    transposeBank = region.properties.at(RegionProperty::TRANSPOSE_BANK);
+  }
+  bool mirrorBank = false;
+  if (region.properties.count(RegionProperty::MIRROR_MEM_CTRL)) {
+    mirrorBank = region.properties.at(RegionProperty::MIRROR_MEM_CTRL);
+  }
 
   // Remember the interleave and start bank.
   region.properties.emplace(RegionProperty::START_BANK, startBank);
 
-  StreamNUCAMap::addRangeMap(startPAddr, endPAddr, interleave, startBank,
-                             startSet);
-  if (interleave.size() == 1) {
+  if (intrlvs.size() == 1) {
     // Uniform interleave.
-    region.properties.emplace(RegionProperty::INTERLEAVE, interleave.front());
-    DPRINTF(StreamNUCAManager,
-            "[StreamNUCA] Map %s %#x %lux%lu PAddr %#x Intrlv %lu Bank %d.\n",
-            region.name, startVAddr, region.elementSize, region.numElement,
-            startPAddr, interleave.front(), startBank);
-    ccprintf(*log->stream(),
-             "[StreamNUCA] Map %s %#x %lux%lu PAddr %#x Intrlv %lu Bank %d.\n",
+    region.properties.emplace(RegionProperty::INTERLEAVE, intrlvs.front());
+    NUCA_LOG("Map %s %#x %lux%lu PAddr %#x Intrlv %lu Bank %d T%d M%d.\n",
              region.name, startVAddr, region.elementSize, region.numElement,
-             startPAddr, interleave.front(), startBank);
+             startPAddr, intrlvs.front(), startBank, transposeBank, mirrorBank);
+
+    // This must happen before add NUCA map, which needs the physical address.
+    this->adjustNUMALayoutForRegion(tc, region, intrlvs.front(), startBank,
+                                    transposeBank, mirrorBank);
+
+    // It may change the paddr.
+    startPAddr = this->translate(startVAddr);
+    endPAddr = startPAddr + region.elementSize * region.numElement;
+
   } else {
-    DPRINTF(StreamNUCAManager,
-            "[StreamNUCA] Map %s %#x %lux%lu PAddr %#x Bank %d NonUniIntrlv.\n",
-            region.name, startVAddr, region.elementSize, region.numElement,
-            startPAddr, startBank);
-    ccprintf(
-        *log->stream(),
-        "[StreamNUCA] Map %s %#x %lux%lu PAddr %#x Bank %d NonUniIntrlv.\n",
-        region.name, startVAddr, region.elementSize, region.numElement,
-        startPAddr, startBank);
+    NUCA_LOG("Map %s %#x %lux%lu PAddr %#x Bank %d NonUniIntrlv.\n",
+             region.name, startVAddr, region.elementSize, region.numElement,
+             startPAddr, startBank);
     auto prevIntrlv = 0;
-    for (int i = 0; i < interleave.size(); i++) {
-      auto intrlv = interleave.at(i);
-      DPRINTF(StreamNUCAManager, "[StreamNUCA]  Intrlv %d %lu %lu.\n", i,
-              intrlv, intrlv - prevIntrlv);
-      ccprintf(*log->stream(), "[StreamNUCA]  Intrlv %d %lu %lu.\n", i, intrlv,
-               intrlv - prevIntrlv);
+    for (int i = 0; i < intrlvs.size(); i++) {
+      auto intrlv = intrlvs.at(i);
+      NUCA_LOG(" Intrlv %d %lu %lu.\n", i, intrlv, intrlv - prevIntrlv);
       prevIntrlv = intrlv;
     }
   }
+
+  StreamNUCAMap::addRangeMap(startPAddr, endPAddr, intrlvs, startBank, startSet,
+                             transposeBank);
 }
 
 void StreamNUCAManager::remapPtrChaseRegion(ThreadContext *tc,
@@ -633,11 +650,9 @@ void StreamNUCAManager::remapPtrChaseRegion(ThreadContext *tc,
   auto alignInfo = decodeIrregularAlign(align.elemOffset);
   assert(alignInfo.type == IrregularAlignField::TypeE::PtrChase);
 
-  DPRINTF(StreamNUCAManager,
-          "[StreamNUCA] Remap PtrCahse %s Head %s Offset %d Size %d ElemSize "
-          "%d.\n",
-          region.name, alignToRegion.name, alignInfo.ptrOffset,
-          alignInfo.ptrSize, region.elementSize);
+  NUCA_LOG("Remap PtrCahse %s Head %s Offset %d Size %d ElemSize %d.\n",
+           region.name, alignToRegion.name, alignInfo.ptrOffset,
+           alignInfo.ptrSize, region.elementSize);
 
   [[maybe_unused]] const auto llcBlockSize = StreamNUCAMap::getCacheBlockSize();
   const auto nodeSize = region.elementSize;
@@ -1647,6 +1662,104 @@ void StreamNUCAManager::makeRegionPAddrContinuous(ThreadContext *tc,
   assert(this->process->seWorkload);
   auto newStartPagePAddr = this->process->seWorkload->allocPhysPages(numPages);
 
+  this->copyRegionToContinuousPAddr(tc, startPageVAddr, newStartPagePAddr,
+                                    numPages);
+
+  assert(this->isPAddrContinuous(region));
+}
+
+void StreamNUCAManager::adjustNUMALayoutForRegion(
+    ThreadContext *tc, const StreamRegion &region, Addr nucaIntrlv,
+    int startNUCANode, bool transposeNUCABank, bool mirrorBank) {
+
+  // Check that custom NUMA interleave is supported.
+  if (!StreamNUCAMap::registerNUMAInterleavePool) {
+    return;
+  }
+
+  if (startNUCANode != 0) {
+    return;
+  }
+
+  /**
+   * For now to just assume NUMAIntrlv = 4x NUCAIntrlv with startNUCANode = 0.
+   */
+  SEWorkload::InterleavePoolArgs args;
+  Addr intrlv = 4 * nucaIntrlv;
+  int startNUMANode = startNUCANode;
+  auto numNUMANodes = StreamNUCAMap::getNUMANodes().size();
+  args.interleave = intrlv;
+  if (transposeNUCABank) {
+    // Be careful. So far we only support transpose east-west edges.
+    // Assume 8x2 NUMA nodes (as they are on east/west edges).
+    args.customize = SEWorkload::InterleavePoolArgs::NUMACustomizeTranspose;
+    args.masks.push_back(nucaIntrlv * 1);
+    args.masks.push_back(nucaIntrlv * 2);
+    args.masks.push_back(nucaIntrlv * 4);
+    // Repeat 4 times.
+    args.masks.push_back(nucaIntrlv * 8 * 4);
+  } else {
+    // Simple case for continuous interleave.
+    for (Addr i = intrlv; i < intrlv * numNUMANodes; i *= 2) {
+      args.masks.push_back(i);
+    }
+    if (mirrorBank) {
+      args.customize =
+          SEWorkload::InterleavePoolArgs::NUMACustomizeMirrorHorizontal;
+    }
+  }
+
+  auto pTable = this->process->pTable;
+  auto pageSize = pTable->pageSize();
+  auto startPageVAddr = pTable->pageAlign(region.vaddr);
+  if (startPageVAddr != region.vaddr) {
+    panic("Region %s VAddr %#x not align to Page.", region.name, region.vaddr);
+  }
+  auto endVAddr = region.vaddr + region.elementSize * region.numElement;
+  auto endPageVAddr = pTable->pageAlign(endVAddr + pageSize - 1);
+
+  auto numPages = (endPageVAddr - startPageVAddr) / pageSize;
+  NUCA_LOG("Adjust NUMA Intrlv %lu Pages %d for %s.\n", intrlv, numPages,
+           region.name);
+  assert(this->process->seWorkload);
+
+  // Get the interleave pool.
+  auto seWorkload = this->process->seWorkload;
+
+  // Default create a new interleave pool.
+  // Allocate for one more round.
+  auto poolBytes = roundUp(numPages * pageSize + intrlv * numNUMANodes,
+                           intrlv * numNUMANodes);
+  auto poolPages = (poolBytes + pageSize - 1) / pageSize;
+
+  args.npages = poolPages;
+
+  auto pool_id = seWorkload->splitInterleavePool(args);
+  NUCA_LOG("Split IntrlvPool %lu Bytes %dkB.\n", intrlv, poolBytes / 1024);
+
+  auto newStartPagePAddr = seWorkload->allocPhysPages(numPages, pool_id);
+
+  auto newStartNUMANode = (newStartPagePAddr / intrlv) % numNUMANodes;
+
+  NUCA_LOG("Alloc from IntrlvPool %d %#x start at %d.\n", pool_id,
+           newStartPagePAddr, newStartNUMANode);
+
+  if (newStartNUMANode != startNUMANode) {
+    warn("We need to implement the adjustment for startNUMANode.");
+  }
+
+  this->copyRegionToContinuousPAddr(tc, startPageVAddr, newStartPagePAddr,
+                                    numPages);
+}
+
+void StreamNUCAManager::copyRegionToContinuousPAddr(ThreadContext *tc,
+                                                    Addr startPageVAddr,
+                                                    Addr newStartPagePAddr,
+                                                    Addr numPages) {
+
+  auto pTable = this->process->pTable;
+  auto pageSize = pTable->pageSize();
+
   // Used to copy the page.
   char *pageData = reinterpret_cast<char *>(malloc(pageSize));
 
@@ -1654,8 +1767,7 @@ void StreamNUCAManager::makeRegionPAddrContinuous(ThreadContext *tc,
     auto pageVAddr = startPageVAddr + i * pageSize;
     Addr pagePAddr;
     if (!pTable->translate(pageVAddr, pagePAddr)) {
-      panic("Region %s failed to translate PageVAddr %#x.", region.name,
-            pageVAddr);
+      panic("Failed to translate PageVAddr %#x.", pageVAddr);
     }
 
     // Copy to new page.
@@ -1671,8 +1783,6 @@ void StreamNUCAManager::makeRegionPAddrContinuous(ThreadContext *tc,
     pTable->map(pageVAddr, newPagePAddr, pageSize, clobber);
     tc->getVirtProxy().writeBlob(pageVAddr, pageData, pageSize);
   }
-
-  assert(this->isPAddrContinuous(region));
 }
 
 Addr StreamNUCAManager::translate(Addr vaddr) {

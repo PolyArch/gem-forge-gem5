@@ -103,6 +103,12 @@ struct LinearAddrGenCallback : public AddrGenCallback {
    * Get nested trip count.
    */
   uint64_t getNestTripCount(const DynStreamFormalParamV &params, int nestLevel);
+
+  /**
+   * Get total trip count.
+   *
+   */
+  static uint64_t getTotalTripCount(const DynStreamFormalParamV &params);
 };
 
 class FuncAddrGenCallback : public AddrGenCallback {
@@ -127,6 +133,11 @@ private:
 std::ostream &operator<<(std::ostream &os, const DynStreamFormalParamV &params);
 std::string to_string(const DynStreamFormalParamV &params);
 std::string printAffinePatternParams(const DynStreamFormalParamV &params);
+DynStreamFormalParamV
+removeTripOneFromAffinePattern(const DynStreamFormalParamV &params);
+DynStreamFormalParamV
+expandReuseInAffinePattern(const DynStreamFormalParamV &params,
+                           int64_t innerTrip, int64_t reuseSize);
 
 void extractStrideAndTripFromAffinePatternParams(
     const DynStreamFormalParamV &params, std::vector<int64_t> &strides,

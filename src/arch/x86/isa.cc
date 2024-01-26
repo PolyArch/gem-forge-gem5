@@ -150,7 +150,9 @@ RegClass vecPredRegClass(VecPredRegClass, VecPredRegClassName, 1,
 
 } // anonymous namespace
 
-ISA::ISA(const X86ISAParams &p) : BaseISA(p), vendorString(p.vendor_string)
+ISA::ISA(const X86ISAParams &p) : BaseISA(p),
+    vendorString(p.vendor_string),
+    realCPUId(p.realCPUId)
 {
     fatal_if(vendorString.size() != 12,
              "CPUID vendor string must be 12 characters\n");
@@ -477,9 +479,22 @@ ISA::setMiscReg(RegIndex idx, RegVal val)
 }
 
 void
+ISA::setAMXTileCfg(const AMX::AMXTileConfig &cfg)
+{
+    this->amxTileCfg = cfg;
+}
+
+const
+AMX::AMXTileConfig &ISA::getAMXTileCfg() const
+{
+    return this->amxTileCfg;
+}
+
+void
 ISA::serialize(CheckpointOut &cp) const
 {
     SERIALIZE_ARRAY(regVal, misc_reg::NumRegs);
+    SERIALIZE_ARRAY(amxTileCfg.raw_data, AMX::AMXTileConfig::ConfigBytes);
 }
 
 void
@@ -491,6 +506,7 @@ ISA::unserialize(CheckpointIn &cp)
                      regVal[misc_reg::CsAttr],
                      regVal[misc_reg::SsAttr],
                      regVal[misc_reg::Rflags]);
+    UNSERIALIZE_ARRAY(amxTileCfg.raw_data, AMX::AMXTileConfig::ConfigBytes);
 }
 
 void

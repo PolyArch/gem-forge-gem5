@@ -100,6 +100,17 @@ def create_system(options, full_system, system, dma_ports, bootmem,
     # Must create the individual controllers before the network to ensure the
     # controller constructors are called before the network constructor
     #
+    def get_replacement_policy(arg):
+        if arg == 'brriprp':
+            return BRRIPRP()
+        elif arg == 'lru':
+            return LRURP()
+        elif arg == 'treeplrurp':
+            return TreePLRURP()
+        else:
+            print('Unsupported replacement policy')
+            assert(False)
+
     for i in range(options.num_clusters):
         for j in range(num_cpus_per_cluster):
             #
@@ -108,19 +119,21 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l0i_cache = L0Cache(size=options.l1i_size, assoc=options.l1i_assoc,
                 is_icache=True,
                 start_index_bit=block_size_bits,
-                replacement_policy=BRRIPRP())
+                replacement_policy=get_replacement_policy(options.gem_forge_l1_replacement_policy),
+            ) 
 
             l0d_cache = L0Cache(size=options.l1d_size, assoc=options.l1d_assoc, is_icache=False,
                 start_index_bit=block_size_bits,
-                replacement_policy=BRRIPRP(),
+                replacement_policy=get_replacement_policy(options.gem_forge_l1_replacement_policy),
                 dataAccessLatency=options.l1d_lat)
 
             prefetcher = RubyPrefetcher(
                 num_streams=16,
                 unit_filter=256,
                 nonunit_filter=256,
-                train_misses=5,
+                train_misses=options.gem_forge_prefetch_train_misses,
                 num_startup_pfs=options.gem_forge_prefetch_dist,
+                track_pc=options.gem_forge_prefetch_track_pc,
                 cross_page=options.gem_forge_prefetch_cross_page,
                 observe_hit=options.gem_forge_prefetch_on_hit,
                 prefetch_inst=options.gem_forge_prefetch_inst,
@@ -184,6 +197,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 enable_stream_float_mem=options.gem_forge_stream_engine_enable_float_mem,
                 enable_distributed_indirect_reduce=\
                     options.gem_forge_enable_stream_float_distributed_indirect_reduction,
+                llc_stream_max_infly_request=\
+                    options.gem_forge_stream_engine_llc_stream_max_infly_request,
                 )
 
             cpu_seq = RubySequencer(version=i * num_cpus_per_cluster + j,
@@ -220,14 +235,16 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             l1_cache = L1Cache(size=options.l1_5d_size,
                                assoc=options.l1_5d_assoc,
                                start_index_bit=block_size_bits,
+                               replacement_policy=get_replacement_policy(options.gem_forge_l2_replacement_policy),
                                is_icache=False)
 
             l1_prefetcher = RubyPrefetcher(
                 num_streams=16,
                 unit_filter=256,
                 nonunit_filter=256,
-                train_misses=5,
+                train_misses=options.gem_forge_l2_prefetch_train_misses,
                 num_startup_pfs=options.gem_forge_l2_prefetch_dist,
+                track_pc=options.gem_forge_l2_prefetch_track_pc,
                 cross_page=options.gem_forge_l2_prefetch_cross_page,
                 observe_hit=options.gem_forge_l2_prefetch_on_hit,
                 bulk_prefetch_size=options.gem_forge_l2_bulk_prefetch_size,
@@ -238,6 +255,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 cache=l1_cache,
                 prefetcher=l1_prefetcher,
                 enable_prefetch=(options.gem_forge_l2_prefetcher == 'stride'),
+                prefetch_store=options.gem_forge_l2_prefetch_store,
                 transitions_per_cycle=options.l1_transitions_per_cycle,
                 number_of_TBEs=options.l1_5d_mshrs,
                 recycle_latency=options.recycle_latency,
@@ -279,8 +297,11 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                     options.gem_forge_stream_engine_mlc_stream_runahead_slice_inverse_ratio,
                 mlc_stream_buffer_to_segment_ratio=\
                     options.gem_forge_stream_engine_mlc_stream_buffer_to_segment_ratio,
+                llc_stream_max_infly_request=\
+                    options.gem_forge_stream_engine_llc_stream_max_infly_request,
                 enable_stream_range_sync=options.gem_forge_enable_stream_range_sync,
                 enable_stream_float_mem=options.gem_forge_stream_engine_enable_float_mem,
+                stream_split_compute_stream=options.gem_forge_stream_split_compute_stream,
                 enable_stream_strand=options.gem_forge_enable_stream_strand,
                 enable_stream_strand_elem_split=\
                     options.gem_forge_enable_stream_strand_elem_split,
@@ -361,7 +382,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                start_index_bit=block_size_bits,
                                skip_index_start_bit=l2_select_low_bit,
                                skip_index_num_bits=l2_bits,
-                               replacement_policy=BRRIPRP(),
+                               replacement_policy=get_replacement_policy(options.gem_forge_l3_replacement_policy),
                                query_stream_nuca=True,
                                num_bitlines=options.gem_forge_stream_pum_num_bitlines,
                                num_wordlines=options.gem_forge_stream_pum_num_wordlines,
@@ -426,6 +447,8 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                     options.gem_forge_stream_engine_llc_stream_engine_migrate_width,
                 llc_stream_max_infly_request=\
                     options.gem_forge_stream_engine_llc_stream_max_infly_request,
+                stream_engine_max_infly_direct_request=\
+                    options.gem_forge_stream_engine_llc_engine_max_infly_direct_request,
                 llc_stream_engine_compute_width=\
                     options.gem_forge_stream_engine_compute_width,
                 llc_stream_engine_max_infly_computation=\
@@ -557,8 +580,12 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.mlc_stream_buffer_init_num_entries = options.gem_forge_stream_engine_mlc_stream_buffer_init_num_entries
         dir_cntrl.mlc_stream_slices_runahead_inverse_ratio = options.gem_forge_stream_engine_mlc_stream_runahead_slice_inverse_ratio
         dir_cntrl.llc_stream_engine_issue_width = options.gem_forge_stream_engine_mc_issue_width
+        # We make it have some burst to be more friendly to the DRAM.
+        dir_cntrl.llc_stream_engine_issue_burst = options.gem_forge_stream_engine_mc_issue_burst
+        dir_cntrl.llc_stream_engine_issue_rotate_by_progress = options.gem_forge_stream_engine_mc_issue_rotate_by_progress
         dir_cntrl.llc_stream_engine_migrate_width = options.gem_forge_stream_engine_llc_stream_engine_migrate_width
         dir_cntrl.llc_stream_max_infly_request = options.gem_forge_stream_engine_mc_stream_max_infly_request
+        dir_cntrl.stream_engine_max_infly_direct_request = options.gem_forge_stream_engine_mc_engine_max_infly_direct_request
         dir_cntrl.llc_stream_engine_compute_width = options.gem_forge_stream_engine_compute_width
         dir_cntrl.llc_stream_engine_max_infly_computation = options.gem_forge_stream_engine_llc_max_infly_computation
         dir_cntrl.llc_access_core_simd_delay = options.gem_forge_stream_engine_llc_access_core_simd_delay
@@ -578,8 +605,6 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         dir_cntrl.ind_stream_req_max_per_multicast_msg = options.gem_forge_stream_engine_llc_multicast_max_ind_req_per_message
         dir_cntrl.ind_stream_req_multicast_group_size = options.gem_forge_stream_engine_llc_multicast_ind_req_bank_group_size
         dir_cntrl.enable_distributed_indirect_reduce = options.gem_forge_enable_stream_float_distributed_indirect_reduction
-
-        print(options.gem_forge_enable_llc_stream_engine_trace)
 
     for i, dma_port in enumerate(dma_ports):
         #

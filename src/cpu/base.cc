@@ -216,14 +216,16 @@ BaseCPU::BaseCPU(const Params &p, bool is_checker)
             if (p.function_trace)
                 funcTracer->enableFunctionTrace();
             if (p.function_acc_tick)
-                funcTracer->enableFunctionAccumulateTick();
+                funcTracer->enableFunctionAccumulateTick(
+                    p.pc_acc_tick);
         } else {
             Event *event = new EventFunctionWrapper(
                 [this, p]() -> void {
                     if (p.function_trace)
                         this->funcTracer->enableFunctionTrace();
                     if (p.function_acc_tick)
-                        this->funcTracer->enableFunctionAccumulateTick();
+                        this->funcTracer->enableFunctionAccumulateTick(
+                            p.pc_acc_tick);
                 },
                 name(), true);
             schedule(event, p.function_trace_start);

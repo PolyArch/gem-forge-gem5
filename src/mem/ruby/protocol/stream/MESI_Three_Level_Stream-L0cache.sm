@@ -148,7 +148,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     State CacheState,        desc="cache state";
     DataBlock DataBlk,       desc="data for the block";
     bool Dirty, default="false",   desc="data is dirty";
-    bool isPrefetch, desc="Set if this block was prefetched and not yet accessed.";
+    bool isPrefetch,               desc="Set if this block was prefetched and not yet accessed.";
+    Addr prefetchId, default="0",  desc="The id to locate the prefetch stream";
   }
 
   // TBE fields
@@ -158,6 +159,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     DataBlock DataBlk,                desc="Buffer for the data block";
     bool Dirty, default="false",      desc="data is dirty";
     bool isPrefetch, default="false", desc="Set if this was caused by a prefetch";
+    Addr prefetchId, default="0",     desc="The id to locate the prefetch stream";
     int pendingAcks, default="0",     desc="number of pending acks";
     ExplicitReuseState explicitReuse, desc="Support GemForge Explicit";
   }
@@ -635,6 +637,16 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     }
   }
 
+  void enqueuePrefetchWithId(Addr address, RubyRequestType type, Addr pfId) {
+    enqueue(prefetchQueue_out, RubyRequest, 1) {
+      out_msg.LineAddress := address;
+      out_msg.Type := type;
+      out_msg.Prefetch := PrefetchBit:Yes;
+      out_msg.PrefetchId := pfId;
+      out_msg.AccessMode := RubyAccessMode:Supervisor;
+    }
+  }
+
   // ACTIONS
   action(a_issueGETS, "a", desc="Issue GETS") {
     peek(mandatoryQueue_in, RubyRequest) {
@@ -650,6 +662,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         // Don't forget to copy the statistic hook.
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -682,6 +695,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -716,6 +730,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -751,6 +766,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
         out_msg.AccessMode := in_msg.AccessMode;
         out_msg.requestStatistic := getRequestStatistic(in_msg.pkt);
         out_msg.slice := se.getSliceId(in_msg.pkt);
+        out_msg.pkt := in_msg.pkt;
       }
     }
   }
@@ -865,6 +881,19 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     if (bingoPrefetcher.isEnabled()) {
       bingoPrefetcher.incrementInflyRequests();
     }
+  }
+
+  action(ipf_setTBEPrefetchIdFromReq, "ipf", desc="Copy prefetch id from req to tbe") {
+    assert(is_valid(tbe));
+    peek(prefetchQueue_in, RubyRequest) {
+      tbe.isPrefetch := true;
+      tbe.prefetchId := in_msg.PrefetchId;
+    }
+  }
+
+  action(ipfc_clearTBEPrefetchId, "ipfc", desc="Clear prefetch id") {
+    assert(is_valid(tbe));
+    tbe.isPrefetch := false;
   }
 
   action(iu_allocateTBENoCacheBlock, "iu", desc="Allocate TBE (number of invalidates=0) without CacheBlock") {
@@ -1011,7 +1040,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
       Addr req_address := in_msg.LineAddress;
       RubyRequestType type := in_msg.Type;
       if (cache_entry.isPrefetch) {
-        prefetcher.observePfHit(req_address);
+        prefetcher.observePfHitWithId(req_address, cache_entry.prefetchId);
         cache_entry.isPrefetch := false;
         if (bingoPrefetcher.isEnabled()) {
           bingoPrefetcher.observePfHit(req_address);
@@ -1035,7 +1064,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
   action(pph_observePfCached, "\pph",
          desc="Inform the prefetcher about the already cached pf req") {
     if (enable_prefetch) {
-      prefetcher.observePfAlreadyCached(address);
+      peek(prefetchQueue_in, RubyRequest) {
+        prefetcher.observePfAlreadyCachedWithId(address, in_msg.PrefetchId);
+      }
     }
   }
 
@@ -1060,7 +1091,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
   
   action(ppm_observePfMiss, "\ppm", desc="Inform the prefetcher about the partial miss") {
     peek(mandatoryQueue_in, RubyRequest) {
-      prefetcher.observePfMiss(in_msg.LineAddress);
+      assert(is_valid(tbe));
+      assert(tbe.isPrefetch);
+      prefetcher.observePfMissWithId(in_msg.LineAddress, tbe.prefetchId);
       if (bingoPrefetcher.isEnabled()) {
         bingoPrefetcher.observePfMiss(in_msg.LineAddress);
       }
@@ -1076,7 +1109,9 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
 
   action(mp_markPrefetched, "mp", desc="Set the isPrefetch flag") {
     assert(is_valid(cache_entry));
+    assert(is_valid(tbe));
     cache_entry.isPrefetch := true;
+    cache_entry.prefetchId := tbe.prefetchId;
   }
 
   /**
@@ -1199,6 +1234,11 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     pq_popPrefetchQueue;
   }
 
+  transition({IU}, {PF_Load, PF_Store, PF_Ifetch}) {
+    // Ignore prefetch when we are doing non-temporal fetch.
+    pq_popPrefetchQueue;
+  }
+
   // Transitions from Idle
   transition(I, Load, IS) {
     oo_allocateDCacheBlock;
@@ -1215,12 +1255,14 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
     oo_allocateDCacheBlock;
     i_allocateTBE;
     pa_issuePfGETS;
+    ipf_setTBEPrefetchIdFromReq;
     pq_popPrefetchQueue;
   }
 
   transition(PF_IS, Load, IS) {
     uu_profileDataMiss;
     ppm_observePfMiss;
+    ipfc_clearTBEPrefetchId;
     ur_profileDataReq;
     k_popMandatoryQueue;
   }
@@ -1244,25 +1286,27 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
   transition(I, PF_Ifetch, PF_Inst_IS) {
     pp_allocateICacheBlock;
     i_allocateTBE;
+    ipf_setTBEPrefetchIdFromReq;
     pa_issuePfGETS;
     pq_popPrefetchQueue;
   }
   transition(PF_Inst_IS, Ifetch, Inst_IS) {
     uu_profileInstMiss;
     ppm_observePfMiss;
+    ipfc_clearTBEPrefetchId;
     k_popMandatoryQueue;
   }
   transition(PF_Inst_IS, Data, S) {
     u_writeInstToCache;
-    s_deallocateTBE;
     mp_markPrefetched;
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
   transition(PF_Inst_IS, Data_Exclusive, E) {
     u_writeInstToCache;
-    s_deallocateTBE;
     mp_markPrefetched;
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1280,6 +1324,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
   transition(I, PF_Store, PF_IM) {
     oo_allocateDCacheBlock;
     i_allocateTBE;
+    ipf_setTBEPrefetchIdFromReq;
     pb_issuePfGETX;
     pq_popPrefetchQueue;
   }
@@ -1287,6 +1332,7 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
   transition(PF_IM, Store, IM) {
     uu_profileDataMiss;
     ppm_observePfMiss;
+    ipfc_clearTBEPrefetchId;
     ur_profileDataReq;
     k_popMandatoryQueue;
   }
@@ -1412,8 +1458,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
 
   transition(PF_IS, Data, S) {
     u_writeDataToCache;
-    s_deallocateTBE;
     mp_markPrefetched;
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1429,8 +1475,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
 
   transition(PF_IS, Data_Exclusive, E) {
     u_writeDataToCache;
-    s_deallocateTBE;
     mp_markPrefetched;
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }
@@ -1496,8 +1542,8 @@ machine(MachineType:L0Cache, "MESI Directory L0 Cache", interface="AbstractStrea
 
   transition(PF_IM, Data_Exclusive, M) {
     u_writeDataToCache;
-    s_deallocateTBE;
     mp_markPrefetched;
+    s_deallocateTBE;
     o_popIncomingResponseQueue;
     kd_wakeUpDependents;
   }

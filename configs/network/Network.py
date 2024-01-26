@@ -99,8 +99,9 @@ def define_options(parser):
     )
     parser.add_argument(
         "--routing-YX",
-        action="store_true",
-        default=False,
+        action="store",
+        type=int,
+        default=0,
         help="Switch XY to YX, used in MeshDirCorners_XY only.",
     )
     parser.add_argument(
@@ -125,10 +126,12 @@ def define_options(parser):
             channel for each virtual network""",
     )
     parser.add_argument(
-        "--garnet-enable-multicast",
-        action="store_true",
-        default=False,
-        help="""enable multicast"""
+        "--garnet-multicast-mode",
+        choices=["unicast", "duplicate", "fanout"],
+        help="""unicast: no multicast;
+            duplicate: clone msg at earliest diverging router;
+            fanout: directly fan out flits at diverging router;""",
+        default="unicast",
     )
     parser.add_argument(
         "--garnet-ideal-noc-hops",
@@ -195,6 +198,7 @@ def create_network(options, ruby):
         ext_links=[],
         int_links=[],
         netifs=[],
+        enable_custom_dram_interleave=options.numa_custom_interleave,
     )
 
     return (network, IntLinkClass, ExtLinkClass, RouterClass, InterfaceClass)
@@ -208,7 +212,7 @@ def init_network(options, network, InterfaceClass):
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
-        network.enable_multicast = options.garnet_enable_multicast
+        network.multicast_mode = options.garnet_multicast_mode
         network.ideal_noc_hops = options.garnet_ideal_noc_hops
         network.ideal_noc_msg = options.garnet_ideal_noc_msg
         network.buffers_per_data_vc = options.garnet_data_flit_buffer_size

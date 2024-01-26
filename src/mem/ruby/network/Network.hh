@@ -87,6 +87,8 @@ class Network : public ClockedObject
 
     virtual ~Network();
 
+    void init() override;
+
     static uint32_t getNumberOfVirtualNetworks() { return m_virtual_networks; }
     int getNumNodes() const { return m_nodes; }
 
@@ -139,6 +141,25 @@ class Network : public ClockedObject
      * @return the NodeID of the destination
      */
     NodeID addressToNodeID(Addr addr, MachineType mtype);
+
+    /**
+     * @brief Mask an address for DRAM.
+     */
+    Addr maskAddrForNUMA(Addr addr);
+
+    /**
+     * Add NUMA interleave pool.
+     * The last parameter customizes the behaviors.
+     *   0: No customization.
+     *   1: Transpose.
+     *   2: MirrorHorizontal.
+     */
+    static constexpr int NUMACustomizeDefault = 0;
+    static constexpr int NUMACustomizeTranspose = 1;
+    static constexpr int NUMACustomizeMirrorHorizontal = 2;
+    void addNUMAInterleavePool(Addr start, Addr end,
+        const std::vector<Addr> &masks,
+        int nodes, int customize);
 
     Port &
     getPort(const std::string &, PortID idx=InvalidPortID) override

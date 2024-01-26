@@ -105,7 +105,7 @@ class AbstractController : public ClockedObject, public Consumer
 
     virtual void print(std::ostream & out) const = 0;
     virtual void wakeup() = 0;
-    virtual void resetStats() = 0;
+    void resetStats() override;
     virtual void regStats();
 
     virtual void recordCacheTrace(int cntrl, CacheRecorder* tr) = 0;
@@ -143,6 +143,9 @@ class AbstractController : public ClockedObject, public Consumer
     //! Function for enqueuing a prefetch request
     virtual void enqueuePrefetch(const Addr &, const RubyRequestType&)
     { fatal("Prefetches not implemented!");}
+    virtual void enqueuePrefetchWithId(const Addr &addr,
+        const RubyRequestType &type, const Addr &pfId)
+    { enqueuePrefetch(addr, type); }
     virtual void enqueueBulkPrefetch(const Addr &, const RubyRequestType&,
       const RubyAddressBulk&)
     { fatal("Bulk Prefetches not implemented!");}
@@ -176,7 +179,7 @@ class AbstractController : public ClockedObject, public Consumer
 
     /** Used to get pc from packet. */
     bool hasPC(PacketPtr pkt) const {
-      return pkt->req->hasPC();
+      return pkt && pkt->req->hasPC();
     }
     Addr getPC(PacketPtr pkt) const {
       return pkt->req->getPC();

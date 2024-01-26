@@ -189,6 +189,20 @@ writePackedMem(ExecContext *xc, std::array<uint64_t, N> &mem, Addr addr,
 }
 
 static Fault
+writePackedMem(ExecContext *xc, uint8_t *mem, uint32_t N, Addr addr,
+               unsigned flags, uint64_t *res)
+{
+    std::vector<uint8_t> real_mem(N);
+    for (int i = 0; i < N; i++)
+        real_mem[i] = mem[i];
+    real_mem = htole(real_mem);
+    auto size = N;
+    const std::vector<bool> byte_enable(size, true);
+    return xc->writeMem(real_mem.data(), size,
+                        addr, flags, res, byte_enable);
+}
+
+static Fault
 writeMemTiming(ExecContext *xc, trace::InstRecord *traceData, uint64_t mem,
                unsigned dataSize, Addr addr, Request::Flags flags,
                uint64_t *res)
@@ -199,6 +213,17 @@ writeMemTiming(ExecContext *xc, trace::InstRecord *traceData, uint64_t mem,
     const std::vector<bool> byte_enable(dataSize, true);
     return xc->writeMem((uint8_t *)&mem, dataSize, addr, flags,
                         res, byte_enable);
+}
+
+static Fault
+writeMemTiming(ExecContext *xc, trace::InstRecord *traceData, uint8_t *mem,
+               unsigned N, Addr addr, Request::Flags flags,
+               uint64_t *res)
+{
+    if (traceData)
+        traceData->setData(mem[0]);
+
+    return writePackedMem(xc, mem, N, addr, flags, res);
 }
 
 template <size_t N>
@@ -233,6 +258,19 @@ writeMemAtomic(ExecContext *xc, trace::InstRecord *traceData, uint64_t mem,
     const std::vector<bool> byte_enable(dataSize, true);
     Fault fault = xc->writeMem((uint8_t *)&host_mem, dataSize, addr,
                                flags, res, byte_enable);
+    if (fault == NoFault && res)
+        *res = letoh(*res);
+    return fault;
+}
+
+static Fault
+writeMemAtomic(ExecContext *xc, trace::InstRecord *traceData, uint8_t *mem,
+               unsigned N, Addr addr, Request::Flags flags,
+               uint64_t *res)
+{
+    if (traceData)
+        traceData->setData(mem[0]);
+    Fault fault = writePackedMem(xc, mem, N, addr, flags, res);
     if (fault == NoFault && res)
         *res = letoh(*res);
     return fault;

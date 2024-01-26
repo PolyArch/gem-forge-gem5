@@ -684,6 +684,29 @@ class AddrRange
     }
 
     /**
+     * Used to shrink for new interleave pool.
+     * It ignores the interleave, and only works if start/end
+     * is the end chunk of our range.
+     * 
+     * @param start 
+     * @param end 
+     *
+     * @ingroup api_addr_range
+     */
+    bool shrink(Addr lhs, Addr rhs)
+    {
+        if (lhs >= end() || rhs <= start())
+        {
+            // No overlap.
+            return false;
+        }
+        assert(lhs >= start());
+        assert(rhs == end());
+        _end = lhs;
+        return true;
+    }
+
+    /**
      * Less-than operator used to turn an STL map into a binary search
      * tree of non-overlapping address ranges.
      *

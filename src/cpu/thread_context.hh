@@ -255,6 +255,14 @@ class ThreadContext : public PCEventScope
      */
     PortProxy &getVirtProxy();
 
+    /**
+     * Zhengrong:
+     * XCOMP for arch_prctl
+     * This is the init value I get in Intel_Xeon_w7_3465X
+     * TODO: Implement this as misc reg?
+     */
+    uint64_t XCOMP_PERM = 0x202e7;
+
 private:
     std::shared_ptr<TranslatingPortProxy> fsVirtProxy;
     std::shared_ptr<SETranslatingPortProxy> seVirtProxy;

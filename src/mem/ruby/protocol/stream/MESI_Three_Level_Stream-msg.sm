@@ -79,7 +79,7 @@ structure(CoherenceMsg, desc="...", interface="Message") {
    * Passed the stream information.
    */
   DynStreamSliceId slice,   desc="Optional field for stream info";
-  PacketPtr pkt,                desc="Optional field for stream configure";
+  PacketPtr pkt, default="nullptr", desc="Optional field for stream configure";
 
   bool functionalRead(Packet *packet) {
     // Only PUTX messages contains the data block

@@ -95,7 +95,22 @@
                 }
                 0x2: decode MODRM_MOD {
                     0x3: decode MODRM_RM {
-                        0x0: xgetbv();
+                        // 0x0: xgetbv();
+                        0x0: CPUIDInst::XGETBV({{
+                            CpuidResult result;
+                            bool success = doXGETBVInst(xc->tcBase(), bits(Rcx, 31, 0),
+                                result);
+                            if (success) {
+                                Rax = result.rax;
+                                Rdx = result.rdx;
+                            } else {
+                                // It isn't defined what to do in this case. We used to
+                                // leave R[ad]x unmodified, but setting them all to 0
+                                // seems a little safer and more predictable.
+                                Rax = 0;
+                                Rdx = 0;
+                            }
+                            }});
                         0x1: xsetbv();
                     }
                     default: decode MODE_SUBMODE {
@@ -690,7 +705,7 @@
             }
             0x2: CPUIDInst::CPUID({{
                 CpuidResult result;
-                bool success = doCpuid(xc->tcBase(), bits(Rax, 31, 0),
+                bool success = doCpuidInst(xc->tcBase(), bits(Rax, 31, 0),
                     bits(Rcx, 31, 0), result);
                 if (success) {
                     Rax = result.rax;

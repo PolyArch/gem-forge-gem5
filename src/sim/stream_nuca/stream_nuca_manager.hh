@@ -32,7 +32,7 @@ public:
    * Allow the user to manually set some property of the region.
    */
   enum RegionProperty {
-    // Manually overrite the interleaving (in elements).
+    // Manually overrite the interleaving (in bytes).
     INTERLEAVE = 0,
     USE_PUM,
     PUM_NO_INIT,
@@ -44,7 +44,9 @@ public:
     BANK_COLS,
     START_BANK,
     START_VADDR,
-    END_VADDR
+    END_VADDR,
+    TRANSPOSE_BANK,
+    MIRROR_MEM_CTRL,
   };
   void setProperty(ThreadContext *tc, Addr start, uint64_t property,
                    uint64_t value);
@@ -192,6 +194,20 @@ private:
    */
   void makeRegionPAddrContinuous(ThreadContext *tc, const StreamRegion &region);
 
+  /**
+   * Helper function to adjust the NUMA interleave of the region.
+   */
+  void adjustNUMALayoutForRegion(ThreadContext *tc, const StreamRegion &region,
+                                 Addr nucaIntrlv, int startNUCANode,
+                                 bool transposeNUCABank, bool mirrorNUMABank);
+
+  /**
+   * Helper function to copy region to new paddr.
+   * It never frees stuff.
+   */
+  void copyRegionToContinuousPAddr(ThreadContext *tc, Addr startPageVAddr,
+                                   Addr newStartPagePAddr, Addr numPages);
+
   Addr translate(Addr vaddr);
 
   using AddrVecT = std::vector<Addr>;
@@ -201,7 +217,7 @@ private:
   int64_t getVirtualBitlinesForPUM(const std::vector<Addr> &pumRegionVAddrs);
   int64_t getVirtualBitlinesForPUM(const StreamRegion &region);
   void remapDirectRegionPUM(const StreamRegion &region, int64_t vBitlines);
-  void remapDirectRegionNUCA(StreamRegion &region);
+  void remapDirectRegionNUCA(ThreadContext *tc, StreamRegion &region);
   void setNonUniformInterleave(ThreadContext *tc, StreamRegion &region,
                                Addr intrlvVAddr);
   InterleaveVecT determineInterleave(const StreamRegion &region);

@@ -2,6 +2,7 @@
 #define __CPU_GEM_FORGE_MLC_STRAND_MANAGER_HH__
 
 #include "MLCStreamEngine.hh"
+#include "StreamReuseAnalyzer.hh"
 
 namespace gem5 {
 
@@ -57,8 +58,19 @@ public:
 private:
   MLCStreamEngine *mlcSE;
   ruby::AbstractStreamAwareController *controller;
+  std::unique_ptr<StreamReuseAnalyzer> reuseAnalyzer;
 
   std::unordered_map<DynStrandId, MLCDynStream *, DynStrandIdHasher> strandMap;
+
+  /**
+   * Split a LoadComputeS into a LoadS and a ComputeS.
+   */
+  void splitComputeStream(ConfigVec &configs) const;
+
+  /**
+   * Split a ReuseS to manager the Tile.
+   */
+  void splitReuseStream(ConfigVec &configs) const;
 
   /**
    * Check if streams can be sliced.
@@ -156,9 +168,15 @@ private:
                              CacheStreamConfigureVec &strands);
 
   /**
-   * Recognize reuse with distance more than 1.
+   * Recognize load reuse with distance more than 1.
    */
-  void recognizeReusedTile(StrandSplitContext &context, ConfigPtr strand);
+  void reuseLoadTile(StrandSplitContext &context, ConfigPtr strand);
+
+  /**
+   * Recognize store reuse with distance more thatn 1.
+   * This is the symmetric case to reusing load tile.
+   */
+  void reuseStoreTile(StrandSplitContext &context, ConfigPtr strand);
 
   /**
    * Configure a single stream.

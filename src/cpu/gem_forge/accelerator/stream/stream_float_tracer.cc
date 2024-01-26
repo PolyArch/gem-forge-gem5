@@ -6,6 +6,8 @@
 
 namespace gem5 {
 
+bool StreamFloatTracer::traceFolderCleared = false;
+
 void StreamFloatTracer::traceEvent(
     uint64_t cycle, ruby::MachineID machineId,
     const ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType &type) const {
@@ -40,6 +42,10 @@ void StreamFloatTracer::traceEvent(
 
 void StreamFloatTracer::openProtobufStream() const {
   // Try to create the stream_float_trace folder.
+  if (!traceFolderCleared) {
+    simout.remove("stream_float_trace", true /* recursive */);
+    traceFolderCleared = true;
+  }
   auto directory = simout.findOrCreateSubdirectory("stream_float_trace");
   std::stringstream ss;
   ss << this->cpuId << '-' << this->name << ".data";
@@ -61,7 +67,7 @@ void StreamFloatTracer::write() const {
   this->used = 0;
 }
 
-void StreamFloatTracer::reset() const {
+void StreamFloatTracer::resetFloatTrace() const {
   if (this->buffer.empty()) {
     // Not initialized yet.
     return;

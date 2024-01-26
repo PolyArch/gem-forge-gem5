@@ -52,6 +52,8 @@
 #include "mem/qport.hh"
 #include "params/DRAMsim3.hh"
 
+#include "cpu/gem_forge/accelerator/stream/stream_float_tracer.hh"
+
 namespace gem5
 {
 
@@ -181,7 +183,7 @@ class DRAMsim3 : public AbstractMemory
 
   public:
 
-    typedef DRAMsim3Params Params;
+    PARAMS(DRAMsim3);
     DRAMsim3(const Params &p);
 
     /**
@@ -210,6 +212,8 @@ class DRAMsim3 : public AbstractMemory
     void init() override;
     void startup() override;
 
+    void setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func) override;
+
     void resetStats() override;
 
   protected:
@@ -218,6 +222,15 @@ class DRAMsim3 : public AbstractMemory
     void recvFunctional(PacketPtr pkt);
     bool recvTimingReq(PacketPtr pkt);
     void recvRespRetry();
+
+    /**
+     * Reuse the StreamFloatTracer to track the activity of dram.
+     */
+    StreamFloatTracer tracer;
+    void traceEvent(
+        ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event);
+    void traceEvent(
+        Cycles cycle, ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event);
 
 };
 

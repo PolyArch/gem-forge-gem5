@@ -5,9 +5,11 @@
 #include "arch/x86/regs/float.hh"
 #include "arch/x86/regs/int.hh"
 #include "arch/x86/regs/misc.hh"
+#include "arch/x86/isa.hh"
 #include "base/logging.hh"
 #include "cpu/exec_context.hh"
 #include "debug/X86AVX.hh"
+#include "debug/X86AMX.hh"
 
 namespace gem5
 {
@@ -172,7 +174,9 @@ namespace gem5
                 switch (op)
                 {
                 default:
-                    assert(false && "Invalid op type.");
+                    panic("Invalid BinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
                 case BinaryOp::FloatAdd:
                     dest.f.f1 = src1.f.f1 + src2.f.f1;
                     dest.f.f2 = src1.f.f2 + src2.f.f2;
@@ -226,13 +230,10 @@ namespace gem5
                 case BinaryOp::IntOr:
                     dest.si.i1 = src1.si.i1 | src2.si.i1;
                     dest.si.i2 = src1.si.i2 | src2.si.i2;
-                    DPRINTF(X86AVX, "vor %d %ld | %ld = %ld %s.\n",
-                            this->srcVL, src1.si.i1, src2.si.i1, dest.si.i1,
-                            this->generateDisassembly(0x00, nullptr));
                     break;
                 case BinaryOp::IntCmpEq:
-                    dest.si.i1 = (src1.si.i1 == src2.si.i1) ? 0xFFFF : 0x0;
-                    dest.si.i2 = (src1.si.i2 == src2.si.i2) ? 0xFFFF : 0x0;
+                    dest.si.i1 = (src1.si.i1 == src2.si.i1) ? 0xFFFFFFFF : 0x0;
+                    dest.si.i2 = (src1.si.i2 == src2.si.i2) ? 0xFFFFFFFF : 0x0;
                     break;
                 case BinaryOp::IntMul:
                     // Multiplication will double the size.
@@ -261,7 +262,9 @@ namespace gem5
                 switch (op)
                 {
                 default:
-                    assert(false && "Invalid op type.");
+                    panic("Invalid BinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
                 case BinaryOp::IntAdd:
                     dest.ss.i1 = src1.ss.i1 + src2.ss.i1;
                     dest.ss.i2 = src1.ss.i2 + src2.ss.i2;
@@ -293,7 +296,9 @@ namespace gem5
                 switch (op)
                 {
                 default:
-                    assert(false && "Invalid op type.");
+                    panic("Invalid BinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
                 case BinaryOp::IntAdd:
                     dest.sc.i1 = src1.sc.i1 + src2.sc.i1;
                     dest.sc.i2 = src1.sc.i2 + src2.sc.i2;
@@ -303,6 +308,16 @@ namespace gem5
                     dest.sc.i6 = src1.sc.i6 + src2.sc.i6;
                     dest.sc.i7 = src1.sc.i7 + src2.sc.i7;
                     dest.sc.i8 = src1.sc.i8 + src2.sc.i8;
+                    break;
+                case BinaryOp::IntCmpEq:
+                    dest.sc.i1 = (src1.sc.i1 == src2.sc.i1) ? 0xFF : 0x0;
+                    dest.sc.i2 = (src1.sc.i2 == src2.sc.i2) ? 0xFF : 0x0;
+                    dest.sc.i3 = (src1.sc.i3 == src2.sc.i3) ? 0xFF : 0x0;
+                    dest.sc.i4 = (src1.sc.i4 == src2.sc.i4) ? 0xFF : 0x0;
+                    dest.sc.i5 = (src1.sc.i5 == src2.sc.i5) ? 0xFF : 0x0;
+                    dest.sc.i6 = (src1.sc.i6 == src2.sc.i6) ? 0xFF : 0x0;
+                    dest.sc.i7 = (src1.sc.i7 == src2.sc.i7) ? 0xFF : 0x0;
+                    dest.sc.i8 = (src1.sc.i8 == src2.sc.i8) ? 0xFF : 0x0;
                     break;
                 case BinaryOp::IntSatAdd:
                     dest.sc.i1 = saturate8(static_cast<int64_t>(src1.sc.i1) +
@@ -322,6 +337,16 @@ namespace gem5
                     dest.sc.i8 = saturate8(static_cast<int64_t>(src1.sc.i8) +
                                            static_cast<int64_t>(src2.sc.i8));
                     break;
+                case BinaryOp::UIntMin:
+                    dest.uc.i1 = std::min(src1.uc.i1, src2.uc.i1);
+                    dest.uc.i2 = std::min(src1.uc.i2, src2.uc.i2);
+                    dest.uc.i3 = std::min(src1.uc.i3, src2.uc.i3);
+                    dest.uc.i4 = std::min(src1.uc.i4, src2.uc.i4);
+                    dest.uc.i5 = std::min(src1.uc.i5, src2.uc.i5);
+                    dest.uc.i6 = std::min(src1.uc.i6, src2.uc.i6);
+                    dest.uc.i7 = std::min(src1.uc.i7, src2.uc.i7);
+                    dest.uc.i8 = std::min(src1.uc.i8, src2.uc.i8);
+                    break;
                 }
             }
             else
@@ -330,7 +355,9 @@ namespace gem5
                 switch (op)
                 {
                 default:
-                    assert(false && "Invalid op type.");
+                    panic("Invalid BinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
                 case BinaryOp::FloatAdd:
                     dest.d = src1.d + src2.d;
                     break;
@@ -539,6 +566,121 @@ namespace gem5
             xc->setRegOperand(this, 0, dest.ul);
         }
 
+        AVXOpBase::FloatInt AVXOpBase::calcPackedTrinaryOp(FloatInt src1,
+                                                           FloatInt src2,
+                                                           FloatInt src3,
+                                                           TrinaryOp op) const
+        {
+            FloatInt dest;
+            if (this->srcSize == 1 && this->destSize == 4)
+            {
+                // 8 byte -> 2 int
+                switch (op)
+                {
+                default:
+                    panic("Invalid TrinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
+                case TrinaryOp::UIntSIntMulAdd:
+                    // Multiply and add unsigned and signed bytes.
+                    dest.si.i1 = src1.si.i1 +
+                        src2.uc.i1 * src3.sc.i1 +
+                        src2.uc.i2 * src3.sc.i2 +
+                        src2.uc.i3 * src3.sc.i3 +
+                        src2.uc.i4 * src3.sc.i4;
+                    dest.si.i2 = src1.si.i2 +
+                        src2.uc.i5 * src3.sc.i5 +
+                        src2.uc.i6 * src3.sc.i6 +
+                        src2.uc.i7 * src3.sc.i7 +
+                        src2.uc.i8 * src3.sc.i8;
+                    break;
+                }
+            }
+            else
+            {
+                switch (op)
+                {
+                default:
+                    panic("Invalid TrinaryOp %d SrcSize %d DestSize %d %s.",
+                        op, this->srcSize, this->destSize,
+                        this->generateDisassembly(0, nullptr));
+                }
+            }
+            return dest;
+        }
+
+        void AVXOpBase::doPackedTrinaryOp(ExecContext *xc, TrinaryOp op) const
+        {
+            auto vRegs = destVL / sizeof(uint64_t);
+            FloatInt src1;
+            FloatInt src2;
+            FloatInt src3;
+            FloatInt maskValue;
+            FloatInt originalValue;
+            if (this->mask == int_reg::_K0Idx)
+            {
+                // All active.
+                maskValue.ul = 0xFFFFFFFFFFFFFFFF;
+            }
+            else
+            {
+                maskValue.ul = xc->getRegOperand(this, this->numSrcRegs() - 1);
+            }
+            for (int i = 0; i < vRegs; i++)
+            {
+                src1.ul = xc->getRegOperand(this, i * 3 + 0);
+                src2.ul = xc->getRegOperand(this, i * 3 + 1);
+                src3.ul = xc->getRegOperand(this, i * 3 + 2);
+                auto dest = this->calcPackedTrinaryOp(src1, src2, src3, op);
+                // if (vRegs == 8 && op == BinaryOp::IntAdd && srcSize == 8) {
+                //   hack("vpaddq %d %lu + %lu = %lu. pc = %#x.\n", i, src1.ul,
+                //   src2.ul,
+                //        dest.ul, xc->pcState().pc());
+                // }
+
+                // Read the original value.
+                if (this->mask != int_reg::_K0Idx)
+                {
+                    // We need to apply the mask.
+                    originalValue.ul = xc->getRegOperand(this, vRegs * 2 + i);
+                    if (this->destSize == 4)
+                    {
+                        // 2 float.
+                        if (!((maskValue.ul >> (i * 2 + 0)) & 1))
+                        {
+                            // Unchanged.
+                            DPRINTF(X86AVX, "Reset %d-0 to %d.\n", i,
+                                    originalValue.ui.i1);
+                            dest.ui.i1 = originalValue.ui.i1;
+                        }
+                        if (!((maskValue.ul >> (i * 2 + 1)) & 1))
+                        {
+                            // Unchanged.
+                            DPRINTF(X86AVX, "Reset %d-1 to %d.\n", i,
+                                    originalValue.ui.i2);
+                            dest.ui.i2 = originalValue.ui.i2;
+                        }
+                    }
+                    else if (this->destSize == 8)
+                    {
+                        // 1 double.
+                        if (!((maskValue.ul >> (i)) & 1))
+                        {
+                            // Unchanged.
+                            dest.ul = originalValue.ul;
+                        }
+                    }
+                    else
+                    {
+                        panic("Unsupported Mask Datatype %d.", this->srcSize);
+                    }
+                }
+
+                xc->setRegOperand(this, i, dest.ul);
+            }
+        }
+
+
         void AVXOpBase::doPackOp(ExecContext *xc, BinaryOp op) const
         {
             auto vRegs = destVL / sizeof(uint64_t);
@@ -626,6 +768,103 @@ namespace gem5
                 break;
             }
             }
+        }
+
+        void AVXOpBase::doUnpackOp(ExecContext *xc, BinaryOp op) const
+        {
+            auto vRegs = destVL / sizeof(uint64_t);
+            FloatInt dests[vRegs];
+            switch (op)
+            {
+            default:
+                panic("Unsupported unpack op %d size %d VL %d.",
+                    op, this->srcSize, this->destVL);
+            case BinaryOp::UnpackInterleaveLow:
+            case BinaryOp::UnpackInterleaveHigh:
+            {
+                // Interleave at 4B and at every 8B granularity.
+                if (this->srcSize == 1 ||
+                    this->srcSize == 2 ||
+                    this->srcSize == 4 ||
+                    this->srcSize == 8)
+                {
+                    for (int i = 0; i < vRegs; ++i)
+                    {
+                        FloatInt src1;
+                        FloatInt src2;
+                        int offset = i % 2;
+                        // Pick the srcIdx.
+                        // If unpack high, we need to add one here.
+                        int srcIdx = i - offset;
+                        if (op == BinaryOp::UnpackInterleaveHigh)
+                        {
+                            srcIdx += 1;
+                        }
+                        src1.ul =
+                            xc->getRegOperand(this, srcIdx * 2 + 0);
+                        src2.ul =
+                            xc->getRegOperand(this, srcIdx * 2 + 1);
+
+                        if (this->srcSize == 1) {
+                            if (offset == 0) {
+                                dests[i].uc.i1 = src1.uc.i1;
+                                dests[i].uc.i2 = src2.uc.i1;
+                                dests[i].uc.i3 = src1.uc.i2;
+                                dests[i].uc.i4 = src2.uc.i2;
+                                dests[i].uc.i5 = src1.uc.i3;
+                                dests[i].uc.i6 = src2.uc.i3;
+                                dests[i].uc.i7 = src1.uc.i4;
+                                dests[i].uc.i8 = src2.uc.i4;
+                            } else {
+                                dests[i].uc.i1 = src1.uc.i5;
+                                dests[i].uc.i2 = src2.uc.i5;
+                                dests[i].uc.i3 = src1.uc.i6;
+                                dests[i].uc.i4 = src2.uc.i6;
+                                dests[i].uc.i5 = src1.uc.i7;
+                                dests[i].uc.i6 = src2.uc.i7;
+                                dests[i].uc.i7 = src1.uc.i8;
+                                dests[i].uc.i8 = src2.uc.i8;
+                            }
+                        } else if (this->srcSize == 2) {
+                            if (offset == 0) {
+                                dests[i].us.i1 = src1.us.i1;
+                                dests[i].us.i2 = src2.us.i1;
+                                dests[i].us.i3 = src1.us.i2;
+                                dests[i].us.i4 = src2.us.i2;
+                            } else {
+                                dests[i].us.i1 = src1.us.i3;
+                                dests[i].us.i2 = src2.us.i3;
+                                dests[i].us.i3 = src1.us.i4;
+                                dests[i].us.i4 = src2.us.i4;
+                            }
+                        } else if (this->srcSize == 4) {
+                            if (offset == 0) {
+                                dests[i].ui.i1 = src1.ui.i1;
+                                dests[i].ui.i2 = src2.ui.i1;
+                            } else {
+                                dests[i].ui.i1 = src1.ui.i2;
+                                dests[i].ui.i2 = src2.ui.i2;
+                            }
+                        } else if (this->srcSize == 8) {
+                            if (offset == 0) {
+                                dests[i].ul = src1.ul;
+                            } else {
+                                dests[i].ul = src2.ul;
+                            }
+                        }
+                    }
+                } else {
+                    panic("unimplemented unpack size %d.", this->srcSize);
+                }
+                for (int i = 0; i < vRegs; ++i)
+                {
+                    xc->setRegOperand(this, i, dests[i].ul);
+                }
+                return;
+            }
+            }
+            panic("Unsupported unpack op %d size %d VL %d.",
+                op, this->srcSize, this->destVL);
         }
 
         void AVXOpBase::doExtract(ExecContext *xc) const
@@ -848,6 +1087,43 @@ namespace gem5
             xc->setRegOperand(this, 0, result);
         }
 
+        void AVXOpBase::doIntCompareToMask(ExecContext *xc, BinaryOp op) const
+        {
+            uint64_t result = 0;
+            auto vSrcRegs = srcVL / sizeof(uint64_t);
+            FloatInt src1;
+            FloatInt src2;
+
+            auto compareInt64 = [this, op](int64_t a, int64_t b) -> int
+            {
+                switch (op)
+                {
+                default:
+                    panic("%s: Unknown IntCmp Op %d.",
+                          this->disassemble(0x0), op);
+                case AVXOpBase::BinaryOp::IntCmpGt:
+                    return a > b;
+                }
+            };
+
+            for (int i = 0; i < vSrcRegs; ++i)
+            {
+                src1.ul = xc->getRegOperand(this, i * 2);
+                src2.ul = xc->getRegOperand(this, i * 2 + 1);
+                if (this->srcSize == 8)
+                {
+                    int c = compareInt64(src1.sl, src2.sl);
+                    result |= (c << i);
+                } else {
+                    panic("%s: Unsupported IntCmp Size %d",
+                          this->disassemble(0x0), this->srcSize);
+                }
+            }
+
+            assert(destVL == 8 && "Invalid DestVL for IntCmpMask.");
+            xc->setRegOperand(this, 0, result);
+        }
+
         void AVXOpBase::doMov(ExecContext *xc) const
         {
 
@@ -972,6 +1248,93 @@ namespace gem5
                 xc->setRegOperand(this, i + 0, dest1.ul);
                 xc->setRegOperand(this, i + 1, dest2.ul);
             }
+        }
+
+        void AVXOpBase::doPermOp(ExecContext *xc) const
+        {
+
+            auto vSrcRegs = srcVL / sizeof(uint64_t);
+
+            // Read all the src reg.
+            FloatInt srcValue[vSrcRegs];
+            for (int i = 0; i < vSrcRegs; i++)
+            {
+                srcValue[i].ul = xc->getRegOperand(this, i * 2 + 1);
+            }
+
+            int indexMask = vSrcRegs - 1;
+            if (this->srcSize == 4) {
+                // We need one more bit to index int32.
+                indexMask = (indexMask << 1) | 0x1;
+            } else {
+                assert(false && "Only support permd.");
+            }
+
+            auto select16 = [&](int index) -> uint32_t
+            {
+                auto maskedIndex = index & indexMask;
+                auto reg = maskedIndex >> 1;
+                auto offset = maskedIndex & 1;
+                return srcValue[reg].ui_array[offset];
+            };
+
+            assert(this->mask == int_reg::_K0Idx &&
+                   "Mask in vpermd is not implemented yet.");
+
+
+            // Select the reg.
+            FloatInt srcIndex;
+            FloatInt dest;
+            for (int i = 0; i < vSrcRegs; i++)
+            {
+                // Read in the four 32-bit value.
+                srcIndex.ul = xc->getRegOperand(this, i * 2 + 0);
+
+                // Permute the value.
+                dest.ui.i1 = select16(srcIndex.ui.i1);
+                dest.ui.i2 = select16(srcIndex.ui.i2);
+
+                xc->setRegOperand(this, i + 0, dest.ul);
+            }
+        }
+
+        void AVXOpBase::doAMXSetTileCfg(ExecContext *xc) const
+        {
+            assert(this->srcVL == 64);
+            auto vRegs = this->srcVL / sizeof(uint64_t);
+            uint64_t raw[vRegs];
+            for (int i = 0; i < vRegs; ++i) {
+                raw[i] = xc->getRegOperand(this, i);
+            }
+            this->setAMXTileCfg(xc, reinterpret_cast<uint8_t *>(raw));
+        }
+
+        void AVXOpBase::doAMXReleaseTileCfg(ExecContext *xc) const
+        {
+            assert(this->srcVL == 64);
+            auto vRegs = this->srcVL / sizeof(uint64_t);
+            uint64_t raw[vRegs];
+            for (int i = 0; i < vRegs; ++i) {
+                raw[i] = 0;
+            }
+            this->setAMXTileCfg(xc, reinterpret_cast<uint8_t *>(raw));
+        }
+
+        void
+        AVXOpBase::setAMXTileCfg(ExecContext *xc, const uint8_t *raw) const
+        {
+            AMX::AMXTileConfig cfg;
+            if (AMX::parseAMXTileConfig(raw, cfg)) {
+                panic("Illegal AMX tile config.");
+            }
+
+            DPRINTF(X86AMX, "Set AMXTileCfg %s\n", cfg);
+
+            auto isa = dynamic_cast<X86ISA::ISA *>(
+                xc->tcBase()->getIsaPtr());
+            assert(isa != nullptr);
+
+            isa->setAMXTileCfg(cfg);
         }
 
     } // namespace X86ISA

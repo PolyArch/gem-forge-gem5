@@ -119,6 +119,7 @@ def createCPUNonStandalone(args, CPUClass, multiprocesses, numThreads):
         else:
             cpu.workload = multiprocesses[i]
         cpu.function_acc_tick = args.gem_forge_enable_func_acc_tick
+        cpu.pc_acc_tick = args.gem_forge_enable_pc_acc_tick
         if args.gem_forge_enable_func_trace_at_tick != -1:
             cpu.function_trace = True
             cpu.function_trace_start = args.gem_forge_enable_func_trace_at_tick
@@ -151,7 +152,7 @@ def createCPUNonStandalone(args, CPUClass, multiprocesses, numThreads):
             # For each process, add a LLVMTraceCPU for simulation.
             llvm_trace_cpu = \
                 GemForgeLLVMTraceCPUConfig.initializeLLVMTraceCPU(
-                    options, len(cpus))
+                    args, len(cpus))
 
             llvm_trace_cpu.cpu_id = len(cpus)
             llvm_trace_cpu.traceFile = tdg_fn
@@ -193,7 +194,7 @@ def createCPUStandalone(args):
         # For each process, add a LLVMTraceCPU for simulation.
         llvm_trace_cpu = \
             GemForgeLLVMTraceCPUConfig.initializeLLVMTraceCPU(
-                options, len(cpus))
+                args, len(cpus))
 
         # A dummy null driver to make the python script happy.
         llvm_trace_cpu.cpu_id = len(cpus)
@@ -241,6 +242,14 @@ def initializeCPUs(args):
             dtb.walker_se_lat = args.walker_se_lat
             dtb.walker_se_port = args.walker_se_port
             dtb.timing_se = args.tlb_timing_se
+
+    # Set RealCPUId for all cpus:
+    for cpu in initial_cpus:
+        for isa in cpu.isa:
+            isa.realCPUId = args.real_cpu_id
+    for cpu in future_cpus:
+        for isa in cpu.isa:
+            isa.realCPUId = args.real_cpu_id
 
     # We initialize GemForge for initial_cpus.
     for cpu in initial_cpus:

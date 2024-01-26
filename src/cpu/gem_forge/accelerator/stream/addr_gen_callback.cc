@@ -91,6 +91,55 @@ std::string printAffinePatternParams(const DynStreamFormalParamV &params) {
   return ss.str();
 }
 
+DynStreamFormalParamV
+removeTripOneFromAffinePattern(const DynStreamFormalParamV &params) {
+  std::vector<int64_t> strides;
+  std::vector<int64_t> trips;
+  extractStrideAndTripFromAffinePatternParams(params, strides, trips);
+
+  std::vector<int64_t> newStrides;
+  std::vector<int64_t> newTrips;
+
+  for (int i = 0; i < strides.size(); ++i) {
+    if (trips[i] != 1) {
+      newStrides.push_back(strides[i]);
+      newTrips.push_back(trips[i]);
+    }
+  }
+
+  auto start = params.back().invariant.uint64();
+  return constructFormalParamsFromStrideAndTrip(start, newStrides, newTrips);
+}
+
+DynStreamFormalParamV
+expandReuseInAffinePattern(const DynStreamFormalParamV &params,
+                           int64_t innerTrip, int64_t reuseSize) {
+
+  std::vector<int64_t> strides;
+  std::vector<int64_t> trips;
+  extractStrideAndTripFromAffinePatternParams(params, strides, trips);
+
+  auto accTrip = 1;
+  bool inserted = false;
+  for (int i = 0; i < strides.size(); ++i) {
+    if (accTrip == innerTrip) {
+      // Found the reuse tile.
+      strides.insert(strides.begin() + i, 0);
+      trips.insert(trips.begin() + i, reuseSize);
+      inserted = true;
+      break;
+    }
+    accTrip *= trips[i];
+  }
+  if (!inserted) {
+    strides.insert(strides.end(), 0);
+    trips.insert(trips.end(), reuseSize);
+  }
+
+  auto start = params.back().invariant.uint64();
+  return constructFormalParamsFromStrideAndTrip(start, strides, trips);
+}
+
 void extractStrideAndTripFromAffinePatternParams(
     const DynStreamFormalParamV &params, std::vector<int64_t> &strides,
     std::vector<int64_t> &trips) {
@@ -122,13 +171,13 @@ constructFormalParamsFromStrideAndTrip(int64_t start,
 
 #define setTrip(dim, t)                                                        \
   {                                                                            \
-    params.at((dim)*2 + 1).isInvariant = true;                                 \
-    params.at((dim)*2 + 1).invariant.uint64() = t;                             \
+    params.at((dim) * 2 + 1).isInvariant = true;                               \
+    params.at((dim) * 2 + 1).invariant.uint64() = t;                           \
   }
 #define setStride(dim, t)                                                      \
   {                                                                            \
-    params.at((dim)*2).isInvariant = true;                                     \
-    params.at((dim)*2).invariant.uint64() = t;                                 \
+    params.at((dim) * 2).isInvariant = true;                                   \
+    params.at((dim) * 2).invariant.uint64() = t;                               \
   }
 #define setStart(t)                                                            \
   {                                                                            \
@@ -354,6 +403,12 @@ LinearAddrGenCallback::getNestTripCount(const DynStreamFormalParamV &params,
   uint64_t nestTripCount =
       params.at((nestLevel - 1) * 2 + 1).invariant.uint64();
   return nestTripCount;
+}
+
+uint64_t
+LinearAddrGenCallback::getTotalTripCount(const DynStreamFormalParamV &params) {
+  assert(params.size() % 2 == 1);
+  return params.at(params.size() - 2).invariant.uint64();
 }
 
 } // namespace gem5
