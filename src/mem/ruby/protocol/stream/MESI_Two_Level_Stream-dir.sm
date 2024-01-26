@@ -855,7 +855,7 @@ transition({IE, IS}, FetchX) {
 // IE transition went with IM
 transition({IS, SS}, Memory_Data, S) {
   dt_writeDataToTBE;
-  //  net_notifyStreamEngineFromTBE;
+  // net_notifyStreamEngineFromTBE;
   //  du_sendGetUData;
   dfs_sendSharedFetchData;
   w_deallocateTBE;
@@ -877,7 +877,7 @@ transition(SS, FetchS) {
   j_popIncomingRequestQueue;
 }
 
-transition(SS, {CleanReplacement, FetchX}) {
+transition(SS, {CleanReplacement, FetchX, Upgrade}) {
   z_stallAndWaitRequest;
 }
 

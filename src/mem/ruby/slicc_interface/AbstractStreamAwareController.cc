@@ -237,7 +237,7 @@ AbstractStreamAwareController::mapAddressToLLCOrMem(Addr addr,
   // But here I ignore it.
   if (mtype == MachineType::MachineType_L2Cache) {
     return mapAddressToRange(addr, mtype, this->llcSelectLowBit,
-                             this->llcSelectNumBits, 0 /* cluster_id. */
+                             this->llcSelectNumBits, m_clusterID /* cluster_id. */
     );
   } else if (mtype == MachineType::MachineType_Directory) {
     return this->mapAddressToMachine(addr, mtype);
