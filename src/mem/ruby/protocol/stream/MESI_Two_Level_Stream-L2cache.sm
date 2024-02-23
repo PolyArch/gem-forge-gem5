@@ -116,6 +116,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   enumeration(Event, desc="L2 Cache events") {
     // L2 events
 
+    NoShareEviction, desc="in SOS, no sharers, wish to evict -- special for stream";
     // events initiated by the local L1s
     L1_GET_INSTR,            desc="a L1I GET INSTR request for a block maped to us";
     L1_GETS,                 desc="a L1D GETS request for a block maped to us";
@@ -486,7 +487,11 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
               DPRINTF(RubySlicc, "Addr: %#x MemInv TBEs %d.\n", in_msg.addr, TBEs.size());
               if (TBEs.size() == number_of_TBEs) {
                 trigger(Event:MEM_Inv_Pushback, in_msg.addr, cache_entry, tbe);
-              } else {
+              } else if (getState(tbe, cache_entry, in_msg.addr) == State:SOS && cache_entry.Sharers.count() == 0)
+              {
+                trigger(Event:NoShareEviction, in_msg.addr, cache_entry, tbe);
+              } else
+              {
                 trigger(Event:MEM_Inv, in_msg.addr, cache_entry, tbe);
               }
           } else if(in_msg.Type == CoherenceResponseType:MEMORY_DATA_SHARED) {
@@ -567,8 +572,13 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
                   trigger(Event:L2_Replacement, L2cache.cacheProbe(in_msg.addr),
                           L2cache_entry, TBEs[L2cache.cacheProbe(in_msg.addr)]);
                 } else {
+                  if (getState(tbe, cache_entry, in_msg.addr) == State:SOS && cache_entry.Sharers.count() == 0) {
+                    trigger(Event:NoShareEviction, L2cache.cacheProbe(in_msg.addr),
+                            L2cache_entry, TBEs[L2cache.cacheProbe(in_msg.addr)]);
+                } else {
                   trigger(Event:L2_Replacement_clean, L2cache.cacheProbe(in_msg.addr),
                           L2cache_entry, TBEs[L2cache.cacheProbe(in_msg.addr)]);
+                }
                 }
               }
             }
@@ -1440,6 +1450,16 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     kd_wakeUpDependents;
   }
 
+/* this should not write, ever */
+  transition(IVV, Mem_Data_Shared, SOS) {
+    m_writeDataToCache;
+    net_notifyStreamEngineFromTBE;
+    eu_sendDataToGetURequestors;
+    s_deallocateTBE;
+    o_popIncomingResponseQueue;
+    kd_wakeUpDependents;
+  }
+
   transition(IS, Mem_Data, SS) {
     m_writeDataToCache;
     net_notifyStreamEngineFromTBE;
@@ -1529,6 +1549,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     rr_deallocateL2CacheBlock;
   }
 
+ transition(SOS, NoShareEviction, M_I) {
+   i_allocateTBE;
+   rr_deallocateL2CacheBlock;
+   ct_exclusiveCleanReplacementFromTBE;
+ }
+
  transition(SOS, MEM_Inv, I_I) {
    i_allocateTBE;
    f_sendInvToSharers;
@@ -1570,6 +1596,25 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     ur_profileReq;
     jj_popL1RequestQueue;
   }
+
+/* add the same for SOS, b/c we're just like that */
+  transition(SOS, L1_GETV, SOS) {
+    ner_notifyStreamEngineFromL1Req;
+    du_sendUncacheDataToRequestors;
+    set_setMRU;
+    uu_profileHit;
+    ur_profileReq;
+    jj_popL1RequestQueue;
+  }
+
+  transition(SOS, L2_GETH, SOS) {
+    ner_notifyStreamEngineFromL1Req;
+    set_setMRU;
+    uu_profileHit;
+    ur_profileReq;
+    jj_popL1RequestQueue;
+  }
+
   transition(SS, STREAM_STORE, SS_M) {
     i_allocateTBE; 
     css_copyStreamSliceId;
@@ -1877,22 +1922,22 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   /**
    * Sean: StreamAwareCache.
    */
-  transition({NP, SS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_CONFIG) {
+transition({NP, SS, SOS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_CONFIG) {
     rsc_receiveStreamConfig;
     jj_popL1RequestQueue;
   }
 
-  transition({NP, SS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_FLOW) {
+transition({NP, SS, SOS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_FLOW) {
     rsf_receiveStreamFlow;
     jj_popL1RequestQueue;
   }
 
-  transition({NP, SS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_COMMIT) {
+transition({NP, SS, SOS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_COMMIT) {
     rscmt_receiveStreamCommit;
     jj_popL1RequestQueue;
   }
 
-  transition({NP, SS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_END) {
+transition({NP, SS, SOS, M, MT, M_I, MT_I, MCT_I, I_I, S_I, IVV, ISS, IS, IM, NP_M, SS_MB, SS_M, MT_MB, MT_M, MT_IIB, MT_VVB, MT_IB, MT_SB, MT_VB}, STREAM_END) {
     rse_receiveStreamEnd;
     jj_popL1RequestQueue;
   }

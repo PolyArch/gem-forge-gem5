@@ -533,13 +533,14 @@ def create_system(options, full_system, system, dma_ports, bootmem,
 
         # Increase the number of TBEs.
         dir_cntrl.number_of_TBEs = 8192
+        dir_cntrl.directory_latency = 1
 
         # Connect the directory controllers and the network
         dir_cntrl.requestToDir = MessageBuffer()
         dir_cntrl.requestToDir.in_port = ruby_system.network.out_port
         dir_cntrl.responseToDir = MessageBuffer()
         dir_cntrl.responseToDir.in_port = ruby_system.network.out_port
-        dir_cntrl.responseFromDir = MessageBuffer()
+        dir_cntrl.responseFromDir = MessageBuffer(ordered=True)
         dir_cntrl.responseFromDir.out_port = ruby_system.network.in_port
         dir_cntrl.requestFromDir = MessageBuffer()
         dir_cntrl.requestFromDir.out_port = ruby_system.network.in_port

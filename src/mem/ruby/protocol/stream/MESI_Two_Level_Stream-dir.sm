@@ -477,6 +477,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.Destination.add(in_msg.OriginalRequestorMachId);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
+      APPEND_TRANSITION_COMMENT("OriginalRequestor ");
+      APPEND_TRANSITION_COMMENT(in_msg.OriginalRequestorMachId);
     }
   }
 
@@ -518,8 +520,11 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.DataBlk := in_msg.DataBlk;
         out_msg.Len := 0;
       }
+      APPEND_TRANSITION_COMMENT("in_msg.Sender: ");
+      APPEND_TRANSITION_COMMENT(in_msg.Sender);
     }
-  }
+}
+
 
 //added by SS for dma
   action(qf_queueMemoryFetchRequestDMA, "qfd", desc="Queue off-chip fetch request") {
@@ -744,6 +749,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
           Entry e := getDirectoryEntry(address);
           e.Owner := tbe.Fetch_IDs.singleElement();
+          APPEND_TRANSITION_COMMENT("new owner: ");
+          APPEND_TRANSITION_COMMENT(e.Owner);
         }
       }
     }

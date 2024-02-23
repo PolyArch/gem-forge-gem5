@@ -449,7 +449,7 @@ Sequencer::recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
             hitLevel = stat->hitCacheLevel;
         }
     }
-    DPRINTF(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s "
+    DPRINTFR(ProtocolTrace, "%15s %3s %10s%20s %6s>%-6s %s "
             "%d-cy pc %#x hit %d\n",
             curTick(), m_version, "Seq", llscSuccess ? "Done" : "SC_Failed",
             "", "", printAddress(srequest->pkt->getAddr()),
