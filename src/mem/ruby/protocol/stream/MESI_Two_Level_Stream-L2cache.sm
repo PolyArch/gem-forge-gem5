@@ -171,6 +171,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     MachineID Exclusive,              desc="Exclusive holder of block";
     DataBlock DataBlk,                desc="data for the block";
     bool Dirty, default="false",      desc="data is dirty";
+    bool requestedUpgrade, default="false", desc="requested an upgrade";
     DynStreamSliceIdVec sliceIds, desc="tempoary slices for this entry";
     int pendingUnblocks,              desc="Number of pending unblocks from multicast requestors";
   }
@@ -669,7 +670,9 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     }
   }
 
-  action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
+action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
+  assert(is_valid(cache_entry));
+  if (!cache_entry.requestedUpgrade) {
     peek(L1RequestL2Network_in, RequestMsg) {
       enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
         out_msg.addr := address;
@@ -680,6 +683,8 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
       }
     }
   }
+  cache_entry.requestedUpgrade := true;
+}
 
   
 
@@ -1345,10 +1350,15 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     zz_stallAndWaitL1RequestQueue;
   }
 
-  transition({MCT_I, M_I, MT_I}, {L1_GETV, L2_GETH, STREAM_STORE}) {
+transition({MCT_I, M_I, MT_I}, {L1_GETV, L2_GETH, STREAM_STORE}) {
     // Should only happen when the LLC stream engine request the data unknown that this line is being evicted.
     zz_stallAndWaitL1RequestQueue;
-  }
+}
+
+transition(I_I, STREAM_STORE) {
+  // I_I dealing from SOS state
+  zz_stallAndWaitL1RequestQueue;
+}
 
   transition(NP, L1_GETS, ISS) {
     qq_allocateL2CacheBlock;
@@ -1562,16 +1572,16 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
    o_popIncomingResponseQueue;
  }
 
- transition(SOS, {L1_GETX, L1_UPGRADE}) {
+transition(SOS, {L1_GETX, L1_UPGRADE, STREAM_STORE}) {
     a_issueUpgradeRequestToMemory;
     zz_stallAndWaitL1RequestQueue;
- }
+}
 
-  transition(SS, {L2_Replacement, MEM_Inv, Mem_InvGetR}, S_I) {
-    i_allocateTBE;
-    f_sendInvToSharers;
-    rr_deallocateL2CacheBlock;
-  }
+transition(SS, {L2_Replacement, MEM_Inv, Mem_InvGetR}, S_I) {
+  i_allocateTBE;
+  f_sendInvToSharers;
+  rr_deallocateL2CacheBlock;
+}
   // The data may be cached somewhere above, but we have the correct copy. 
   transition(SS, L1_GETV, SS) {
     ner_notifyStreamEngineFromL1Req;
@@ -1581,14 +1591,24 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     ur_profileReq;
     jj_popL1RequestQueue;
   }
-  // The data is in TBE now.
-  transition({S_I, I_I}, L1_GETV) {
+// The data is in TBE now.
+// Arteen added STREAM_STORE here
+// Note: for I_I, it is more subtle, since could be transitioning out of SOS state
+transition(S_I, STREAM_STORE) {
+    nert_notifyStreamEngineFromL1ReqFromTBE;
+    uu_profileHit;
+    ur_profileReq;
+    jj_popL1RequestQueue;
+}
+
+transition({S_I, I_I}, L1_GETV) {
     nert_notifyStreamEngineFromL1ReqFromTBE;
     dut_sendUncacheDataToRequestorsFromTBE;
     uu_profileHit;
     ur_profileReq;
     jj_popL1RequestQueue;
-  }
+}
+
   transition(SS, L2_GETH, SS) {
     ner_notifyStreamEngineFromL1Req;
     set_setMRU;

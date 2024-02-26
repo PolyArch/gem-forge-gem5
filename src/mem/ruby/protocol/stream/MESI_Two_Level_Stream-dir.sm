@@ -346,6 +346,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         } else if (in_msg.Type == CoherenceRequestType:STREAM_STORE) {
           trigger(Event:STREAM_STORE, lineAddr, TBEs[lineAddr]);
         } else if (in_msg.Type == CoherenceRequestType:UPGRADE) {
+          DPRINTF(ProtocolTrace, "this guy wants an upgrade from me: %s\n", in_msg.Requestors.singleElement());
           trigger(Event:Upgrade, in_msg.addr, TBEs[in_msg.addr]);
         } else {
           DPRINTF(RubySlicc, "%s\n", in_msg);
@@ -899,6 +900,12 @@ transition(S, Upgrade, SI) {
 }
 
 transition(SI, Upgrade) {
+  j_popIncomingRequestQueue;
+}
+
+transition(IM, Upgrade) {
+  // a latent (or untimely) upgrade request -- right before being invalidated (didn't reach until after process done)
+  // could possibly instead fix more simply by having Upgrade be a ResponseMsg (and thus queue'd before any CleanReplacement from the same core)
   j_popIncomingRequestQueue;
 }
 
