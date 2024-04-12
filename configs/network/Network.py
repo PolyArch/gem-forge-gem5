@@ -83,7 +83,7 @@ def define_options(parser):
         "--vcs-per-vnet",
         action="store",
         type=int,
-        default=4,
+        default=4, # originally 4
         help="""number of virtual channels per virtual network
             inside garnet network.""",
     )
@@ -99,9 +99,8 @@ def define_options(parser):
     )
     parser.add_argument(
         "--routing-YX",
-        action="store",
-        type=int,
-        default=0,
+        action="store_true",
+        default=False,
         help="Switch XY to YX, used in MeshDirCorners_XY only.",
     )
     parser.add_argument(
@@ -151,7 +150,7 @@ def define_options(parser):
         "--garnet-ctrl-flit-buffer-size",
         action="store",
         type=int,
-        default=1,
+        default=4, # MOD from 1
         help="""Flit buffer size for ctrl vnet"""
     )
     parser.add_argument(

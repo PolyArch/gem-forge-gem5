@@ -31,7 +31,7 @@
 // CoherenceRequestType
 enumeration(CoherenceRequestType, desc="...") {
   GETX,      desc="Get eXclusive";
-  UPGRADE,   desc="UPGRADE to exclusive";
+  UPGRADE,   desc="UPGRADE to exclusive";    
   GETS,      desc="Get Shared";
   GETU,      desc="Get Uncached";
   GETH,      desc="Get Here, no response";
@@ -72,6 +72,7 @@ enumeration(CoherenceResponseType, desc="...") {
   STREAM_RANGE,       desc="range-sychronization message";
   STREAM_DONE,        desc="Stream commit done message from L2 to L1";
   STREAM_NDC,         desc="Stream near-data computing response";
+  UPGRADE,            desc="UPGRADE to exclusive notification from L2 to directory";  
 }
 
 // RequestMsg

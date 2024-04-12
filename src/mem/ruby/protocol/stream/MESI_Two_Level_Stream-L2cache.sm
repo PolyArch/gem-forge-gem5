@@ -456,7 +456,8 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   // Response  L2 Network - response msg to this particular L2 bank
   in_port(responseL2Network_in, ResponseMsg, responseToL2Cache, rank = 3) {
     if (responseL2Network_in.isReady(clockEdge())) {
-      peek(responseL2Network_in, ResponseMsg) {
+    peek(responseL2Network_in, ResponseMsg) {
+DPRINTF(ProtocolTrace, "Received LLC responseNetwork_in %s\n", in_msg.addr);
         // test wether it's from a local L1 or an off chip source
         assert(in_msg.Destination.isElement(machineID));
         Entry cache_entry := getCacheEntry(in_msg.addr);
@@ -509,6 +510,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
   in_port(L1RequestL2Network_in, RequestMsg, L1RequestToL2Cache, rank = 2) {
     if(L1RequestL2Network_in.isReady(clockEdge())) {
       peek(L1RequestL2Network_in,  RequestMsg) {
+DPRINTF(ProtocolTrace, "Received LLC requestNetwork_in %s\n", in_msg.addr);
         DPRINTF(RubySlicc, "Addr: %#x Req: %s Type: %s Slices: %s Dest: %s\n",
                 in_msg.addr, 
                 in_msg.Requestors, in_msg.Type, in_msg.sliceIds, in_msg.Destination);
@@ -673,14 +675,12 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
 action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
   assert(is_valid(cache_entry));
   if (!cache_entry.requestedUpgrade) {
-    peek(L1RequestL2Network_in, RequestMsg) {
-      enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
-        out_msg.addr := address;
-        out_msg.Type := CoherenceRequestType:UPGRADE;
-        out_msg.Requestors.add(machineID);
-        out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
-        out_msg.MessageSize := MessageSizeType:Control;
-      }
+    enqueue(responseL2Network_out, ResponseMsg, l2_response_latency) {
+      out_msg.addr := address;
+      out_msg.Type := CoherenceResponseType:UPGRADE;
+      out_msg.Sender := machineID;
+      out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
+      out_msg.MessageSize := MessageSizeType:Response_Control;
     }
   }
   cache_entry.requestedUpgrade := true;
@@ -1137,6 +1137,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
   }
 
   action(uu_profileMiss, "\um", desc="Profile the demand miss") {
+    DPRINTF(Arteen, "Profile a miss in L2 Cache %s with State %s for addr %#x\n", machineID, getState(tbe, cache_entry, address), address);    
     L2cache.profileDemandMiss();
     if (is_valid(tbe)) {
       if (tbe.sliceIds.isValid()) {
@@ -1146,6 +1147,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
   }
 
   action(uu_profileHit, "\uh", desc="Profile the demand hit") {
+    DPRINTF(Arteen, "Profile a hit in L2 Cache %s with State %s for addr %#x\n", machineID, getState(tbe, cache_entry, address), address);      
     L2cache.profileDemandHit();
   }
 

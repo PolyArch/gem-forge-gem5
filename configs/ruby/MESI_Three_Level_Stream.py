@@ -93,6 +93,9 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         num_cores_per_row = options.num_cpus / options.mesh_rows
 
 
+    options.l1d_mshrs = 16
+    options.l1_5d_mshrs = 64
+    options.l2_mshrs = 128
     print(f'number of L0 TBE: {options.l1d_mshrs}')
     print(f'number of L1 TBE: {options.l1_5d_mshrs}')
     print(f'L2 has {options.l2_mshrs} TBE')
@@ -538,7 +541,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
         # Connect the directory controllers and the network
         dir_cntrl.requestToDir = MessageBuffer()
         dir_cntrl.requestToDir.in_port = ruby_system.network.out_port
-        dir_cntrl.responseToDir = MessageBuffer()
+        dir_cntrl.responseToDir = MessageBuffer(ordered=True)
         dir_cntrl.responseToDir.in_port = ruby_system.network.out_port
         dir_cntrl.responseFromDir = MessageBuffer(ordered=True)
         dir_cntrl.responseFromDir.out_port = ruby_system.network.in_port

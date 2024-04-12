@@ -314,7 +314,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
   in_port(requestNetwork_in, RequestMsg, requestToDir, rank = 0) {
     if (requestNetwork_in.isReady(clockEdge())) {
       peek(requestNetwork_in, RequestMsg) {
-
+DPRINTF(ProtocolTrace, "Received Dir requestNetwork_in %s\n", in_msg.addr);
         assert(in_msg.Destination.isElement(machineID));
         Addr lineAddr := makeLineAddress(in_msg.addr);
 
@@ -345,9 +345,6 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
           trigger(Event:STREAM_END, lineAddr, TBEs[lineAddr]);
         } else if (in_msg.Type == CoherenceRequestType:STREAM_STORE) {
           trigger(Event:STREAM_STORE, lineAddr, TBEs[lineAddr]);
-        } else if (in_msg.Type == CoherenceRequestType:UPGRADE) {
-          DPRINTF(ProtocolTrace, "this guy wants an upgrade from me: %s\n", in_msg.Requestors.singleElement());
-          trigger(Event:Upgrade, in_msg.addr, TBEs[in_msg.addr]);
         } else {
           DPRINTF(RubySlicc, "%s\n", in_msg);
           error("Invalid message");
@@ -358,7 +355,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
   in_port(responseNetwork_in, ResponseMsg, responseToDir, rank = 1) {
     if (responseNetwork_in.isReady(clockEdge())) {
-      peek(responseNetwork_in, ResponseMsg) {
+    peek(responseNetwork_in, ResponseMsg) {
+DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         assert(in_msg.Destination.isElement(machineID));
         if (in_msg.Type == CoherenceResponseType:MEMORY_DATA) {
           trigger(Event:Data, in_msg.addr, TBEs[in_msg.addr]);
@@ -371,6 +369,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
           } else {
             trigger(Event:CleanReplacement, in_msg.addr, TBEs[in_msg.addr]);
           }
+        } else if (in_msg.Type == CoherenceResponseType:UPGRADE) {
+            trigger(Event:Upgrade, in_msg.addr, TBEs[in_msg.addr]);
         } else {
           DPRINTF(RubySlicc, "%s\n", in_msg.Type);
           error("Invalid message");
@@ -583,7 +583,11 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
   action(z_stallAndWaitRequest, "z", desc="recycle request queue") {
     stall_and_wait(requestNetwork_in, address);
-  }
+}
+
+  action(z_stallAndWaitResponse, "zr", desc="stall response queue") {
+    stall_and_wait(responseNetwork_in, address);
+}
 
   action(zz_recycleDMAQueue, "zz", desc="recycle DMA queue") {
     requestNetwork_in.recycle(clockEdge(), cyclesToTicks(recycle_latency));
@@ -885,8 +889,12 @@ transition(SS, FetchS) {
   j_popIncomingRequestQueue;
 }
 
-transition(SS, {CleanReplacement, FetchX, Upgrade}) {
+transition(SS, FetchX) {
   z_stallAndWaitRequest;
+}
+
+transition(SS, {CleanReplacement, Upgrade}) {
+  z_stallAndWaitResponse;
 }
 
 transition(S, FetchX, SI) {
@@ -896,17 +904,11 @@ transition(S, FetchX, SI) {
 
 transition(S, Upgrade, SI) {
   f_sendInvToSharers;
-  j_popIncomingRequestQueue;
+  k_popIncomingResponseQueue;
 }
 
 transition(SI, Upgrade) {
-  j_popIncomingRequestQueue;
-}
-
-transition(IM, Upgrade) {
-  // a latent (or untimely) upgrade request -- right before being invalidated (didn't reach until after process done)
-  // could possibly instead fix more simply by having Upgrade be a ResponseMsg (and thus queue'd before any CleanReplacement from the same core)
-  j_popIncomingRequestQueue;
+  k_popIncomingResponseQueue;
 }
 
 transition(SI, {FetchX, FetchS}) {
