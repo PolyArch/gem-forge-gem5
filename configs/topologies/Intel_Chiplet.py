@@ -236,7 +236,7 @@ class Intel_Chiplet(SimpleTopology):
                                                  dst_inport="West",
                                                  latency=self.link_latency,
                                                  weight=weightX))
-                        print(f'[CPU Chiplet] Router {east_out} -> Router {west_in} with Link Latency{self.link_latency}')
+                        print(f'[CPU Chiplet] Router East {east_out} -> Router West {west_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
 
             # West output to East input links (weight = 1)
@@ -253,7 +253,7 @@ class Intel_Chiplet(SimpleTopology):
                                                  dst_inport="East",
                                                  latency=self.link_latency,
                                                  weight=weightX))
-                        print(f'[CPU Chiplet] Router {west_out} -> Router {east_in} with Link Latency{self.link_latency}')
+                        print(f'[CPU Chiplet] Router West {west_out} -> Router East {east_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
 
             # North output to South input links (weight = 2)
@@ -261,25 +261,8 @@ class Intel_Chiplet(SimpleTopology):
             for col in range(self.num_chiplet_cols):
                 for row in range(self.num_chiplet_rows):
                     if row + 1 < self.num_chiplet_rows:
-                        north_out = (chiplet * num_cpus_per_chiplet) + col + (row * self.num_chiplet_cols)
-                        south_in = (chiplet * num_cpus_per_chiplet) + col + ((row + 1) * self.num_chiplet_cols)
-                        int_links.append(IntLink(link_id=self.link_count,
-                                                 src_node=routers[north_out],
-                                                 dst_node=routers[south_in],
-                                                 src_outport="North",
-                                                 dst_inport="South",
-                                                 latency=self.link_latency,
-                                                 weight=weightY))
-                        print(f'[CPU Chiplet] Router {north_out} -> Router {south_in} with Link Latency{self.link_latency}')
-                        self.link_count += 1
-
-            # South output to North input links (weight = 2)
-
-            for col in range(self.num_chiplet_cols):
-                for row in range(self.num_chiplet_rows):
-                    if row + 1 < self.num_chiplet_rows:
-                        north_in = (chiplet * num_cpus_per_chiplet) + col + (row * self.num_chiplet_cols)
-                        south_out = (chiplet * num_cpus_per_chiplet) + col + ((row + 1) * self.num_chiplet_cols)
+                        south_out = (chiplet * num_cpus_per_chiplet) + col + (row * self.num_chiplet_cols)
+                        north_in = (chiplet * num_cpus_per_chiplet) + col + ((row + 1) * self.num_chiplet_cols)
                         int_links.append(IntLink(link_id=self.link_count,
                                                  src_node=routers[south_out],
                                                  dst_node=routers[north_in],
@@ -287,7 +270,24 @@ class Intel_Chiplet(SimpleTopology):
                                                  dst_inport="North",
                                                  latency=self.link_latency,
                                                  weight=weightY))
-                        print(f'[CPU Chiplet] Router {south_out} -> Router {north_in} with Link Latency{self.link_latency}')
+                        print(f'[CPU Chiplet] Router South {south_out} -> Router North {north_in} with Link Latency{self.link_latency}')
+                        self.link_count += 1
+
+            # South output to North input links (weight = 2)
+
+            for col in range(self.num_chiplet_cols):
+                for row in range(self.num_chiplet_rows):
+                    if row + 1 < self.num_chiplet_rows:
+                        south_in = (chiplet * num_cpus_per_chiplet) + col + (row * self.num_chiplet_cols)
+                        north_out = (chiplet * num_cpus_per_chiplet) + col + ((row + 1) * self.num_chiplet_cols)
+                        int_links.append(IntLink(link_id=self.link_count,
+                                                 src_node=routers[north_out],
+                                                 dst_node=routers[south_in],
+                                                 src_outport="North",
+                                                 dst_inport="South",
+                                                 latency=self.link_latency,
+                                                 weight=weightY))
+                        print(f'[CPU Chiplet] Router North {north_out} -> Router South {south_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
 
         assert (test_num_cpus == num_cpus)
@@ -322,7 +322,7 @@ class Intel_Chiplet(SimpleTopology):
                                      dst_inport="West",
                                      latency=self.chiplet_link_latency,
                                      weight=weightX))
-            print(f'[Chiplet Connect] Router {east} -> Router {west} with Link Latency {self.chiplet_link_latency}')
+            print(f'[Chiplet Connect] Router East {east} -> Router West {west} with Link Latency {self.chiplet_link_latency}')
             self.link_count += 1
 
             int_links.append(IntLink(link_id=self.link_count,
@@ -332,30 +332,31 @@ class Intel_Chiplet(SimpleTopology):
                                      dst_inport="East",
                                      latency=self.chiplet_link_latency,
                                      weight=weightX))
-            print(f'[Chiplet Connect] Router {west} -> Router {east} with Link Latency{self.chiplet_link_latency}')
+            print(f'[Chiplet Connect] Router West {west} -> Router East {east} with Link Latency{self.chiplet_link_latency}')
             self.link_count += 1
-            
+
+            # note that the one on North connects its south down...
             north = hor[i][0]
             south = hor[i][1]
  
             int_links.append(IntLink(link_id=self.link_count,
                                      src_node=routers[north],
                                      dst_node=routers[south],
-                                     src_outport="North",
-                                     dst_inport="South",
+                                     src_outport="South",
+                                     dst_inport="North",
                                      latency=self.chiplet_link_latency,
                                      weight=weightY))
-            print(f'[Chiplet Connect] Router {north} -> Router {south} with Link Latency{self.chiplet_link_latency}')
+            print(f'[Chiplet Connect] Router South {north} -> Router North {south} with Link Latency{self.chiplet_link_latency}')
             self.link_count += 1
             
             int_links.append(IntLink(link_id=self.link_count,
                                      src_node=routers[south],
                                      dst_node=routers[north],
-                                     src_outport="South",
-                                     dst_inport="North",
+                                     src_outport="North",
+                                     dst_inport="South",
                                      latency=self.chiplet_link_latency,
                                      weight=weightY))
-            print(f'[Chiplet Connect] Router {south} -> Router {north} with Link Latency{self.chiplet_link_latency}')
+            print(f'[Chiplet Connect] Router North {south} -> Router South {north} with Link Latency{self.chiplet_link_latency}')
             self.link_count += 1
             
         
