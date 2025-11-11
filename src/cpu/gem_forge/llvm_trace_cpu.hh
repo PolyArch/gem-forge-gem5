@@ -94,8 +94,8 @@ private:
   class CPUPort : public RequestPort {
   public:
     CPUPort(const std::string &name, LLVMTraceCPU *_owner)
-        : RequestPort(name, _owner), owner(_owner), inflyNumPackets(0),
-          blocked(false) {}
+        : RequestPort(name), owner(_owner), inflyNumPackets(0), blocked(false) {
+    }
 
     bool recvTimingResp(PacketPtr pkt) override;
     void recvTimingSnoopReq(PacketPtr pkt) override {
@@ -123,7 +123,7 @@ private:
     int inflyNumPackets;
     bool blocked;
 
-    // Stats::Distribution numIssuedPackets;
+    // statistics::Distribution numIssuedPackets;
   };
 
   void tick();
@@ -266,8 +266,8 @@ private:
   /**************************************************************/
   // Interface for the insts.
 public:
-  Stats::Distribution numPendingAccessDist;
-  Stats::Distribution numOutstandingAccessDist;
+  statistics::Distribution numPendingAccessDist;
+  statistics::Distribution numOutstandingAccessDist;
 
   // Check if this is running in standalone mode (no normal cpu).
   bool isStandalone() const { return this->driver == nullptr; }
@@ -337,7 +337,7 @@ public:
 
   //********************************************************//
   // Event for this CPU.
-  EventWrapper<LLVMTraceCPU, &LLVMTraceCPU::tick> tickEvent;
+  MemberEventWrapper<&LLVMTraceCPU::tick> tickEvent;
 
   /*******************************************************************/
   // All the statics.

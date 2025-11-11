@@ -36,7 +36,7 @@ void StreamRegionController::initializeStreamLoopBound(
   }
 
   const auto &boundFuncInfo = region.loop_bound_func();
-  auto boundFunc = std::make_shared<TheISA::ExecFunc>(
+  auto boundFunc = std::make_shared<ExecFunc>(
       se->getCPUDelegator()->getSingleThreadContext(), boundFuncInfo);
   const bool boundRet = region.loop_bound_ret();
 

@@ -46,6 +46,7 @@
 
 #include <functional>
 #include <string>
+#include <cstdint>
 
 /**
  * Forward declaration to avoid includes

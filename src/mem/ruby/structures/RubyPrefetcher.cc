@@ -317,7 +317,7 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
     DPRINTF(RubyPrefetcher,
         "Initialize stream, line %#x, page %#x, stride %d, LRU pos %u.\n",
         makeLineAddress(address), pageAddress(address), stride, index);
-    if (Debug::RubyPrefetcher) {
+    if (debug::RubyPrefetcher) {
         for (int i = 0; i < m_array.size(); ++i) {
             const auto &stream = m_array[i];
             if (!stream.m_is_valid) {

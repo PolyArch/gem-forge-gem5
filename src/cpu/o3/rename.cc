@@ -135,6 +135,8 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
                "Number of vector rename lookups"),
       ADD_STAT(vecPredLookups, statistics::units::Count::get(),
                "Number of vector predicate rename lookups"),
+      ADD_STAT(matLookups, statistics::units::Count::get(),
+               "Number of matrix rename lookups"),
       ADD_STAT(committedMaps, statistics::units::Count::get(),
                "Number of HB maps that are committed"),
       ADD_STAT(undoneMaps, statistics::units::Count::get(),
@@ -168,6 +170,7 @@ Rename::RenameStats::RenameStats(statistics::Group *parent)
     fpLookups.prereq(fpLookups);
     vecLookups.prereq(vecLookups);
     vecPredLookups.prereq(vecPredLookups);
+    matLookups.prereq(matLookups);
 
     committedMaps.prereq(committedMaps);
     undoneMaps.prereq(undoneMaps);
@@ -284,7 +287,7 @@ Rename::setActiveThreads(std::list<ThreadID> *at_ptr)
 
 
 void
-Rename::setRenameMap(UnifiedRenameMap rm_ptr[])
+Rename::setRenameMap(UnifiedRenameMap rm_ptr[MaxThreads])
 {
     for (ThreadID tid = 0; tid < numThreads; tid++)
         renameMap[tid] = &rm_ptr[tid];
@@ -959,8 +962,11 @@ Rename::doSquash(const InstSeqNum &squashed_seq_num, ThreadID tid)
             // previous physical register that it was renamed to.
             renameMap[tid]->setEntry(hb_it->archReg, hb_it->prevPhysReg);
 
-            // Put the renamed physical register back on the free list.
-            freeList->addReg(hb_it->newPhysReg);
+            // The phys regs can still be owned by squashing but
+            // executing instructions in IEW at this moment. To avoid
+            // ownership hazard in SMT CPU, we delay the freelist update
+            // until they are indeed squashed in the commit stage.
+            freeingInProgress[tid].push_back(hb_it->newPhysReg);
         }
 
         // Notify potential listeners that the register mapping needs to be
@@ -1055,6 +1061,9 @@ Rename::renameSrcRegs(const DynInstPtr &inst, ThreadID tid)
             break;
           case VecPredRegClass:
             stats.vecPredLookups++;
+            break;
+          case MatRegClass:
+            stats.matLookups++;
             break;
           case CCRegClass:
           case MiscRegClass:
@@ -1270,7 +1279,7 @@ Rename::readFreeEntries(ThreadID tid)
     }
 
     DPRINTF(Rename, "[tid:%i] Free IQ: %i, Free ROB: %i, "
-                    "Free LQ: %i, Free SQ: %i, FreeRM %i(%i %i %i %i %i %i)\n",
+                    "Free LQ: %i, Free SQ: %i, FreeRM %i(%i %i %i %i %i %i %i)\n",
             tid,
             freeEntries[tid].iqEntries,
             freeEntries[tid].robEntries,
@@ -1282,6 +1291,7 @@ Rename::readFreeEntries(ThreadID tid)
             renameMap[tid]->numFreeEntries(VecRegClass),
             renameMap[tid]->numFreeEntries(VecElemClass),
             renameMap[tid]->numFreeEntries(VecPredRegClass),
+            renameMap[tid]->numFreeEntries(MatRegClass),
             renameMap[tid]->numFreeEntries(CCRegClass));
 
     DPRINTF(Rename, "[tid:%i] %i instructions not yet in ROB\n",
@@ -1311,6 +1321,18 @@ Rename::checkSignalsAndUpdate(ThreadID tid)
         squash(fromCommit->commitInfo[tid].doneSeqNum, tid);
 
         return true;
+    } else if (!fromCommit->commitInfo[tid].robSquashing &&
+            !freeingInProgress[tid].empty()) {
+        DPRINTF(Rename, "[tid:%i] Freeing phys regs of misspeculated "
+                "instructions.\n", tid);
+
+        auto reg_it = freeingInProgress[tid].cbegin();
+        while ( reg_it != freeingInProgress[tid].cend()){
+            // Put the renamed physical register back on the free list.
+            freeList->addReg(*reg_it);
+            ++reg_it;
+        }
+        freeingInProgress[tid].clear();
     }
 
     if (checkStall(tid)) {

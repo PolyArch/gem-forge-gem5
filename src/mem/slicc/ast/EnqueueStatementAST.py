@@ -32,17 +32,27 @@ from slicc.symbols import Type
 
 
 class EnqueueStatementAST(StatementAST):
-    def __init__(self, slicc, queue_name, type_ast, lexpr, cond, statements):
+    def __init__(
+        self,
+        slicc,
+        queue_name,
+        type_ast,
+        lexpr,
+        condvar,
+        bypass_strict_fifo,
+        statements,
+    ):
         super().__init__(slicc)
 
         self.queue_name = queue_name
         self.type_ast = type_ast
         self.latexpr = lexpr
-        self.condvar = cond
+        self.condvar = condvar
+        self.bypass_strict_fifo = bypass_strict_fifo
         self.statements = statements
 
     def __repr__(self):
-        return "[EnqueueStatementAst: %s %s %s]" % (
+        return "[EnqueueStatementAst: {} {} {}]".format(
             self.queue_name,
             self.type_ast.ident,
             self.statements,
@@ -86,10 +96,17 @@ class EnqueueStatementAST(StatementAST):
             code.indent()
         if self.latexpr != None:
             ret_type, rcode = self.latexpr.inline(True)
-            code(
-                "(${{self.queue_name.var.code}}).enqueue("
-                "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)));"
-            )
+            if self.bypass_strict_fifo != None:
+                bypass_strict_fifo_code = self.bypass_strict_fifo.inline(False)
+                code(
+                    "(${{self.queue_name.var.code}}).enqueue("
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), $bypass_strict_fifo_code);"
+                )
+            else:
+                code(
+                    "(${{self.queue_name.var.code}}).enqueue("
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)));"
+                )
         else:
             code(
                 "(${{self.queue_name.var.code}}).enqueue(out_msg, "

@@ -984,7 +984,7 @@ void LLCStreamEngine::wakeup() {
       !this->allocatedSlices.empty() || !this->readyComputations.empty() ||
       !this->inflyComputations.empty() ||
       this->commitController->hasStreamToCommit()) {
-    if (Debug::LLCStreamEngineWake) {
+    if (debug::LLCStreamEngineWake) {
       std::stringstream ss;
       ss << "[Wake] Streams " << this->streams.size() << " IssuingIndS "
          << this->issuingIndStreamList.size() << " MigratingS "
@@ -1242,7 +1242,7 @@ void LLCStreamEngine::sortMulticastGroup(StreamVec &group) const {
     return SA->getDynStreamId().coreId < SB->getDynStreamId().coreId;
   };
   std::sort(group.begin(), group.end(), comparator);
-  if (Debug::LLCRubyStreamMulticast) {
+  if (debug::LLCRubyStreamMulticast) {
     DPRINTF(LLCRubyStreamMulticast, "Sorted MulticastGroup:---\n");
     for (auto &dynS : group) {
       LLC_S_DPRINTF_(LLCRubyStreamMulticast, dynS->getDynStrandId(),
@@ -2400,7 +2400,7 @@ void LLCStreamEngine::issueStreamReqToRemoteBank(const LLCStreamRequest &req) {
     }
   }
 
-  if (Debug::LLCRubyStreamMulticast && !req.multicastSliceIds.empty()) {
+  if (debug::LLCRubyStreamMulticast && !req.multicastSliceIds.empty()) {
     std::stringstream ss;
     for (const auto &multicastSliceId : req.multicastSliceIds.sliceIds) {
       auto mlcMachineID = ruby::MachineID(
@@ -2810,7 +2810,7 @@ void LLCStreamEngine::issueStreamDataToPUM(
   AffinePatternVecT bitline_masks;
   AffinePatternVecT tile_masks;
   compiler.generateSubRegionMasks(broadcastPat, bitline_masks, tile_masks);
-  if (Debug::LLCStreamPUM) {
+  if (debug::LLCStreamPUM) {
     LLC_SLICE_DPRINTF(sliceId, "[PUMSendTo] ---- Get masks Broadcast %s.\n",
                       broadcastPat);
     for (int i = 0; i < bitline_masks.size(); ++i) {

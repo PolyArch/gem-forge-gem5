@@ -94,7 +94,7 @@ bool GemForgeDcachePortImpl::sendTimingReqVirtual(PacketPtr pkt, bool isCore) {
      * 1. Blocked.
      * 2. Ports are all used in this cycle.
      */
-    if (Debug::GemForgeDcachePort) {
+    if (debug::GemForgeDcachePort) {
       if (this->blocked) {
         DPRINTF(GemForgeDcachePort, "Blocked.\n");
       } else if (this->numUsedPorts == this->numPorts) {

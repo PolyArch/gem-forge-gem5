@@ -25,15 +25,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import math
+
 import m5
-from m5.objects import *
 from m5.defines import buildEnv
-from m5.util import addToPath, fatal, warn
+from m5.objects import *
+from m5.util import (
+    addToPath,
+    fatal,
+    warn,
+)
 
 
 def define_options(parser):
-    # By default, ruby uses the simple timing cpu
-    parser.set_defaults(cpu_type="TimingSimpleCPU")
+    # By default, ruby uses the simple timing cpu and the X86 ISA
+    parser.set_defaults(cpu_type="X86TimingSimpleCPU")
 
     parser.add_argument(
         "--topology",
@@ -99,8 +104,9 @@ def define_options(parser):
     )
     parser.add_argument(
         "--routing-YX",
-        action="store_true",
-        default=False,
+        action="store",
+        type=int,
+        default=0,
         help="Switch XY to YX, used in MeshDirCorners_XY only.",
     )
     parser.add_argument(
@@ -160,7 +166,6 @@ def define_options(parser):
     )
 
 def create_network(options, ruby):
-
     # Allow legacy users to use garnet through garnet2.0 option
     # until next gem5 release.
     if options.network == "garnet2.0":
@@ -201,7 +206,6 @@ def create_network(options, ruby):
 
 
 def init_network(options, network, InterfaceClass):
-
     if options.network == "garnet":
         network.num_rows = options.mesh_rows
         network.vcs_per_vnet = options.vcs_per_vnet

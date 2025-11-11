@@ -87,7 +87,7 @@ public:
   /*******************************************************************/
   void regStats();
   // Stat for total number issued for each instruction type.
-  Stats::Vector2d statIssuedInstType;
+  statistics::Vector2d statIssuedInstType;
 
   statistics::Scalar blockedCycles;
   statistics::Scalar robReads;
@@ -135,9 +135,9 @@ public:
   statistics::Scalar execLoadInsts;
   statistics::Scalar execStoreInsts;
 
-  Stats::Distribution numIssuedDist;
+  statistics::Distribution numIssuedDist;
 
-  Stats::Distribution numExecutingDist;
+  statistics::Distribution numExecutingDist;
 
 private:
   LLVMTraceCPU *cpu;

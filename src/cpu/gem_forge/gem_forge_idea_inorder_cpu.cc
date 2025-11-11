@@ -2,6 +2,7 @@
 
 #include "base/callback.hh"
 #include "base/statistics.hh"
+#include "config/the_isa.hh"
 #include "debug/GemForgeIdeaInorderCPU.hh"
 
 namespace gem5 {
@@ -11,7 +12,7 @@ GemForgeIdeaInorderCPU::GemForgeIdeaInorderCPU(
     bool _modelFUTiming, bool _modelLDTiming)
     : cpuId(_cpuId), issueWidth(_issueWidth), modelFUTiming(_modelFUTiming),
       modelLDTiming(_modelLDTiming) {
-  Stats::registerResetCallback([this]() -> void { this->resetCallback(); });
+  statistics::registerResetCallback([this]() -> void { this->resetCallback(); });
 
   // Init update mask.
   this->initUpdateMask(regClasses);

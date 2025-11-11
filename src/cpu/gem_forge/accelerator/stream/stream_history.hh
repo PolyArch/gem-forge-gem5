@@ -1,7 +1,7 @@
 #ifndef __CPU_TDG_ACCELERATOR_STREAM_HISTORY_H__
 #define __CPU_TDG_ACCELERATOR_STREAM_HISTORY_H__
 
-#include "StreamMessage.pb.h"
+#include "cpu/gem_forge/accelerator/stream/StreamMessage.pb.h"
 
 #include "addr_gen_callback.hh"
 

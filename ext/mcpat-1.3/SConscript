@@ -41,7 +41,7 @@ McPATFile('xmlParser.cc')
 mcpat_env = env.Clone()
 
 # Set the include path.
-mcpat_env.Replace(CPPPATH=Dir('./cacti'))
+mcpat_env.Replace(CPPPATH=Dir('.').srcnode().Dir('cacti'))
 
 # For Hoffman2 Cluster, disable pthread.
 NTHREADS = 1
@@ -76,6 +76,6 @@ mcpat_objects = [mcpat_env.SharedObject(f) for f in mcpat_files]
 mcpat_env.StaticLibrary('mcpat', mcpat_objects)
 
 # Make the env environment be able to find here.
-env.Prepend(CPPPATH=[Dir('.'), Dir('./cacti')])
+env.Prepend(CPPPATH=[Dir('.').srcnode(), Dir('.').srcnode().Dir('cacti')])
 env.Append(LIBS=['mcpat'])
 env.Prepend(LIBPATH=[Dir('.')])

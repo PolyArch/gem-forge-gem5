@@ -28,7 +28,7 @@ public:
             _cpu->name()),
         dumpInflyInstsEvent(
             [this]() -> void {
-              if (!Debug::MinorCPUDelegatorDump) {
+              if (!debug::MinorCPUDelegatorDump) {
                 return;
               }
               this->dumpInflyInsts();
@@ -46,7 +46,7 @@ public:
   /**
    * For simplicity, we maintain our own queue of infly instruction.
    */
-  std::deque<Minor::MinorDynInstPtr> inflyInstQueue;
+  std::deque<minor::MinorDynInstPtr> inflyInstQueue;
 
   /**
    * Store the LQ callbacks before the they are really inserted into
@@ -58,7 +58,7 @@ public:
    * Stores the GemForgeLoadRequest in the LSQ, after the callback from preLSQ
    * inserted into the LSQ.
    */
-  std::unordered_map<InstSeqNum, std::vector<Minor::GemForgeLoadRequest *>>
+  std::unordered_map<InstSeqNum, std::vector<minor::GemForgeLoadRequest *>>
       inLSQ;
 
   /**
@@ -69,7 +69,7 @@ public:
   /**
    * Current streamSeqNum.
    */
-  InstSeqNum currentStreamSeqNum = Minor::InstId::firstExecSeqNum;
+  InstSeqNum currentStreamSeqNum = minor::InstId::firstExecSeqNum;
 
   Process *getProcess() {
     assert(this->cpu->threads.size() == 1 &&
@@ -80,19 +80,19 @@ public:
     return process;
   }
 
-  uint64_t getInstSeqNum(Minor::MinorDynInstPtr &dynInstPtr) const {
+  uint64_t getInstSeqNum(minor::MinorDynInstPtr &dynInstPtr) const {
     auto seqNum = dynInstPtr->id.execSeqNum;
     assert(seqNum != 0 && "GemForge assumes SeqNum 0 is reserved as invalid.");
     return seqNum;
   }
 
-  ThreadContext *getThreadContext(Minor::MinorDynInstPtr &dynInstPtr) const {
+  ThreadContext *getThreadContext(minor::MinorDynInstPtr &dynInstPtr) const {
     ThreadID thread_id = dynInstPtr->id.threadId;
     ThreadContext *thread = cpu->getContext(thread_id);
     return thread;
   }
 
-  GemForgeDynInstInfo createDynInfo(Minor::MinorDynInstPtr &dynInstPtr) const {
+  GemForgeDynInstInfo createDynInfo(minor::MinorDynInstPtr &dynInstPtr) const {
     if (!dynInstPtr->isInst()) {
       panic("Should be a real inst, but a fault %d.\n", dynInstPtr->isFault());
     }
@@ -132,7 +132,7 @@ void MinorCPUDelegator::startup() {
 }
 
 bool MinorCPUDelegator::shouldCountInPipeline(
-    Minor::MinorDynInstPtr &dynInstPtr) {
+    minor::MinorDynInstPtr &dynInstPtr) {
   if (!dynInstPtr->isInst()) {
     // This is not handled by me, should always count.
     return true;
@@ -145,7 +145,7 @@ bool MinorCPUDelegator::shouldCountInPipeline(
   return isaHandler->shouldCountInPipeline(dynInfo);
 }
 
-bool MinorCPUDelegator::canDispatch(Minor::MinorDynInstPtr &dynInstPtr) {
+bool MinorCPUDelegator::canDispatch(minor::MinorDynInstPtr &dynInstPtr) {
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   auto ret = isaHandler->canDispatch(dynInfo);
   if (!ret) {
@@ -154,7 +154,7 @@ bool MinorCPUDelegator::canDispatch(Minor::MinorDynInstPtr &dynInstPtr) {
   return ret;
 }
 
-void MinorCPUDelegator::dispatch(Minor::MinorDynInstPtr &dynInstPtr) {
+void MinorCPUDelegator::dispatch(minor::MinorDynInstPtr &dynInstPtr) {
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   INST_DPRINTF(dynInstPtr, "Dispatch.\n");
   GemForgeLSQCallbackList extraLSQCallbacks;
@@ -181,7 +181,7 @@ void MinorCPUDelegator::dispatch(Minor::MinorDynInstPtr &dynInstPtr) {
   }
 }
 
-bool MinorCPUDelegator::canInsertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
+bool MinorCPUDelegator::canInsertLSQ(minor::MinorDynInstPtr &dynInstPtr) {
   auto &preLSQ = pimpl->preLSQ;
   auto seqNum = dynInstPtr->id.execSeqNum;
   auto iter = preLSQ.find(seqNum);
@@ -215,7 +215,7 @@ bool MinorCPUDelegator::canInsertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
   return true;
 }
 
-Fault MinorCPUDelegator::insertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
+Fault MinorCPUDelegator::insertLSQ(minor::MinorDynInstPtr &dynInstPtr) {
   auto &preLSQ = pimpl->preLSQ;
   auto &inLSQ = pimpl->inLSQ;
   auto seqNum = dynInstPtr->id.execSeqNum;
@@ -258,7 +258,7 @@ Fault MinorCPUDelegator::insertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
     GemForgeLQCallbackPtr lqCallback = nullptr;
     lqCallback.reset(static_cast<GemForgeLQCallback *>(callback.release()));
     auto request =
-        new Minor::GemForgeLoadRequest(lsq, dynInstPtr, std::move(lqCallback));
+        new minor::GemForgeLoadRequest(lsq, dynInstPtr, std::move(lqCallback));
 
     // Have to setup the request.
     int cid = pimpl->getThreadContext(dynInstPtr)->contextId();
@@ -288,7 +288,7 @@ Fault MinorCPUDelegator::insertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
        * If it ever gets to commit stage, our translation fault will be invoked
        * and we will get a panic.
        */
-      request->setState(Minor::LSQ::LSQRequest::LSQRequestState::Translated);
+      request->setState(minor::LSQ::LSQRequest::LSQRequestState::Translated);
     } else {
       request->request->setPaddr(paddrLHS);
       // Create the packet.
@@ -300,11 +300,11 @@ Fault MinorCPUDelegator::insertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
     // Insert the special GemForgeLoadRequest.
 
     /**
-     * Push takes Minor::LSQ::LSQRequestPtr&, which requires a lvalue so
+     * Push takes minor::LSQ::LSQRequestPtr&, which requires a lvalue so
      * we have to do the type cast by ourselves.
      */
     {
-      Minor::LSQ::LSQRequestPtr lsqRequest = request;
+      minor::LSQ::LSQRequestPtr lsqRequest = request;
       lsq.requests.push(lsqRequest);
     }
     // Push into inLSQ.
@@ -345,7 +345,7 @@ Fault MinorCPUDelegator::insertLSQ(Minor::MinorDynInstPtr &dynInstPtr) {
 }
 
 InstSeqNum MinorCPUDelegator::getEarlyIssueMustWaitSeqNum(
-    Minor::MinorDynInstPtr &dynInstPtr) {
+    minor::MinorDynInstPtr &dynInstPtr) {
   /**
    * We disable early issue for StreamAtomic.
    * TODO: Memorize this.
@@ -358,7 +358,7 @@ InstSeqNum MinorCPUDelegator::getEarlyIssueMustWaitSeqNum(
   return 0;
 }
 
-bool MinorCPUDelegator::canExecute(Minor::MinorDynInstPtr &dynInstPtr) {
+bool MinorCPUDelegator::canExecute(minor::MinorDynInstPtr &dynInstPtr) {
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   auto ret = isaHandler->canExecute(dynInfo);
   if (!ret) {
@@ -367,14 +367,14 @@ bool MinorCPUDelegator::canExecute(Minor::MinorDynInstPtr &dynInstPtr) {
   return ret;
 }
 
-void MinorCPUDelegator::execute(Minor::MinorDynInstPtr &dynInstPtr,
+void MinorCPUDelegator::execute(minor::MinorDynInstPtr &dynInstPtr,
                                 ExecContext &xc) {
   INST_DPRINTF(dynInstPtr, "Execute.\n");
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   isaHandler->execute(dynInfo, xc);
 }
 
-bool MinorCPUDelegator::canCommit(Minor::MinorDynInstPtr &dynInstPtr) {
+bool MinorCPUDelegator::canCommit(minor::MinorDynInstPtr &dynInstPtr) {
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   auto ret = isaHandler->canCommit(dynInfo);
   if (!ret) {
@@ -383,7 +383,7 @@ bool MinorCPUDelegator::canCommit(Minor::MinorDynInstPtr &dynInstPtr) {
   return ret;
 }
 
-void MinorCPUDelegator::commit(Minor::MinorDynInstPtr &dynInstPtr) {
+void MinorCPUDelegator::commit(minor::MinorDynInstPtr &dynInstPtr) {
   INST_DPRINTF(dynInstPtr, "Commit.\n");
   auto dynInfo = pimpl->createDynInfo(dynInstPtr);
   assert(!pimpl->inflyInstQueue.empty() &&
@@ -640,7 +640,7 @@ namespace {
  * A fake LSQRequest, used to conform with
  * StoreBuffer::canForwardDataToLoad().
  */
-class FakeLoadRequest : public Minor::LSQ::LSQRequest {
+class FakeLoadRequest : public minor::LSQ::LSQRequest {
 protected:
   void finish(const Fault &fault, const RequestPtr &request, ThreadContext *tc,
               BaseMMU::Mode mode) override {
@@ -667,7 +667,7 @@ public:
     panic("%s not implemented.", __PRETTY_FUNCTION__);
   }
 
-  FakeLoadRequest(Minor::LSQ &_port, Minor::MinorDynInstPtr _inst,
+  FakeLoadRequest(minor::LSQ &_port, minor::MinorDynInstPtr _inst,
                   RequestPtr _request)
       : LSQRequest(_port, _inst, true /* isLoad */) {
     this->request = _request;
@@ -700,7 +700,7 @@ void MinorCPUDelegator::drainPendingPackets() {
      */
 
     // We have to use RefCountingPtr to avoid memory leak.
-    Minor::MinorDynInstPtr fakeDynInst(new Minor::MinorDynInst(
+    minor::MinorDynInstPtr fakeDynInst(new minor::MinorDynInst(
         StaticInstPtr() /* static inst (not sure if this works) */));
     fakeDynInst->id.threadId = 0;
     FakeLoadRequest fakeLSQRequest(lsq, fakeDynInst, pkt->req);
@@ -710,14 +710,14 @@ void MinorCPUDelegator::drainPendingPackets() {
         storeBuffer.canForwardDataToLoad(&fakeLSQRequest, forwardSlot);
     bool issued = false;
     switch (addrRange) {
-    case Minor::LSQ::AddrRangeCoverage::NoAddrRangeCoverage: {
+    case minor::LSQ::AddrRangeCoverage::NoAddrRangeCoverage: {
       // This packet can be sent to dcache port.
       assert(lsq.dcachePort->sendTimingReqVirtual(pkt, false /* isCore */));
       issued = true;
       break;
     }
-    case Minor::LSQ::AddrRangeCoverage::FullAddrRangeCoverage:
-    case Minor::LSQ::AddrRangeCoverage::PartialAddrRangeCoverage: {
+    case minor::LSQ::AddrRangeCoverage::FullAddrRangeCoverage:
+    case minor::LSQ::AddrRangeCoverage::PartialAddrRangeCoverage: {
       // For far we will wait until there is no alised store.
       issued = false;
       break;
@@ -752,7 +752,6 @@ void MinorCPUDelegator::setInstSeqNum(InstSeqNum seqNum) {
 void MinorCPUDelegator::recordStatsForFakeExecutedInst(
     const StaticInstPtr &inst) {
   pimpl->cpu->stats.numDecodedOps++;
-  pimpl->cpu->stats.numOps++;
 
   if (inst->isInteger()) {
     pimpl->cpu->stats.numCommittedIntOps++;

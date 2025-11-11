@@ -11,7 +11,7 @@
 
 namespace gem5 {
 
-namespace RiscvISA {
+namespace GemForgeRiscv {
 class ExecFunc {
 public:
   ExecFunc(ThreadContext *_tc, const ::LLVM::TDG::ExecFuncInfo &_func);
@@ -27,7 +27,7 @@ private:
   std::vector<StaticInstPtr> instructions;
 };
 
-} // namespace RiscvISA
+} // namespace GemForgeRiscv
 
 } // namespace gem5
 

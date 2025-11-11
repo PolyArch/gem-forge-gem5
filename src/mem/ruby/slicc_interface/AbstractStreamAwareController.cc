@@ -79,42 +79,42 @@ void AbstractStreamAwareController::regStats() {
   AbstractController::regStats();
   m_statCoreReq.name(name() + ".coreRequests")
       .desc("number of core requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statCoreLoadReq.name(name() + ".coreLoadRequests")
       .desc("number of core load requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statCoreStreamReq.name(name() + ".coreStreamRequests")
       .desc("number of core stream requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statCoreStreamLoadReq.name(name() + ".coreStreamLoadRequests")
       .desc("number of core stream load requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCStreamReq.name(name() + ".llcStreamRequests")
       .desc("number of llc stream requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCIndStreamReq.name(name() + ".llcIndStreamRequests")
       .desc("number of llc indirect stream requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCMulticastStreamReq.name(name() + ".llcMulticastStreamRequests")
       .desc("number of llc multicast stream requests seen")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCScheduledComputation.name(name() + ".llcScheduledStreamComputation")
       .desc("number of llc stream computation scheduled")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCScheduledComputeMicroOps
       .name(name() + ".llcScheduledStreamComputeMicroOps")
       .desc("number of llc stream computation microops scheduled")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
 
   m_statMLCStreamCycles.name(name() + ".mlcStreamCycles")
       .desc("number of cycles with streams offloaded")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
 
 #define complete_micro_op(Addr, Compute)                                       \
   m_statLLCScheduled##Addr##Compute##MicroOps                                  \
       .name(name() + ".llcScheduledStream" #Addr #Compute "MicroOps")          \
       .desc("number of llc stream " #Addr #Compute "microops scheduled")       \
-      .flags(Stats::nozero)
+      .flags(statistics::nozero)
 
   complete_micro_op(Affine, LoadCompute);
   complete_micro_op(Affine, StoreCompute);
@@ -140,55 +140,55 @@ void AbstractStreamAwareController::regStats() {
 
   m_statLLCPerformedAtomics.name(name() + ".llcStreamAtomicsPerformed")
       .desc("number of llc stream atomics performed")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCCommittedAtomics.name(name() + ".llcStreamAtomicsCommitted")
       .desc("number of llc stream atomics committed")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCLockedAtomics.name(name() + ".llcStreamAtomicsLocked")
       .desc("number of llc stream atomics locked")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCUnlockedAtomics.name(name() + ".llcStreamAtomicsUnlocked")
       .desc("number of llc stream atomics unlocked")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCLineConflictAtomics.name(name() + ".llcStreamAtomicsLineConflict")
       .desc("number of llc stream atomics that has line conflict")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCRealConflictAtomics.name(name() + ".llcStreamAtomicsRealConflict")
       .desc("number of llc stream atomics that has real conflict")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCXAWConflictAtomics.name(name() + ".llcStreamAtomicsXAWConflict")
       .desc("number of llc stream atomics that has X-after-write conflict")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCRealXAWConflictAtomics
       .name(name() + ".llcStreamAtomicsRealXAWConflict")
       .desc("number of llc stream atomics that has real X-after-write conflict")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   m_statLLCDeadlockAtomics.name(name() + ".llcStreamAtomicsDeadlock")
       .desc("number of llc stream atomics that triggers deadlock")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
 
   m_statLLCNumDirectStreams.init(1, 32, 2)
       .name(name() + ".llcNumDirectStreams")
       .desc("Sample of number of LLC direct streams.")
-      .flags(Stats::pdf)
-      .flags(Stats::nozero);
+      .flags(statistics::pdf)
+      .flags(statistics::nozero);
 
   m_statLLCNumInflyComputations
       .init(1, myParams->llc_stream_engine_max_infly_computation, 1)
       .name(name() + ".llcNumInflyComputations")
       .desc("Sample of number of LLC computation infly.")
-      .flags(Stats::pdf)
-      .flags(Stats::nozero);
+      .flags(statistics::pdf)
+      .flags(statistics::nozero);
   m_statLLCNumReadyComputations.init(1, 32, 1)
       .name(name() + ".llcNumReadyComputations")
       .desc("Sample of number of LLC computation ready but not infly.")
-      .flags(Stats::pdf)
-      .flags(Stats::nozero);
+      .flags(statistics::pdf)
+      .flags(statistics::nozero);
 
 #define pum_stats(Type)                                                        \
   m_statPUM##Type.name(name() + ".pum" #Type)                                  \
       .desc("PUM " #Type ".")                                                  \
-      .flags(Stats::nozero)
+      .flags(statistics::nozero)
 
   pum_stats(TotalCycles);
   pum_stats(PrefetchCycles);
@@ -226,8 +226,8 @@ void AbstractStreamAwareController::regStats() {
 
   // Register stats callback.
   auto pcRR = &this->pcReqRecorder;
-  Stats::registerResetCallback([pcRR]() -> void { pcRR->reset(); });
-  Stats::registerDumpCallback([pcRR]() -> void { pcRR->dump(); });
+  statistics::registerResetCallback([pcRR]() -> void { pcRR->reset(); });
+  statistics::registerDumpCallback([pcRR]() -> void { pcRR->dump(); });
 }
 
 MachineID

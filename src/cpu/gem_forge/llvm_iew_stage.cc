@@ -44,7 +44,7 @@ void LLVMIEWStage::regStats() {
   this->statIssuedInstType.init(cpu->numThreads, enums::Num_OpClass)
       .name(name() + ".FU_type")
       .desc("Type of FU issued")
-      .flags(Stats::total | Stats::pdf | Stats::dist);
+      .flags(statistics::total | statistics::pdf | statistics::dist);
   this->statIssuedInstType.ysubnames(enums::OpClassStrings);
 
 #define scalar(stat, describe)                                                 \
@@ -86,11 +86,11 @@ void LLVMIEWStage::regStats() {
   this->numIssuedDist.init(0, this->issueWidth, 1)
       .name(name() + ".issued_per_cycle")
       .desc("Number of insts issued each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numExecutingDist.init(0, 192, 8)
       .name(name() + ".executing_per_cycle")
       .desc("Number of insts executing each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 }
 
 void LLVMIEWStage::dumpROB() const {

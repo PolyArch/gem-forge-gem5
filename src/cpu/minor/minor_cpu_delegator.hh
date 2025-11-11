@@ -54,10 +54,10 @@ public:
    * Whether this instruction should be count in Fetch2 and Decode.
    * Note that these are macroinstructions.
    */
-  bool shouldCountInPipeline(Minor::MinorDynInstPtr &dynInstPtr);
+  bool shouldCountInPipeline(minor::MinorDynInstPtr &dynInstPtr);
 
-  bool canDispatch(Minor::MinorDynInstPtr &dynInstPtr);
-  void dispatch(Minor::MinorDynInstPtr &dynInstPtr);
+  bool canDispatch(minor::MinorDynInstPtr &dynInstPtr);
+  void dispatch(minor::MinorDynInstPtr &dynInstPtr);
 
   /**
    * Check if this mem-ref instruction is ready to be pushed into LSQ.
@@ -68,7 +68,7 @@ public:
    * are ready to be pushed into the LSQ.
    *
    */
-  bool canInsertLSQ(Minor::MinorDynInstPtr &dynInstPtr);
+  bool canInsertLSQ(minor::MinorDynInstPtr &dynInstPtr);
 
   /**
    * Insert the GemForgeLQCallback into the LSQ.
@@ -76,7 +76,7 @@ public:
    *
    * Returns the Fault if we ever encounter a translation fault.
    */
-  Fault insertLSQ(Minor::MinorDynInstPtr &dynInstPtr);
+  Fault insertLSQ(minor::MinorDynInstPtr &dynInstPtr);
 
   /**
    * ! This is not used right now.
@@ -91,12 +91,12 @@ public:
    * The implementation of commit logic is that if EarlyIssue failed, MinorCPU
    * won't try to commit other instructions.
    */
-  InstSeqNum getEarlyIssueMustWaitSeqNum(Minor::MinorDynInstPtr &dynInstPtr);
+  InstSeqNum getEarlyIssueMustWaitSeqNum(minor::MinorDynInstPtr &dynInstPtr);
 
-  bool canExecute(Minor::MinorDynInstPtr &dynInstPtr);
-  void execute(Minor::MinorDynInstPtr &dynInstPtr, ExecContext &xc);
-  bool canCommit(Minor::MinorDynInstPtr &dynInstPtr);
-  void commit(Minor::MinorDynInstPtr &dynInstPtr);
+  bool canExecute(minor::MinorDynInstPtr &dynInstPtr);
+  void execute(minor::MinorDynInstPtr &dynInstPtr, ExecContext &xc);
+  bool canCommit(minor::MinorDynInstPtr &dynInstPtr);
+  void commit(minor::MinorDynInstPtr &dynInstPtr);
 
   /**
    * Control misspeculation happened.

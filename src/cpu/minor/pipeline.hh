@@ -59,7 +59,6 @@ namespace gem5
 // ! GemForge
 class MinorCPUDelegator;
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 

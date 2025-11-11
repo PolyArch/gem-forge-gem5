@@ -10,8 +10,8 @@
 #include <tuple>
 #include <vector>
 
-#include "cpu/gem_forge/accelerator/stream/cache/pum/TDFG.pb.h"
 #include "config/have_protobuf.hh"
+#include "cpu/gem_forge/accelerator/stream/cache/pum/TDFG.pb.h"
 #ifndef HAVE_PROTOBUF
 #error "Require protobuf to parse tensor dataflow graph."
 #endif
@@ -41,7 +41,13 @@ public:
 
   // using ParamVecT = std::vector<Param>;
   using ParamVecT = MaxVector<Param, MaxDimension>;
-  using IntVecT = std::vector<int64_t>;
+
+  struct IntVecT : public std::vector<int64_t> {
+    using std::vector<int64_t>::vector;
+    IntVecT() = default;
+    IntVecT(const std::vector<int64_t>& v) : std::vector<int64_t>(v) {}
+    IntVecT(std::vector<int64_t>&& v) : std::vector<int64_t>(std::move(v)) {}
+  };
 
   int64_t start;
   ParamVecT params;

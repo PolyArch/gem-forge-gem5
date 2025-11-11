@@ -178,7 +178,7 @@ private:
    * later instructions.
    */
   struct DynStreamRegionInfo {
-    using StreamInputValue = TheISA::ExecFunc::RegisterValue;
+    using StreamInputValue = ExecFunc::RegisterValue;
     const std::string infoRelativePath;
     bool streamReadyDispatched = false;
     uint64_t streamReadySeqNum = 0;

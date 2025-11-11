@@ -97,6 +97,7 @@ class Sequencer : public RubyPort, public CachePrefetcherView
 {
   public:
     typedef RubySequencerParams Params;
+    const Params & params() const { return reinterpret_cast<const Params&>(_params); }
     Sequencer(const Params &);
     ~Sequencer();
 
@@ -135,6 +136,14 @@ class Sequencer : public RubyPort, public CachePrefetcherView
                       const Cycles initialRequestTime = Cycles(0),
                       const Cycles forwardRequestTime = Cycles(0),
                       const Cycles firstResponseTime = Cycles(0));
+
+    void atomicCallback(Addr address,
+                        DataBlock& data,
+                        const bool externalHit = false,
+                        const MachineType mach = MachineType_NUM,
+                        const Cycles initialRequestTime = Cycles(0),
+                        const Cycles forwardRequestTime = Cycles(0),
+                        const Cycles firstResponseTime = Cycles(0));
 
     void unaddressedCallback(Addr unaddressedReqId,
                              RubyRequestType requestType,

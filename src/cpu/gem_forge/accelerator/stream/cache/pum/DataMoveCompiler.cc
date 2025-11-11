@@ -270,7 +270,7 @@ DataMoveCompiler::compileStreamPair(AffinePattern srcStream,
   DPRINTF(MLCStreamPUM, "---------------- Mask SubRegion ------------\n");
   auto reducedSrcSubRegion = removeReuseInSubRegion(srcStream);
   commands = maskCmdsBySubRegion(commands, reducedSrcSubRegion);
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     DPRINTF(MLCStreamPUM, "-------- After Mask SubRegion\n");
     for (const auto &c : commands) {
       DPRINTF(MLCStreamPUM, "%s", c);
@@ -280,7 +280,7 @@ DataMoveCompiler::compileStreamPair(AffinePattern srcStream,
   // 3.
   DPRINTF(MLCStreamPUM, "---------------- Mask Reuses ---------------\n");
   commands = maskCmdsByReuses(commands, reducedSrcSubRegion, reuses);
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     DPRINTF(MLCStreamPUM, "-------- After Mask Reuses\n");
     for (const auto &c : commands) {
       DPRINTF(MLCStreamPUM, "%s", c);
@@ -290,7 +290,7 @@ DataMoveCompiler::compileStreamPair(AffinePattern srcStream,
   // 4. Map commands to LLC configuration.
   DPRINTF(MLCStreamPUM, "---------------- Map to LLC ----------------\n");
   mapCmdsToLLC(commands);
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     DPRINTF(MLCStreamPUM, "-------- After Map to LLC\n");
     for (const auto &c : commands) {
       DPRINTF(MLCStreamPUM, "%s", c);
@@ -301,7 +301,7 @@ DataMoveCompiler::compileStreamPair(AffinePattern srcStream,
   // // 5. Filter out empty commands.
   // DPRINTF(MLCStreamPUM, "---------------- Filter Empty Cmd ----------\n");
   // commands = filterEmptyCmds(commands);
-  // if (Debug::StreamPUM) {
+  // if (debug::StreamPUM) {
   //   DPRINTF(MLCStreamPUM, "-------- After Filter Empty Cmd\n");
   //   for (const auto &c : commands) {
   //     DPRINTF(MLCStreamPUM, "%s", c);

@@ -47,9 +47,9 @@ public:
   /**
    * Stats
    */
-  Stats::Distribution numIssuedDist;
-  Stats::Distribution numIssuedLoadDist;
-  Stats::Distribution numCommittedDist;
+  statistics::Distribution numIssuedDist;
+  statistics::Distribution numIssuedLoadDist;
+  statistics::Distribution numCommittedDist;
   statistics::Scalar numExecution;
   statistics::Scalar numCycles;
   statistics::Scalar numCommittedInst;

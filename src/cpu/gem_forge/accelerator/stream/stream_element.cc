@@ -729,7 +729,7 @@ void StreamElement::markValueReady() {
   assert(!this->isValueReady && "Value is already ready.");
   this->isValueReady = true;
   this->valueReadyCycle = this->getStream()->getCPUDelegator()->curCycle();
-  if (Debug::DEBUG_TYPE) {
+  if (debug::DEBUG_TYPE) {
     bool faulted = false;
     for (int blockIdx = 0; blockIdx < this->cacheBlocks; ++blockIdx) {
       const auto &block = this->cacheBlockBreakdownAccesses[blockIdx];

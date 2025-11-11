@@ -55,7 +55,6 @@ namespace gem5
 
 class OutputDirectory;
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
@@ -64,18 +63,6 @@ struct MinorStats : public statistics::Group
 {
   public:
     MinorStats(BaseCPU *parent);
-
-    /** Number of simulated instructions */
-    statistics::Scalar numInsts;
-
-    /** Number of simulated insts and microops */
-    statistics::Scalar numOps;
-
-    /** Number of ops discarded before committing */
-    statistics::Scalar numDiscardedOps;
-
-    /** Number of times fetch was asked to suspend by Execute */
-    statistics::Scalar numFetchSuspends;
 
     /** Number of cycles in quiescent state */
     statistics::Scalar quiesceCycles;
@@ -95,10 +82,6 @@ struct MinorStats : public statistics::Group
     statistics::Scalar ideaCycles;
     statistics::Scalar ideaCyclesNoFUTiming;
     statistics::Scalar ideaCyclesNoLDTiming;
-
-    /** CPI/IPC for total cycle counts and macro insts */
-    statistics::Formula cpi;
-    statistics::Formula ipc;
 
     /** Number of instructions by type (OpClass) */
     statistics::Vector2d committedInstType;
@@ -137,6 +120,9 @@ struct MinorStats : public statistics::Group
     statistics::Scalar numCommittedFpOps;
     statistics::Scalar numCommittedCallInsts;
 
+    statistics::Scalar numOps;
+    statistics::Scalar numDiscardedOps;
+
     struct BlockedStat {
       uint64_t cycles = 0;
       uint64_t times = 0;
@@ -152,7 +138,6 @@ struct MinorStats : public statistics::Group
     int dumped = 0;
     OutputDirectory *loadBlockedDir;
 
-    MinorStats();
     /** Number of branches commited */
     statistics::Vector2d committedControl;
 

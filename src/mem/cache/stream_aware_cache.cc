@@ -57,13 +57,13 @@ void StreamAwareCache::regStats() {
         .init(system->maxMasters())
         .name(name() + ".coalesced_" + cstr + "_hits")
         .desc("number of " + cstr + " hits for coalesced streams")
-        .flags(Stats::total | Stats::nozero | Stats::nonan);
+        .flags(statistics::total | statistics::nozero | Stats::nonan);
 
     this->coalescedStreamMisses[access_idx]
         .init(system->maxMasters())
         .name(name() + ".coalesced_" + cstr + "_misses")
         .desc("number of " + cstr + " misses for coalesced streams")
-        .flags(Stats::total | Stats::nozero | Stats::nonan);
+        .flags(statistics::total | statistics::nozero | Stats::nonan);
 
     for (int i = 0; i < system->maxMasters(); i++) {
       this->coalescedStreamHits[access_idx].subname(i,
@@ -82,23 +82,23 @@ void StreamAwareCache::regStats() {
 
   this->coalescedStreamDemandHits.name(name() + ".coalesced_demand_hits")
       .desc("number of demand (read+write) hits for coalesced streams")
-      .flags(Stats::total | Stats::nozero | Stats::nonan);
+      .flags(statistics::total | statistics::nozero | Stats::nonan);
   this->coalescedStreamDemandHits = SUM_DEMAND(this->coalescedStreamHits);
 
   this->coalescedStreamOverallHits.name(name() + ".coalesced_overall_hits")
       .desc("number of overall hits for coalesced streams")
-      .flags(Stats::total | Stats::nozero | Stats::nonan);
+      .flags(statistics::total | statistics::nozero | Stats::nonan);
   this->coalescedStreamOverallHits = this->coalescedStreamDemandHits +
                                      SUM_NON_DEMAND(this->coalescedStreamHits);
 
   this->coalescedStreamDemandMisses.name(name() + ".coalesced_demand_misses")
       .desc("number of demand (read+write) misses for coalesced streams")
-      .flags(Stats::total | Stats::nozero | Stats::nonan);
+      .flags(statistics::total | statistics::nozero | Stats::nonan);
   this->coalescedStreamDemandMisses = SUM_DEMAND(this->coalescedStreamMisses);
 
   this->coalescedStreamOverallMisses.name(name() + ".coalesced_overall_misses")
       .desc("number of overall misses for coalesced streams")
-      .flags(Stats::total | Stats::nozero | Stats::nonan);
+      .flags(statistics::total | statistics::nozero | Stats::nonan);
   this->coalescedStreamOverallMisses =
       this->coalescedStreamDemandMisses +
       SUM_NON_DEMAND(this->coalescedStreamMisses);
@@ -116,12 +116,12 @@ void StreamAwareCache::regStats() {
   this->numUsedBeforeEvicted.init(0, 10, 1)
       .name(this->name() + ".numUsedBeforeEvicted")
       .desc("Number of the block used before get evicted.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 
   this->coalescedStreamMemFootprint.init(0, 1024, 128)
       .name(this->name() + ".coalescedStreamMemFootprint")
       .desc("Memory footprint of coalesced streams in cache blocks.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 
   this->numUncachedStreamAccesses
       .name(this->name() + ".numUncachedStreamAccesses")
@@ -1552,7 +1552,7 @@ PacketPtr StreamAwareCache::writebackBlk(CacheBlk *blk) {
     req->setFlags(Request::SECURE);
 
   req->taskId(blk->task_id);
-  blk->task_id = ContextSwitchTaskId::Unknown;
+  blk->task_id = context_switch_task_id::Unknown;
   blk->tickInserted = curTick();
 
   PacketPtr pkt = new Packet(req, blk->isDirty() ? MemCmd::WritebackDirty
@@ -1589,7 +1589,7 @@ PacketPtr StreamAwareCache::cleanEvictBlk(CacheBlk *blk) {
     req->setFlags(Request::SECURE);
 
   req->taskId(blk->task_id);
-  blk->task_id = ContextSwitchTaskId::Unknown;
+  blk->task_id = context_switch_task_id::Unknown;
   blk->tickInserted = curTick();
 
   PacketPtr pkt = new Packet(req, MemCmd::CleanEvict);

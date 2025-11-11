@@ -237,51 +237,51 @@ void StreamEngine::regStats() {
   this->numTotalAliveElements.init(0, 1000, 50)
       .name(this->manager->name() + ".stream.numTotalAliveElements")
       .desc("Number of alive stream elements in each cycle.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numTotalAliveCacheBlocks.init(0, 1000, 50)
       .name(this->manager->name() + ".stream.numTotalAliveCacheBlocks")
       .desc("Number of alive cache blocks in each cycle.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numRunAHeadLengthDist.init(0, 15, 1)
       .name(this->manager->name() + ".stream.numRunAHeadLengthDist")
       .desc("Number of run ahead length for streams.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numTotalAliveMemStreams.init(0, 15, 1)
       .name(this->manager->name() + ".stream.numTotalAliveMemStreams")
       .desc("Number of alive memory stream.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numInflyStreamRequestDist.init(0, 16, 1)
       .name(this->manager->name() + ".stream.numInflyStreamDist")
       .desc("Distribution of infly stream requests.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 
   this->numAccessPlacedInCacheLevel.init(3)
       .name(this->manager->name() + ".stream.numAccessPlacedInCacheLevel")
       .desc("Number of accesses placed in different cache level.")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->numAccessHitHigherThanPlacedCacheLevel.init(3)
       .name(this->manager->name() +
             ".stream.numAccessHitHigherThanPlacedCacheLevel")
       .desc("Number of accesses hit in higher level than placed cache.")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->numAccessHitLowerThanPlacedCacheLevel.init(3)
       .name(this->manager->name() +
             ".stream.numAccessHitLowerThanPlacedCacheLevel")
       .desc("Number of accesses hit in lower level than placed cache.")
-      .flags(Stats::total);
+      .flags(statistics::total);
 
   this->numAccessFootprintL1.init(0, 500, 100)
       .name(this->manager->name() + ".stream.numAccessFootprintL1")
       .desc("Number of accesses with footprint at L1.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numAccessFootprintL2.init(0, 4096, 1024)
       .name(this->manager->name() + ".stream.numAccessFootprintL2")
       .desc("Number of accesses with footprint at L2.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numAccessFootprintL3.init(0, 131072, 26214)
       .name(this->manager->name() + ".stream.numAccessFootprintL3")
       .desc("Number of accesses with footprint at L3.")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 
   this->dataTrafficAccFix->regStats();
   this->dataTrafficAccFloat->regStats();
@@ -1670,7 +1670,7 @@ void StreamEngine::initializeStreams(
    * Recursively initialize all nest streams.
    */
   this->regionController->initializeRegion(streamRegion);
-  for (const auto nestRegionRelativePath :
+  for (const auto &nestRegionRelativePath :
        streamRegion.nest_region_relative_paths()) {
     const auto &nestStreamRegion =
         this->getStreamRegion(nestRegionRelativePath);
@@ -3206,7 +3206,7 @@ void StreamEngine::sendStreamFloatEndPacket(
   auto pkt = GemForgePacketHandler::createStreamControlPacket(
       initPAddr, cpuDelegator->dataRequestorId(), 0,
       MemCmd::Command::StreamEndReq, reinterpret_cast<uint64_t>(endedIdsCopy));
-  if (Debug::CoreRubyStreamLife) {
+  if (debug::CoreRubyStreamLife) {
     std::stringstream ss;
     for (const auto &id : endedIds) {
       SE_DPRINTF_(CoreRubyStreamLife, "%s: Send FloatEnd.\n", id);

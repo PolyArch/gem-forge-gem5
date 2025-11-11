@@ -90,7 +90,7 @@ LLVMTraceCPU::LLVMTraceCPU(const Params &params)
       this->cpuParams->adfaEnable);
   if (this->mainThread->getRegionStats() != nullptr) {
     // Add the dump handler to dump region stats at the end.
-    Stats::registerDumpCallback(
+    statistics::registerDumpCallback(
         [this]() -> void { this->mainThread->getRegionStats(); });
   }
   this->activateThread(mainThread);
@@ -146,7 +146,7 @@ void LLVMTraceCPU::tick() {
 
   if (this->cacheWarmer != nullptr) {
     // Disable all tracing output.
-    Debug::Flag::globalDisable();
+    debug::Flag::globalDisable();
     if (this->cacheWarmer->isDoneWithPreviousRequest()) {
       if (this->cacheWarmer->isDone()) {
         // We are done warming up.
@@ -155,7 +155,7 @@ void LLVMTraceCPU::tick() {
         this->cacheWarmer = nullptr;
         this->warmUpDone = true;
         // Reset the stats.
-        Stats::reset();
+        statistics::reset();
         inform("Done reset, %lu.\n", this->baseStats.numCycles.value());
         this->system->incWorkItemsEnd();
         this->cpuStatus = CPUStatusE::CACHE_WARMED;
@@ -177,7 +177,7 @@ void LLVMTraceCPU::tick() {
     // We want to synchronize all cpus here.
     if (this->system->getWorkItemsEnd() % this->totalActiveCPUs == 0) {
       // We should have been synchronized.
-      Debug::Flag::globalEnable();
+      debug::Flag::globalEnable();
       this->cpuStatus = CPUStatusE::EXECUTING;
       inform("Core %d start executing.\n", this->cpuId());
     } else {
@@ -187,7 +187,7 @@ void LLVMTraceCPU::tick() {
     }
   }
 
-  if (Debug::GemForgeCPUDump) {
+  if (debug::GemForgeCPUDump) {
     if (curTick() % 100000000 == 0) {
       DPRINTF(LLVMTraceCPU, "Tick()\n");
       this->iewStage.dumpROB();
@@ -626,11 +626,11 @@ void LLVMTraceCPU::regStats() {
   this->numPendingAccessDist.init(0, 4, 1)
       .name(this->name() + ".pending_acc_per_cycle")
       .desc("Number of pending memory access each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numOutstandingAccessDist.init(0, 16, 2)
       .name(this->name() + ".outstanding_acc_per_cycle")
       .desc("Number of outstanding memory access each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
 }
 
 ContextID LLVMTraceCPU::allocateContextID() {

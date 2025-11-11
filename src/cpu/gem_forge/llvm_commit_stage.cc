@@ -33,23 +33,23 @@ void LLVMCommitStage::regStats() {
   this->instsCommitted.init(nThreads)
       .name(name() + ".committedInsts")
       .desc("Number of instructions committed")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->opsCommitted.init(nThreads)
       .name(name() + ".committedOps")
       .desc("Number of ops (including micro ops) committed")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->intInstsCommitted.init(nThreads)
       .name(name() + ".committedIntInsts")
       .desc("Number of integer instructions committed")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->fpInstsCommitted.init(nThreads)
       .name(name() + ".committedFpInsts")
       .desc("Number of float instructions committed")
-      .flags(Stats::total);
+      .flags(statistics::total);
   this->callInstsCommitted.init(nThreads)
       .name(name() + ".committedCallInsts")
       .desc("Number of call instructions committed")
-      .flags(Stats::total);
+      .flags(statistics::total);
 
   this->blockedCycles.name(name() + ".blockedCycles")
       .desc("Number of cycles blocked")

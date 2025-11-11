@@ -98,6 +98,8 @@ class SimpleMemory : public AbstractMemory
         Tick recvAtomicBackdoor(
                 PacketPtr pkt, MemBackdoorPtr &_backdoor) override;
         void recvFunctional(PacketPtr pkt) override;
+        void recvMemBackdoorReq(const MemBackdoorReq &req,
+                MemBackdoorPtr &backdoor) override;
         bool recvTimingReq(PacketPtr pkt) override;
         void recvRespRetry() override;
         AddrRangeList getAddrRanges() const override;
@@ -192,6 +194,8 @@ class SimpleMemory : public AbstractMemory
   protected:
     Tick recvAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &_backdoor);
     void recvFunctional(PacketPtr pkt);
+    void recvMemBackdoorReq(const MemBackdoorReq &req,
+            MemBackdoorPtr &backdoor);
     bool recvTimingReq(PacketPtr pkt);
     void recvRespRetry();
 };

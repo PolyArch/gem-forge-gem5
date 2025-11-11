@@ -426,7 +426,7 @@ void MLCDynStream::makeResponse(MLCStreamSlice &slice) {
   }
 
   // Show the data.
-  if (Debug::DEBUG_TYPE) {
+  if (debug::DEBUG_TYPE) {
     std::stringstream ss;
     auto lineOffset =
         slice.sliceId.vaddr % ruby::RubySystem::getBlockSizeBytes();

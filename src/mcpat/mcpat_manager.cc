@@ -664,7 +664,7 @@ void McPATManager::computeEnergy() {
   panic_if(this->statsMap == nullptr, "StatsMap is still nullptr.");
 
   {
-    auto &stats = Stats::statsList();
+    auto &stats = statistics::statsList();
     // First we have to prepare all of them.
     for (auto stat : stats) {
       stat->enable();
@@ -983,14 +983,14 @@ std::string McPATManager::getStatName(const std::string &stat, int cpu) {
 
 double McPATManager::getScalarStats(const std::string &stat, int cpu) {
   auto statName = this->getStatName(stat, cpu);
-  auto scalar = dynamic_cast<Stats::ScalarInfo *>(this->getStat(statName));
+  auto scalar = dynamic_cast<statistics::ScalarInfo *>(this->getStat(statName));
   panic_if(scalar == nullptr, "Stat %s is not scalar.", statName.c_str());
   return scalar->result();
 }
 
 double McPATManager::getVecStatsTotal(const std::string &stat, int cpu) {
   auto statName = this->getStatName(stat, cpu);
-  auto vector = dynamic_cast<Stats::VectorInfo *>(this->getStat(statName));
+  auto vector = dynamic_cast<statistics::VectorInfo *>(this->getStat(statName));
   panic_if(vector == nullptr, "Stat %s is not vector.", statName.c_str());
   return vector->total();
 }

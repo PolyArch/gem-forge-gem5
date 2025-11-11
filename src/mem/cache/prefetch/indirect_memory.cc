@@ -36,7 +36,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
@@ -116,7 +115,8 @@ IndirectMemory::IndirectMemory(const IndirectMemoryPrefetcherParams &p)
 
 void
 IndirectMemory::calculatePrefetch(const PrefetchInfo &pfi,
-    std::vector<AddrPriority> &addresses)
+    std::vector<AddrPriority> &addresses,
+    const CacheAccessor &cache)
 {
     // This prefetcher requires a PC
     if (!pfi.hasPC()) {
@@ -355,8 +355,9 @@ IndirectMemory::checkAccessMatchOnActiveEntries(Addr pc, Addr addr)
 }
 
 void
-IndirectMemory::notifyFill(const PacketPtr &pkt)
+IndirectMemory::notifyFill(const CacheAccessProbeArg &acc)
 {
+    auto pkt = acc.pkt;
     if (!pkt->req->hasPC()) {
         return;
     }
@@ -433,7 +434,8 @@ IndirectMemory::notifyFill(const PacketPtr &pkt)
     }
 
     if (!addresses.empty()) {
-        queueUpGeneratedPrefetch(pkt, pfi, addresses);
+        const auto &cache = acc.cache;
+        queueUpGeneratedPrefetch(pkt, cache, pfi, addresses);
     }
 
     return;

@@ -226,7 +226,7 @@ InputUnit::PortToDestinationMap InputUnit::groupDestinationByRouting(
             std::forward_as_tuple()).first->second.push_back(destMachineID);
     }
 
-    if (Debug::RubyMulticast) {
+    if (debug::RubyMulticast) {
         std::stringstream ss;
         for (const auto &group : grouped) {
             auto outport = group.first;
@@ -433,7 +433,7 @@ void InputUnit::duplicateMulticastMsgToNetworkInterface(
     // Inject the message.
     localNI->injectMsgToInput(msg);
 
-    if (Debug::RubyMulticast) {
+    if (debug::RubyMulticast) {
         std::stringstream ss;
         for (const auto &destNodeId : msg->getDestination().getAllDest()) {
             auto destMachineId = MachineID::getMachineIDFromRawNodeID(destNodeId);

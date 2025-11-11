@@ -412,7 +412,7 @@ Process::unserialize(CheckpointIn &cp)
 {
     memState->unserialize(cp);
     pTable->unserialize(cp);
-    fds->unserialize(cp);
+    fds->unserialize(cp, this);
 
     /**
      * Checkpoints for pipes, device drivers or sockets currently
@@ -576,7 +576,7 @@ Process::encounterWorkMark(uint64_t markId) {
                 // Simply reset the stats.
                 inform("Reset stats after warming up, edge %llu.\n",
                     this->workMarkIndex);
-                Stats::reset();
+                statistics::reset();
             }
         } else {
             // We switch at the first edge. No warm up.

@@ -36,10 +36,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from m5.objects.ClockedObject import ClockedObject
 from m5.params import *
 from m5.proxy import *
-from m5.objects.ClockedObject import ClockedObject
-from m5.objects.Sequencer import RubySequencer
 
 
 class RubyController(ClockedObject):
@@ -52,7 +51,7 @@ class RubyController(ClockedObject):
     router_id = Param.Int(-1, "RounterId of this controller. -1 means Invalid.")
     numa_banks = VectorParam.Int([], "Banks that handled by this NUMA node.")
     addr_ranges = VectorParam.AddrRange(
-        [AllMemory], "Address range this " "controller responds to"
+        [AllMemory], "Address range this controller responds to"
     )
     cluster_id = Param.UInt32(0, "Id of this controller's cluster")
 

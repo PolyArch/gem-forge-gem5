@@ -37,13 +37,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+from typing import Optional
+
+from common import (
+    CpuConfig,
+    ObjectList,
+)
+from common.Benchmarks import *
 
 import m5
 from m5.defines import buildEnv
 from m5.objects import *
 
-from common.Benchmarks import *
-from common import ObjectList
+from gem5.isas import ISA
+from gem5.runtime import get_supported_isas
 
 vio_9p_help = """\
 Enable the Virtio 9P device and set the path to share. The default 9p path is
@@ -253,7 +260,7 @@ def addNoISAOptions(parser):
         "--maxtime",
         type=float,
         default=None,
-        help="Run to the specified absolute simulated time in " "seconds",
+        help="Run to the specified absolute simulated time in seconds",
     )
     parser.add_argument(
         "-P",
@@ -273,9 +280,13 @@ def addNoISAOptions(parser):
 # Add common options that assume a non-NULL ISA.
 
 
-def addCommonOptions(parser):
+def addCommonOptions(parser, default_isa: Optional[ISA] = None):
     # start by adding the base options that do not assume an ISA
     addNoISAOptions(parser)
+    if default_isa is None:
+        isa = list(get_supported_isas())[0]
+    else:
+        isa = default_isa
 
     # no file system in se mode, to save remove time.
     parser.add_argument("--no-file-system", action="store_true", default=False,
@@ -297,7 +308,7 @@ def addCommonOptions(parser):
     )
     parser.add_argument(
         "--cpu-type",
-        default="AtomicSimpleCPU",
+        default=CpuConfig.isa_string_map[isa] + "AtomicSimpleCPU",
         choices=ObjectList.cpu_list.get_names(),
         help="type of cpu to run with",
     )
@@ -628,7 +639,7 @@ def addCommonOptions(parser):
     parser.add_argument(
         "--restore-with-cpu",
         action="store",
-        default="AtomicSimpleCPU",
+        default=CpuConfig.isa_string_map[isa] + "AtomicSimpleCPU",
         choices=ObjectList.cpu_list.get_names(),
         help="cpu type for restoring from a checkpoint",
     )
@@ -738,7 +749,7 @@ def addSEOptions(parser):
         "-o",
         "--options",
         default="",
-        help="""The options to pass to the binary, use " "
+        help="""The options to pass to the binary, use
                               around the entire string""",
     )
     parser.add_argument(
@@ -831,12 +842,20 @@ def addFSOptions(parser):
         "files in the gem5 output directory",
     )
 
-    if buildEnv["USE_ARM_ISA"]:
+    if buildEnv["USE_ARM_ISA"] or buildEnv["USE_RISCV_ISA"]:
         parser.add_argument(
             "--bare-metal",
             action="store_true",
             help="Provide the raw system without the linux specific bits",
         )
+        parser.add_argument(
+            "--dtb-filename",
+            action="store",
+            type=str,
+            help="Specifies device tree blob file to use with device-tree-"
+            "enabled kernels",
+        )
+    if buildEnv["USE_ARM_ISA"]:
         parser.add_argument(
             "--list-machine-types",
             action=ListPlatform,
@@ -848,13 +867,6 @@ def addFSOptions(parser):
             action="store",
             choices=ObjectList.platform_list.get_names(),
             default="VExpress_GEM5_V1",
-        )
-        parser.add_argument(
-            "--dtb-filename",
-            action="store",
-            type=str,
-            help="Specifies device tree blob file to use with device-tree-"
-            "enabled kernels",
         )
         parser.add_argument(
             "--enable-context-switch-stats-dump",
@@ -881,8 +893,7 @@ def addFSOptions(parser):
         action="store",
         type=str,
         dest="benchmark",
-        help="Specify the benchmark to run. Available benchmarks: %s"
-        % DefinedBenchmarks,
+        help=f"Specify the benchmark to run. Available benchmarks: {DefinedBenchmarks}",
     )
 
     # Metafile options

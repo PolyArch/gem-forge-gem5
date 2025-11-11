@@ -170,7 +170,7 @@ System::Threads::quiesceTick(ContextID id, Tick when)
 int System::numSystemsRunning = 0;
 
 System::System(const Params &p)
-    : SimObject(p), _systemPort("system_port", this),
+    : SimObject(p), _systemPort("system_port"),
       multiThread(p.multi_thread),
       init_param(p.init_param),
       physProxy(_systemPort, p.cache_line_size),
@@ -380,14 +380,14 @@ System::regStats()
     SimObject::regStats();
 
     for (uint32_t j = 0; j < numWorkIds ; j++) {
-        workItemTickHistogram[j] = new Stats::Histogram();
+        workItemTickHistogram[j] = new statistics::Histogram();
         std::stringstream namestr;
         ccprintf(namestr, "work_item_type%d", j);
         workItemTickHistogram[j]->init(20)
                          .name(name() + "." + namestr.str())
                          .desc("Run time histogram for " + namestr.str())
                          .prereq(*workItemTickHistogram[j]);
-        workItemTickSum[j] = new Stats::Scalar();
+        workItemTickSum[j] = new statistics::Scalar();
         workItemTickSum[j]->name(name() + "." + namestr.str() + ".sum")
             .desc("Run time sum for " + namestr.str())
             .prereq(*workItemTickSum[j]);
@@ -426,7 +426,7 @@ System::workItemEnd(uint32_t tid, uint32_t workid)
 }
 
 bool
-System::trapToGdb(int signal, ContextID ctx_id) const
+System::trapToGdb(GDBSignal signal, ContextID ctx_id) const
 {
     return workload->trapToGdb(signal, ctx_id);
 }

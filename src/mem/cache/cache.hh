@@ -222,7 +222,8 @@ class Cache : public BaseCache
      */
     class StreamAwareCpuSidePort : public CpuSidePort {
       public:
-        StreamAwareCpuSidePort(const std::string &_name, Cache *_cache,
+        StreamAwareCpuSidePort(const std::string &_name,
+                               BaseCache &_cache,
                                const std::string &_label);
 
         bool recvTimingReq(PacketPtr pkt) override;

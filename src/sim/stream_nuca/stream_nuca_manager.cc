@@ -92,7 +92,7 @@ void StreamNUCAManager::regStats() {
   stat.name(this->process->name() + (".snm." #stat))                           \
       .init(start, end, step)                                                  \
       .desc(describe)                                                          \
-      .flags(Stats::pdf)
+      .flags(statistics::pdf)
 
   scalar(indRegionBoxes, "Pages in indirect region.");
   scalar(indRegionElements, "Elements in indirect region.");
@@ -915,7 +915,7 @@ void StreamNUCAManager::greedyAssignIndirectBoxes(
     indRegionMemToLLCMinHops += minHops;
     indRegionMemMinBanks.sample(minHopsBankIdx, 1);
 
-    if (Debug::StreamNUCAManager) {
+    if (debug::StreamNUCAManager) {
       int32_t avgBankFreq = boxHops.totalElements / boxHops.bankFreq.size();
       std::stringstream freqMatrixStr;
       for (int row = 0; row < numRows; ++row) {
@@ -932,7 +932,7 @@ void StreamNUCAManager::greedyAssignIndirectBoxes(
     }
   }
 
-  if (Debug::StreamNUCAManager) {
+  if (debug::StreamNUCAManager) {
     DPRINTF(StreamNUCAManager, "[StreamNUCA]   Finish Greedy Assign:\n");
     for (int i = 0; i < regionHops.numBanks; ++i) {
       auto pages = regionHops.remapBoxIds.at(i).size();
@@ -1277,7 +1277,8 @@ void StreamNUCAManager::estimateCSRMigration(ThreadContext *tc,
                                          StreamNUCAMap::getCacheBlockSize());
             // Remap the paddr line to bank.
             Addr newPAddr;
-            assert(pTable->translate(newVAddr, newPAddr));
+            auto translated = pTable->translate(newVAddr, newPAddr);
+            assert(translated);
             paddrToBankMap.emplace(newPAddr, line.bank);
             DPRINTF(StreamNUCAManager,
                     "[StreamNUCA] CSR Reorder %d %d %#x %d -> %#x.\n", i, j,

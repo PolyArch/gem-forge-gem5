@@ -28,8 +28,6 @@
 #
 # Authors: Nathan Binkert
 
-import os
-
 Import('*')
 
 main.Append(ALL_PROTOCOLS=[

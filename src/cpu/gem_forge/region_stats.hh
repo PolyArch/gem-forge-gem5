@@ -44,7 +44,7 @@ public:
    * All the stats we recorded. The order is defined in
    * StatsVecTemplate::scalarStats and StatsVecTemplate::vectorStats.
    */
-  using StatsVec = std::vector<Stats::Result>;
+  using StatsVec = std::vector<statistics::Result>;
   using Snapshot = std::shared_ptr<const StatsVec>;
 
   RegionStats(const RegionTable &_regionTable, const std::string &_fileName);
@@ -98,11 +98,11 @@ private:
    * So far we only care about scalar and vector stats.
    * ! Crazy template black magic in Stats.
    */
-  using ScalarInfo = Stats::ScalarInfoProxy<Stats::Scalar>;
-  using VectorInfo = Stats::VectorInfoProxy<Stats::Vector>;
+  using ScalarInfo = statistics::ScalarInfoProxy<statistics::Scalar>;
+  using VectorInfo = statistics::VectorInfoProxy<statistics::Vector>;
   struct StatsVecTemplate {
-    std::vector<Stats::ScalarInfo *> scalarStats;
-    std::vector<Stats::VectorInfo *> vectorStats;
+    std::vector<statistics::ScalarInfo *> scalarStats;
+    std::vector<statistics::VectorInfo *> vectorStats;
     size_t numStats = 0;
     bool initialized = false;
   };

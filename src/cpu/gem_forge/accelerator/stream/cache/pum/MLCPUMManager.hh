@@ -19,7 +19,7 @@
 #error "Require protobuf to parse stream info."
 #endif
 
-#include "TDFG.pb.h"
+#include "cpu/gem_forge/accelerator/stream/cache/pum/TDFG.pb.h"
 
 namespace gem5 {
 

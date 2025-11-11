@@ -37,15 +37,6 @@
 
 #include <cassert>
 
-/**
- * When building the debug binary, we need to undo the command-line
- * definition of DEBUG not to clash with DRAMSim2 print macros that
- * are included for no obvious reason.
- */
-#ifdef DEBUG
-#undef DEBUG
-#endif
-
 #include "mem/dramsim2_wrapper.hh"
 
 #include <fstream>
@@ -53,7 +44,6 @@
 #include "DRAMSim2/MultiChannelMemorySystem.h"
 #include "base/compiler.hh"
 #include "base/logging.hh"
-
 
 /**
  * DRAMSim2 requires SHOW_SIM_OUTPUT to be defined (declared extern in

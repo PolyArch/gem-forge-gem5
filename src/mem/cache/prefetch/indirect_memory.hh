@@ -51,7 +51,6 @@ namespace gem5
 
 struct IndirectMemoryPrefetcherParams;
 
-GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
@@ -225,14 +224,15 @@ class IndirectMemory : public Queued
     ~IndirectMemory() = default;
 
     void calculatePrefetch(const PrefetchInfo &pfi,
-                           std::vector<AddrPriority> &addresses) override;
+                           std::vector<AddrPriority> &addresses,
+                           const CacheAccessor &cache) override;
 
     void regStats() override;
 
     /**
      * IMP need the data for indirect prefetch.
      */
-    void notifyFill(const PacketPtr &pkt) override;
+    void notifyFill(const CacheAccessProbeArg &acc) override;
 
     statistics::Scalar ptAllocations;
     statistics::Scalar ptHits;

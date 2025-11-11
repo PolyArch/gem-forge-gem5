@@ -63,8 +63,10 @@ AbstractController::AbstractController(const Params &p)
       m_buffer_size(p.buffer_size), m_recycle_latency(p.recycle_latency),
       m_mandatory_queue_latency(p.mandatory_queue_latency),
       m_waiting_mem_retry(false),
+      m_mem_ctrl_waiting_retry(false),
       memoryPort(csprintf("%s.memory", name()), this),
       addrRanges(p.addr_ranges.begin(), p.addr_ranges.end()),
+      mRetryRespEvent{*this, false},
       stats(this)
 {
     if (m_version == 0) {
@@ -125,6 +127,7 @@ AbstractController::resetStats()
     for (uint32_t i = 0; i < size; i++) {
         stats.delayVCHistogram[i]->reset();
     }
+    ClockedObject::resetStats();
 }
 
 void
@@ -369,11 +372,17 @@ AbstractController::functionalMemoryWrite(PacketPtr pkt)
     return num_functional_writes + 1;
 }
 
-void
+bool
 AbstractController::recvTimingResp(PacketPtr pkt)
 {
-    assert(getMemRespQueue());
-    assert(pkt->isResponse());
+    auto* memRspQueue = getMemRespQueue();
+    gem5_assert(memRspQueue);
+    gem5_assert(pkt->isResponse());
+
+    if (!memRspQueue->areNSlotsAvailable(1, curTick())) {
+        m_mem_ctrl_waiting_retry = true;
+        return false;
+    }
 
     std::shared_ptr<MemoryMsg> msg = std::make_shared<MemoryMsg>(clockEdge());
     (*msg).m_addr = pkt->getAddr();
@@ -397,8 +406,9 @@ AbstractController::recvTimingResp(PacketPtr pkt)
         panic("Incorrect packet type received from memory controller!");
     }
 
-    getMemRespQueue()->enqueue(msg, clockEdge(), cyclesToTicks(Cycles(1)));
+    memRspQueue->enqueue(msg, clockEdge(), cyclesToTicks(Cycles(1)));
     delete pkt;
+    return true;
 }
 
 Tick
@@ -440,11 +450,33 @@ const
 }
 
 
+void
+AbstractController::memRespQueueDequeued() {
+    if (m_mem_ctrl_waiting_retry && !mRetryRespEvent.scheduled()) {
+        schedule(mRetryRespEvent, clockEdge(Cycles{1}));
+    }
+}
+
+void
+AbstractController::dequeueMemRespQueue() {
+    auto* q = getMemRespQueue();
+    gem5_assert(q);
+    q->dequeue(clockEdge());
+    memRespQueueDequeued();
+}
+
+void
+AbstractController::sendRetryRespToMem() {
+    if (m_mem_ctrl_waiting_retry) {
+        m_mem_ctrl_waiting_retry = false;
+        memoryPort.sendRetryResp();
+    }
+}
+
 bool
 AbstractController::MemoryPort::recvTimingResp(PacketPtr pkt)
 {
-    controller->recvTimingResp(pkt);
-    return true;
+    return controller->recvTimingResp(pkt);
 }
 
 void
@@ -457,7 +489,7 @@ AbstractController::MemoryPort::recvReqRetry()
 AbstractController::MemoryPort::MemoryPort(const std::string &_name,
                                            AbstractController *_controller,
                                            PortID id)
-    : RequestPort(_name, _controller, id), controller(_controller)
+    : RequestPort(_name, id), controller(_controller)
 {
 }
 

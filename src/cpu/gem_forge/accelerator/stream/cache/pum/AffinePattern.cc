@@ -25,14 +25,6 @@ AffinePattern::AffinePattern(::LLVM::TDG::AffinePattern tdgAffinePattern) {
   return tdgAffinePattern;
 }
 
-std::ostream &operator<<(std::ostream &os, const AffinePattern &pattern) {
-  os << pattern.start;
-  for (const auto &p : pattern.params) {
-    os << ':' << p.stride << ':' << p.trip;
-  }
-  return os;
-}
-
 std::string AffinePattern::to_string() const {
   std::stringstream os;
   os << *this;
@@ -153,6 +145,14 @@ std::ostream &operator<<(std::ostream &os,
                          const AffinePattern::IntVecT &intVec) {
   for (const auto &v : intVec) {
     os << 'x' << v;
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const AffinePattern &pattern) {
+  os << pattern.start;
+  for (const auto &p : pattern.params) {
+    os << ':' << p.stride << ':' << p.trip;
   }
   return os;
 }
@@ -483,5 +483,5 @@ AffinePattern::recursive_break_continuous_range_into_canonical_sub_regions(
     }
   }
   return sub_regions;
-}} // namespace gem5
-
+}
+} // namespace gem5

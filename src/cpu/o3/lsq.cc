@@ -69,7 +69,7 @@ namespace o3
 {
 
 LSQ::DcachePort::DcachePort(LSQ *_lsq, CPU *_cpu) :
-    RequestPort(_cpu->name() + ".dcache_port", _cpu), lsq(_lsq), cpu(_cpu)
+    RequestPort(_cpu->name() + ".dcache_port"), lsq(_lsq), cpu(_cpu)
 {}
 
 LSQ::GemForgeDcachePort::GemForgeDcachePort(LSQ *_lsq, CPU *_cpu)

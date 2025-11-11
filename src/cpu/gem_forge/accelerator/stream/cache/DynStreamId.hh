@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <iostream>
+#include <cstdint>
 
 namespace gem5 {
 

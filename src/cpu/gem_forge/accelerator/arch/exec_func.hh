@@ -5,8 +5,14 @@
 
 #if THE_ISA == RISCV_ISA
 #include "riscv/riscv_exec_func.hh"
+namespace gem5 {
+using ExecFunc = GemForgeRiscv::ExecFunc;
+}
 #elif THE_ISA == X86_ISA
 #include "x86/x86_exec_func.hh"
+namespace gem5 {
+using ExecFunc = X86ISA::ExecFunc;
+}
 #else
 #endif
 

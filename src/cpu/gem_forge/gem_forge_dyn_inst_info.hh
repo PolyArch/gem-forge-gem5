@@ -2,9 +2,7 @@
 #define __RISCV_GEM_FORGE_DYN_INST_INFO_HH__
 
 #include "cpu/static_inst.hh"
-#include "config/the_isa.hh"
-
-#include "arch/x86/pcstate.hh"
+#include "arch/generic/pcstate.hh"
 
 namespace gem5 {
 

@@ -582,7 +582,7 @@ class LSQ
         {
             flags.set(Flag::WritebackDone);
             /* If the lsq resources are already free */
-            if (isReleased()) {
+            if (_numOutstandingPackets == 0 && isReleased()) {
                 delete this;
             }
         }

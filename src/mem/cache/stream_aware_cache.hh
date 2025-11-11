@@ -521,9 +521,9 @@ public:
   statistics::Formula coalescedStreamDemandMisses;
   statistics::Formula coalescedStreamOverallMisses;
 
-  Stats::Distribution numUsedBeforeEvicted;
+  statistics::Distribution numUsedBeforeEvicted;
 
-  Stats::Distribution coalescedStreamMemFootprint;
+  statistics::Distribution coalescedStreamMemFootprint;
 
   /**
    * For stream-aware miss prediction.

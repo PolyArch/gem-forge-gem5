@@ -104,7 +104,7 @@ class CoherentXBar : public BaseXBar
 
         CoherentXBarResponsePort(const std::string &_name,
                              CoherentXBar &_xbar, PortID _id)
-            : QueuedResponsePort(_name, &_xbar, queue, _id), xbar(_xbar),
+            : QueuedResponsePort(_name, queue, _id), xbar(_xbar),
               queue(_xbar, *this)
         { }
 
@@ -140,6 +140,13 @@ class CoherentXBar : public BaseXBar
             xbar.recvFunctional(pkt, id);
         }
 
+        void
+        recvMemBackdoorReq(const MemBackdoorReq &req,
+                MemBackdoorPtr &backdoor) override
+        {
+            xbar.recvMemBackdoorReq(req, backdoor);
+        }
+
         AddrRangeList
         getAddrRanges() const override
         {
@@ -163,7 +170,7 @@ class CoherentXBar : public BaseXBar
 
         CoherentXBarRequestPort(const std::string &_name,
                               CoherentXBar &_xbar, PortID _id)
-            : RequestPort(_name, &_xbar, _id), xbar(_xbar)
+            : RequestPort(_name, _id), xbar(_xbar)
         { }
 
       protected:
@@ -225,7 +232,7 @@ class CoherentXBar : public BaseXBar
          */
         SnoopRespPort(QueuedResponsePort& cpu_side_port,
                       CoherentXBar& _xbar) :
-            RequestPort(cpu_side_port.name() + ".snoopRespPort", &_xbar),
+            RequestPort(cpu_side_port.name() + ".snoopRespPort"),
             cpuSidePort(cpu_side_port) { }
 
         /**
@@ -376,6 +383,11 @@ class CoherentXBar : public BaseXBar
     /** Function called by the port when the crossbar is receiving a Functional
         transaction.*/
     void recvFunctional(PacketPtr pkt, PortID cpu_side_port_id);
+
+    /** Function called by the port when the crossbar receives a request for
+        a memory backdoor.*/
+    void recvMemBackdoorReq(const MemBackdoorReq &req,
+            MemBackdoorPtr &backdoor);
 
     /** Function called by the port when the crossbar is receiving a functional
         snoop transaction.*/

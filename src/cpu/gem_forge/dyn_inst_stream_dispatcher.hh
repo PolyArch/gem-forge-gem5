@@ -7,7 +7,7 @@
 #error "Require protobuf to parse llvm instructions."
 #endif
 
-#include "TDGInstruction.pb.h"
+#include "cpu/gem_forge/TDGInstruction.pb.h"
 #include "llvm_insts.hh"
 #include "queue_buffer.hh"
 #include "region_table.hh"

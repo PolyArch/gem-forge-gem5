@@ -69,7 +69,7 @@ DRAMsim3::DRAMsim3(const Params &p) :
 
     // Register a callback to compensate for the destructor not
     // being called. The callback prints the DRAMsim3 stats.
-    Stats::registerDumpCallback(
+    statistics::registerDumpCallback(
         [this]() -> void { this->wrapper.printStats(); });
 }
 
@@ -364,7 +364,7 @@ DRAMsim3::drain()
 
 DRAMsim3::MemoryPort::MemoryPort(const std::string& _name,
                                  DRAMsim3& _memory)
-    : ResponsePort(_name, &_memory), mem(_memory)
+    : ResponsePort(_name), mem(_memory)
 { }
 
 AddrRangeList

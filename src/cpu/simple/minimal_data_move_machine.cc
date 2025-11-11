@@ -28,16 +28,16 @@ MinimalDataMoveMachine::MinimalDataMoveMachine(const std::string &_name,
 void MinimalDataMoveMachine::regStats() {
   this->totalHops.name(this->myName + ".totalHops")
       .desc("TotalHops of the MinimalDataMoveMachine")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   this->totalIgnoredHops.name(this->myName + ".totalIgnoredHops")
       .desc("TotalIngoredHops of the MinimalDataMoveMachine")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
   this->totalStreamHops.name(this->myName + ".totalStreamHops")
       .desc("TotalStreamHops of the MinimalDataMoveMachine")
-      .flags(Stats::nozero);
+      .flags(statistics::nozero);
 
-  Stats::registerResetCallback([this]() -> void { this->resetPCHopsMap(); });
-  Stats::registerDumpCallback([this]() -> void { this->dumpPCHopsMap(); });
+  statistics::registerResetCallback([this]() -> void { this->resetPCHopsMap(); });
+  statistics::registerDumpCallback([this]() -> void { this->dumpPCHopsMap(); });
 }
 
 void MinimalDataMoveMachine::commit(StaticInstPtr staticInst,
@@ -173,7 +173,7 @@ bool MinimalDataMoveMachine::shouldIgnoreTraffic(Addr pc) {
     Addr funcStart = 0;
     Addr funcEnd = 0;
     std::string symbol;
-    bool found = Loader::debugSymbolTable.findNearestSymbol(pc, symbol,
+    bool found = loader::debugSymbolTable.findNearestSymbol(pc, symbol,
                                                             funcStart, funcEnd);
     if (!found) {
       symbol = csprintf("0x%x", pc);
@@ -233,7 +233,7 @@ void MinimalDataMoveMachine::dumpPCHopsMap() {
     Addr funcStart = 0;
     Addr funcEnd = 0;
     std::string symbol;
-    bool found = Loader::debugSymbolTable.findNearestSymbol(pc, symbol,
+    bool found = loader::debugSymbolTable.findNearestSymbol(pc, symbol,
                                                             funcStart, funcEnd);
     if (!found) {
       symbol = csprintf("0x%x", pc);

@@ -399,9 +399,6 @@ public:
     virtual SimObject *resolveSimObject(const std::string &name) = 0;
 };
 
-#ifdef DEBUG
-void debugObjectBreak(const char *objs);
-#endif
 
 /**
  * To avoid circular dependencies the unserialization of SimObjects must be

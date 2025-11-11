@@ -154,7 +154,7 @@ ExecFunc::ExecFunc(ThreadContext *_tc, const ::LLVM::TDG::ExecFuncInfo &_func)
   }
   EXEC_FUNC_DPRINTF("Decode done. Final PC %s.\n", pc);
 
-  for (const auto inst : this->instructions) {
+  for (const auto &inst : this->instructions) {
     if (inst->getName() == "ssp_stream_ready") {
       break;
     }

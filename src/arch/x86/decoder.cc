@@ -827,6 +827,7 @@ Decoder::decode(ExtMachInst mach_inst, Addr addr)
         }
     }
 
+    si->size(basePC + offset - origPC);
     DPRINTF(Decode, "Decode: Decoded %s instruction at %#x: %#x\n",
             si->getName(), origPC, mach_inst);
     return si;
@@ -872,8 +873,7 @@ Decoder::decode(PCStateBase &next_pc)
         start = 0;
     }
 
-    si = decode(emi, origPC);
-    return si;
+    return decode(emi, origPC);
 }
 
 bool Decoder::isGemForgeInst(const ExtMachInst &emi) const {

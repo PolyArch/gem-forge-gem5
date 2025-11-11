@@ -760,7 +760,7 @@ bool O3CPUDelegator ::CoreDataTrafficAccumulator::shouldIgnoreTraffic(Addr pc) {
     Addr funcStart = 0;
     Addr funcEnd = 0;
     std::string symbol;
-    bool found = Loader::debugSymbolTable.findNearestSymbol(pc, symbol,
+    bool found = loader::debugSymbolTable.findNearestSymbol(pc, symbol,
                                                             funcStart, funcEnd);
     if (!found) {
       symbol = csprintf("0x%x", pc);
@@ -783,24 +783,24 @@ void O3CPUDelegator::recordStatsForFakeExecutedInst(const StaticInstPtr &inst) {
   pimpl->cpu->rename.stats.lookups += inst->numSrcRegs();
   pimpl->cpu->rob.stats.reads++;
   pimpl->cpu->rob.stats.writes++;
-  pimpl->cpu->commit.stats.opsCommitted[0]++;
+  pimpl->cpu->commitStats[0]->numOps++;
   if (inst->isInteger()) {
     pimpl->cpu->commit.stats.integer[0]++;
     pimpl->cpu->iew.instQueue.iqIOStats.intAluAccesses++;
-    pimpl->cpu->cpuStats.intRegfileReads += inst->numSrcRegs();
-    pimpl->cpu->cpuStats.intRegfileWrites += inst->numDestRegs();
+    pimpl->cpu->executeStats[0]->numIntRegReads += inst->numSrcRegs();
+    pimpl->cpu->executeStats[0]->numIntRegWrites += inst->numDestRegs();
   }
   if (inst->isFloating()) {
     pimpl->cpu->commit.stats.floating[0]++;
     pimpl->cpu->iew.instQueue.iqIOStats.fpAluAccesses++;
-    pimpl->cpu->cpuStats.fpRegfileReads += inst->numSrcRegs();
-    pimpl->cpu->cpuStats.fpRegfileWrites += inst->numDestRegs();
+    pimpl->cpu->executeStats[0]->numFpRegReads += inst->numSrcRegs();
+    pimpl->cpu->executeStats[0]->numFpRegWrites += inst->numDestRegs();
   }
   if (inst->isVector()) {
     pimpl->cpu->commit.stats.vector[0]++;
     pimpl->cpu->iew.instQueue.iqIOStats.vecAluAccesses++;
-    pimpl->cpu->cpuStats.vecRegfileReads += inst->numSrcRegs();
-    pimpl->cpu->cpuStats.vecRegfileWrites += inst->numDestRegs();
+    pimpl->cpu->executeStats[0]->numVecRegReads += inst->numSrcRegs();
+    pimpl->cpu->executeStats[0]->numVecRegWrites += inst->numDestRegs();
   }
 }
 

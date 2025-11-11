@@ -43,7 +43,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
@@ -92,29 +91,9 @@ void MinorStats::dumpLoadBlockedStat()
 
 MinorStats::MinorStats(BaseCPU *base_cpu)
     : statistics::Group(base_cpu),
-    ADD_STAT(numInsts, statistics::units::Count::get(),
-             "Number of instructions committed"),
-    ADD_STAT(numOps, statistics::units::Count::get(),
-             "Number of ops (including micro ops) committed"),
-    ADD_STAT(numDiscardedOps, statistics::units::Count::get(),
-             "Number of ops (including micro ops) which were discarded before "
-             "commit"),
-    ADD_STAT(numFetchSuspends, statistics::units::Count::get(),
-             "Number of times Execute suspended instruction fetching"),
     ADD_STAT(quiesceCycles, statistics::units::Cycle::get(),
              "Total number of cycles that CPU has spent quiesced or waiting "
-             "for an interrupt"),
-    ADD_STAT(cpi, statistics::units::Rate<
-                statistics::units::Cycle, statistics::units::Count>::get(),
-             "CPI: cycles per instruction"),
-    ADD_STAT(ipc, statistics::units::Rate<
-                statistics::units::Count, statistics::units::Cycle>::get(),
-             "IPC: instructions per cycle"),
-    ADD_STAT(committedInstType, statistics::units::Count::get(),
-             "Class of committed instruction"),
-    ADD_STAT(committedControl, statistics::units::Count::get(),
-             "Class of control type instructions committed")
-
+             "for an interrupt")
 {
     quiesceCycles.prereq(quiesceCycles);
 
@@ -155,12 +134,6 @@ MinorStats::MinorStats(BaseCPU *base_cpu)
         .desc("Ideal inorder cpu cycles without LDTiming")
         .prereq(ideaCyclesNoLDTiming);
 
-    cpi.precision(6);
-    cpi = base_cpu->baseStats.numCycles / numInsts;
-
-    ipc.precision(6);
-    ipc = numInsts / base_cpu->baseStats.numCycles;
-
     committedInstType
         .init(base_cpu->numThreads, enums::Num_OpClass)
         .flags(statistics::total | statistics::pdf | statistics::dist);
@@ -174,9 +147,9 @@ MinorStats::MinorStats(BaseCPU *base_cpu)
     this->cpuId = base_cpu->cpuId();
     this->loadBlockedDir = simout.createSubdirectory("loadBlocked");
 
-    Stats::registerDumpCallback(
+    statistics::registerDumpCallback(
         [this]() -> void { this->dumpLoadBlockedStat(); });
-    Stats::registerResetCallback(
+    statistics::registerResetCallback(
         [this]() -> void { this->resetLoadBlockedStat(); });
 
     numFetch2Branches
@@ -238,10 +211,6 @@ MinorStats::MinorStats(BaseCPU *base_cpu)
     numCommittedCallInsts
         .name(Name() + ".commit.callInsts")
         .desc("Number of call insts committed");
-
-    numInsts
-        .name(Name() + ".committedInsts")
-        .desc("Number of instructions committed");
 
     numOps
         .name(Name() + ".committedOps")

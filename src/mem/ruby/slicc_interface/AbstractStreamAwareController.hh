@@ -305,7 +305,7 @@ protected:
   statistics::Scalar m_statLLCMulticastStreamReq;
 
 public:
-  Stats::Distribution m_statLLCNumDirectStreams;
+  statistics::Distribution m_statLLCNumDirectStreams;
   // Stats for cycles when streams are offloaded.
   statistics::Scalar m_statMLCStreamCycles;
   // Stats for stream computing.
@@ -341,8 +341,8 @@ public:
   statistics::Scalar m_statLLCXAWConflictAtomics;
   statistics::Scalar m_statLLCRealXAWConflictAtomics;
   statistics::Scalar m_statLLCDeadlockAtomics;
-  Stats::Distribution m_statLLCNumInflyComputations;
-  Stats::Distribution m_statLLCNumReadyComputations;
+  statistics::Distribution m_statLLCNumInflyComputations;
+  statistics::Distribution m_statLLCNumReadyComputations;
 
   statistics::Scalar m_statPUMTotalCycles;
   statistics::Scalar m_statPUMPrefetchCycles;

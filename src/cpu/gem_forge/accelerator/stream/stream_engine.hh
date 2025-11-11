@@ -272,11 +272,11 @@ public:
   mutable statistics::Scalar streamUserNotDispatchedByLoadQueue;
   mutable statistics::Scalar streamStoreNotDispatchedByStoreQueue;
 
-  Stats::Distribution numTotalAliveElements;
-  Stats::Distribution numTotalAliveCacheBlocks;
-  Stats::Distribution numRunAHeadLengthDist;
-  Stats::Distribution numTotalAliveMemStreams;
-  Stats::Distribution numInflyStreamRequestDist;
+  statistics::Distribution numTotalAliveElements;
+  statistics::Distribution numTotalAliveCacheBlocks;
+  statistics::Distribution numRunAHeadLengthDist;
+  statistics::Distribution numTotalAliveMemStreams;
+  statistics::Distribution numInflyStreamRequestDist;
 
   /**
    * Statistics for stream placement manager.
@@ -285,9 +285,9 @@ public:
   statistics::Vector numAccessHitHigherThanPlacedCacheLevel;
   statistics::Vector numAccessHitLowerThanPlacedCacheLevel;
 
-  Stats::Distribution numAccessFootprintL1;
-  Stats::Distribution numAccessFootprintL2;
-  Stats::Distribution numAccessFootprintL3;
+  statistics::Distribution numAccessFootprintL1;
+  statistics::Distribution numAccessFootprintL2;
+  statistics::Distribution numAccessFootprintL3;
 
   /**
    * Statistics for stream float.

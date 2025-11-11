@@ -105,6 +105,14 @@ class MacroopBase : public X86StaticInst
     }
 
     uint32_t getNumMicroops() const { return this->numMicroops; }
+
+    void size(size_t newSize) override
+    {
+        for (int i = 0; i < numMicroops; i++) {
+            microops[i]->size(newSize);
+        }
+        _size = newSize;
+    }
 };
 
 } // namespace X86ISA

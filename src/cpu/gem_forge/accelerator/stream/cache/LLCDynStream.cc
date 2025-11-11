@@ -377,7 +377,7 @@ void LLCDynStream::traceEvent(
 
 void LLCDynStream::sanityCheckStreamLife() {
   auto hardLLCStreamThreshold = 100000;
-  if (!Debug::LLCRubyStreamLife &&
+  if (!debug::LLCRubyStreamLife &&
       GlobalLLCDynStreamMap.size() < hardLLCStreamThreshold) {
     return;
   }
@@ -1503,7 +1503,7 @@ StreamValue LLCDynStream::computeElemValue(const LLCStreamElementPtr &elem) {
     auto newReduceVal =
         config->addrGenCallback->genAddr(elem->idx, config->addrGenFormalParams,
                                          getBaseOrPrevReductionStreamValue);
-    if (Debug::LLCRubyStreamReduce) {
+    if (debug::LLCRubyStreamReduce) {
       std::stringstream ss;
       for (const auto &baseElement : elem->baseElements) {
         ss << "\n  " << baseElement->strandId << baseElement->idx << ": "

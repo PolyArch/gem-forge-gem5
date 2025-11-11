@@ -106,7 +106,7 @@ void PUMEngine::configure(MLCPUMManager *pumManager, int64_t pumContextId,
     this->commands.push_back(c);
   }
 
-  if (Debug::LLCStreamPUM) {
+  if (debug::LLCStreamPUM) {
     LLC_SE_DPRINTF("[PUMEngine]   Configured with CMD %lu.\n",
                    this->commands.size());
     for (int i = 0; i < this->commands.size(); ++i) {

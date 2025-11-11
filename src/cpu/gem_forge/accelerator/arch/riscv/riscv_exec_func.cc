@@ -23,7 +23,7 @@ static ExecFuncContext execFuncXC;
 
 } // namespace
 
-namespace RiscvISA {
+namespace GemForgeRiscv {
 
 ExecFunc::ExecFunc(ThreadContext *_tc, const ::LLVM::TDG::ExecFuncInfo &_func)
     : tc(_tc), func(_func), decoder(_tc->getDecoderPtr()), funcStartVAddr(0) {
@@ -93,4 +93,5 @@ uint64_t ExecFunc::invoke(const std::vector<uint64_t> &params) {
   EXEC_FUNC_DPRINTF("Ret %llu.\n", retAddr);
   return retAddr;
 }
-} // namespace RiscvISA} // namespace gem5
+} // namespace GemForgeRiscv
+} // namespace gem5

@@ -40,7 +40,7 @@ void RegionStats::update(const BasicBlockId &bb) {
       if (!snapshot) {
         snapshot = this->takeSnapshot();
       }
-      if (Debug::RegionStats) {
+      if (debug::RegionStats) {
         const auto &region = this->regionTable.getRegionFromRegionId(regionId);
         DPRINTF(RegionStats, "Exit region %s.\n", region.name().c_str());
       }
@@ -67,7 +67,7 @@ void RegionStats::update(const BasicBlockId &bb) {
   for (const auto &newRegionId : this->regionTable.getRegionSetFromBB(bb)) {
     if (this->activeRegions.find(newRegionId) == this->activeRegions.end()) {
       // This is a new region.
-      if (Debug::RegionStats) {
+      if (debug::RegionStats) {
         const auto &newRegion =
             this->regionTable.getRegionFromRegionId(newRegionId);
         DPRINTF(RegionStats, "Enter region %s.\n", newRegion.name().c_str());
@@ -94,7 +94,7 @@ void RegionStats::initializeStatsVecTemplate() {
   assert(!this->statsVecTemplate.initialized &&
          "Already initialized StatsVecTemplate.");
   // So far we only care about scalar and vector stats.
-  for (auto stat : Stats::statsList()) {
+  for (auto stat : statistics::statsList()) {
     // ! Crazy template black magic in Stats.
     if (auto scalar = dynamic_cast<ScalarInfo *>(stat)) {
       this->statsVecTemplate.scalarStats.push_back(scalar);
@@ -183,7 +183,7 @@ void RegionStats::dump() {
 void RegionStats::dumpStatsVec(const StatsVecExt &stats,
                                std::ostream &stream) const {
   // We have to sort this.
-  std::map<std::string, Stats::Result> sorted;
+  std::map<std::string, statistics::Result> sorted;
   for (size_t statId = 0, statEnd = stats.vec.size(); statId < statEnd;
        ++statId) {
     auto value = stats.vec.at(statId);

@@ -34,7 +34,12 @@ namespace gem5 {
 std::string exec(const char *cmd) {
   std::array<char, 128> buffer;
   std::string result;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  auto pipe_deleter = [](FILE *f) {
+    if (f)
+      pclose(f);
+  };
+  std::unique_ptr<FILE, decltype(pipe_deleter)> pipe(popen(cmd, "r"),
+                                                     pipe_deleter);
   if (!pipe) {
     panic("popen() failed!");
   }
@@ -568,5 +573,5 @@ PUMScheduler::searchPrevUnisonSolution(int numRegs,
     }
   }
   return nullptr;
-}} // namespace gem5
-
+}
+} // namespace gem5

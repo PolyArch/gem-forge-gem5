@@ -785,7 +785,7 @@ void MLCPUMManager::buildPUMDataGraph(PUMContext &context) {
     this->mergePUMDataGraphMoveNode(context);
     this->expandPUMDataGraphNode(context);
 
-    if (Debug::MLCStreamPUM) {
+    if (debug::MLCStreamPUM) {
       MLCSE_DPRINTF("--------------------- PUMDataGraph After Merge.\n");
       for (const auto &node : context.pumDataGraphNodes) {
         MLCSE_DPRINTF("-- Node %s.\n", *node);
@@ -1294,7 +1294,7 @@ void MLCPUMManager::buildPUMDataGraphCompute(
   MLC_S_DPRINTF(dynId,
                 "Construct TDFG ComputeNode(s) for %s. InputNodes %lu:\n",
                 func->getFuncInfo().name(), resultNodes.size());
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     for (const auto &entry : resultNodes) {
       MLC_S_DPRINTF(dynId, "   LogicalStream %lu %s\n", entry.first,
                     *entry.second);
@@ -2412,7 +2412,7 @@ void MLCPUMManager::compileDataMove(PUMContext &context,
     cmd.dstAccessPattern = recvPat;
     cmd.dstMapPattern = sendTile;
   }
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     for (const auto &command : commands) {
       MLCSE_DPRINTF("%s", command);
     }
@@ -2492,7 +2492,7 @@ void MLCPUMManager::compileCompute(PUMContext &context,
     }
   }
 
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     for (const auto &command : commands) {
       MLCSE_DPRINTF("%s", command);
     }
@@ -2502,7 +2502,7 @@ void MLCPUMManager::compileCompute(PUMContext &context,
   // Mask the commands by the Stream.
   commands = compiler.maskCmdsBySubRegion(commands, pattern);
 
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     for (const auto &command : commands) {
       MLCSE_DPRINTF("%s", command);
     }
@@ -2519,7 +2519,7 @@ void MLCPUMManager::compileCompute(PUMContext &context,
     cmd.srcAccessPattern = pattern;
     cmd.srcMapPattern = node->pumTile;
   }
-  if (Debug::MLCStreamPUM) {
+  if (debug::MLCStreamPUM) {
     for (const auto &command : commands) {
       MLCSE_DPRINTF("%s", command);
     }

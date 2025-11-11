@@ -20,7 +20,7 @@
 #error "Require protobuf to parse stream info."
 #endif
 
-#include "StreamMessage.pb.h"
+#include "cpu/gem_forge/accelerator/stream/StreamMessage.pb.h"
 
 #include <list>
 #include <vector>

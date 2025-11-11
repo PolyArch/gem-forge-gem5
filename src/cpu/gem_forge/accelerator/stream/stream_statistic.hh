@@ -5,6 +5,7 @@
 #include <cassert>
 #include <map>
 #include <ostream>
+#include <cstdint>
 
 namespace gem5 {
 

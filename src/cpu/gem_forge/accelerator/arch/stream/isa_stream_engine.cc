@@ -6,9 +6,15 @@
 #include "cpu/gem_forge/accelerator/stream/stream_engine.hh"
 #include "debug/ISAStreamEngine.hh"
 #include "proto/protoio.hh"
+#include "config/the_isa.hh"
 
 #if THE_ISA == RISCV_ISA
-#include "arch/riscv/insts/standard.hh"
+// Forward declare to avoid pulling in full header during dependency scan
+namespace gem5 {
+namespace RiscvISA {
+template<typename T> class ImmOp;
+}
+}
 #endif
 
 #define ISA_SE_PANIC(format, args...)                                          \
@@ -1105,19 +1111,16 @@ StreamEngine *ISAStreamEngine::getStreamEngine() {
   return this->SE;
 }
 
+#if THE_ISA == RISCV_ISA
+#include "isa_stream_engine_riscv.inc"
+#elif THE_ISA == X86_ISA
+#include "isa_stream_engine_x86.inc"
+#else
 template <typename T>
 T ISAStreamEngine::extractImm(const StaticInst *staticInst) const {
-#if THE_ISA == RISCV_ISA
-  auto immOp = dynamic_cast<const RiscvISA::ImmOp<T> *>(staticInst);
-  assert(immOp && "Invalid ImmOp.");
-  return immOp->getImm();
-#elif THE_ISA == X86_ISA
-  auto *xsi = static_cast<const X86ISA::X86StaticInst *>(staticInst);
-  return xsi->machInst.immediate;
-#else
   panic("ISA stream engine is not supported.");
-#endif
 }
+#endif
 
 const ::LLVM::TDG::StreamRegion &
 ISAStreamEngine::getStreamRegion(const std::string &relativePath) const {
@@ -1188,7 +1191,7 @@ void ISAStreamEngine::insertRegionStreamIds(
            "More than 128 streams in a region.");
     regionStreamIdTable.at(regionStreamId) = streamId;
   }
-  if (Debug::ISAStreamEngine) {
+  if (debug::ISAStreamEngine) {
     std::stringstream ss;
     ss << "Set RegionStreamId";
     for (const auto &streamInfo : region.streams()) {
@@ -1258,7 +1261,7 @@ void ISAStreamEngine::removeRegionStreamIds(
     uint64_t configIdx, const ::LLVM::TDG::StreamRegion &region) {
   assert(this->canRemoveRegionStreamIds(region) &&
          "Can not remove region stream ids.");
-  if (Debug::ISAStreamEngine) {
+  if (debug::ISAStreamEngine) {
     std::stringstream ss;
     ss << "Clear RegionStreamId";
     const auto &regionStreamIdTable = this->regionStreamIdTableStack.back();

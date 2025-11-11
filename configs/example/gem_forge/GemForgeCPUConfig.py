@@ -217,6 +217,9 @@ Notice that it supported fast forward.
 def initializeCPUs(args):
     (InitialCPUClass, test_mem_mode, FutureCPUClass) = \
         Simulation.setCPUClass(args)
+    print(InitialCPUClass)
+    print(test_mem_mode)
+    print(FutureCPUClass)
     if args.llvm_standalone:
         assert(FutureCPUClass is None)
         initial_cpus = createCPUStandalone(args)

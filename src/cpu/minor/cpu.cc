@@ -314,7 +314,7 @@ MinorCPU::wakeupPipeline()
 
         /* Wake up the thread, wakeup the pipeline tick */
         threads[thread_id]->activate();
-        wakeupOnEvent(Minor::Pipeline::CPUStageId);
+        wakeupOnEvent(minor::Pipeline::CPUStageId);
 
         pipeline->wakeupFetch(thread_id);
         BaseCPU::activateContext(thread_id);

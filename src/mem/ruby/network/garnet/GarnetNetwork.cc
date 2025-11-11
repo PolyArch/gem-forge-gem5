@@ -477,7 +477,7 @@ GarnetNetwork::regStats()
     m_packet_types_injected
         .init(MAX_MSG_CATEGORY * MAX_MSG_TYPES_PER_CATEGORY)
         .name(name() + ".packet_types_injected")
-        .flags(Stats::pdf | Stats::total | Stats::nozero | Stats::oneline)
+        .flags(statistics::pdf | statistics::total | statistics::nozero | statistics::oneline)
         ;
 
     m_packet_network_latency
@@ -543,7 +543,7 @@ GarnetNetwork::regStats()
     m_flit_types_injected
         .init(MAX_MSG_TYPES_PER_CATEGORY * MAX_MSG_CATEGORY)
         .name(name() + ".flit_types_injected")
-        .flags(Stats::pdf | Stats::total | Stats::nozero | Stats::oneline)
+        .flags(statistics::pdf | statistics::total | statistics::nozero | statistics::oneline)
         ;
 
     m_flit_network_latency
@@ -598,7 +598,7 @@ GarnetNetwork::regStats()
     m_total_hop_types
         .init(MAX_MSG_TYPES_PER_CATEGORY * MAX_MSG_CATEGORY)
         .name(name() + ".total_hop_types")
-        .flags(Stats::pdf | Stats::total | Stats::nozero | Stats::oneline)
+        .flags(statistics::pdf | statistics::total | statistics::nozero | statistics::oneline)
         ;
     m_avg_hops.name(name() + ".average_hops");
     m_avg_hops = m_total_hops / sum(m_flits_received);

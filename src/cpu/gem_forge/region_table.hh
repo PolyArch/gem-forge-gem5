@@ -7,7 +7,7 @@
 #error "Require protobuf to parse region information."
 #endif
 
-#include "TDGInstruction.pb.h"
+#include "cpu/gem_forge/TDGInstruction.pb.h"
 
 #include <unordered_map>
 #include <unordered_set>

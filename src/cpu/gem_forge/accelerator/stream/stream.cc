@@ -633,7 +633,7 @@ void Stream::setupFuncAddrFunc(DynStream &dynStream,
   // Set the callback.
   if (!this->addrGenCallback) {
     auto addrExecFunc =
-        std::make_shared<TheISA::ExecFunc>(dynStream.tc, addrFuncInfo);
+        std::make_shared<ExecFunc>(dynStream.tc, addrFuncInfo);
     this->addrGenCallback = std::make_shared<FuncAddrGenCallback>(addrExecFunc);
   }
   dynStream.addrGenCallback = this->addrGenCallback;
@@ -716,7 +716,7 @@ void Stream::extractExtraInputValues(DynStream &dynS,
     if (this->predCallbacks.empty()) {
       for (auto *predFuncInfo : this->predFuncInfos) {
         this->predCallbacks.push_back(
-            std::make_shared<TheISA::ExecFunc>(dynS.tc, *predFuncInfo));
+            std::make_shared<ExecFunc>(dynS.tc, *predFuncInfo));
       }
     }
     // Extract all input values and set up DynS.
@@ -740,7 +740,7 @@ void Stream::extractExtraInputValues(DynStream &dynS,
     const auto &storeFuncInfo = this->getStoreFuncInfo();
     if (!this->storeCallback) {
       this->storeCallback =
-          std::make_shared<TheISA::ExecFunc>(dynS.tc, storeFuncInfo);
+          std::make_shared<ExecFunc>(dynS.tc, storeFuncInfo);
     }
     dynS.storeCallback = this->storeCallback;
     auto &storeFormalParams = dynS.storeFormalParams;
@@ -753,7 +753,7 @@ void Stream::extractExtraInputValues(DynStream &dynS,
   if (this->getEnabledLoadFunc()) {
     const auto &info = this->getLoadFuncInfo();
     if (!this->loadCallback) {
-      this->loadCallback = std::make_shared<TheISA::ExecFunc>(dynS.tc, info);
+      this->loadCallback = std::make_shared<ExecFunc>(dynS.tc, info);
     }
     dynS.loadCallback = this->loadCallback;
     auto &loadFormalParams = dynS.loadFormalParams;

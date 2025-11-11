@@ -55,14 +55,14 @@ void StreamRegionController::initializeNestStreams(
   }
 
   const auto &nestConfigFuncInfo = region.nest_config_func();
-  auto nestConfigFunc = std::make_shared<TheISA::ExecFunc>(
+  auto nestConfigFunc = std::make_shared<ExecFunc>(
       se->getCPUDelegator()->getSingleThreadContext(), nestConfigFuncInfo);
 
   const auto &nestPredFuncInfo = region.nest_pred_func();
   ExecFuncPtr nestPredFunc = nullptr;
   bool nestPredRet = false;
   if (nestPredFuncInfo.name() != "") {
-    nestPredFunc = std::make_shared<TheISA::ExecFunc>(
+    nestPredFunc = std::make_shared<ExecFunc>(
         se->getCPUDelegator()->getSingleThreadContext(), nestPredFuncInfo);
     nestPredRet = region.nest_pred_ret();
   }
@@ -529,7 +529,7 @@ void StreamRegionController::configureNestStream(
   auto actualParams =
       convertFormalParamToParam(dynNestConfig.formalParams, getStreamValue);
 
-  if (Debug::StreamNest) {
+  if (debug::StreamNest) {
     SE_DPRINTF("[Nest] Value ready. Configure NestRegion %s, "
                "OuterElemIdx %lu, ActualParams:\n",
                staticNestRegion.region.region(),
@@ -590,7 +590,7 @@ void StreamRegionController::configureNestStream(
              staticNestRegion.region.region(), dynRegion.seqNum,
              dynNestConfig.nextConfigElemIdx, configFuncStartSeqNum,
              nestConfigSeqNum);
-  if (Debug::StreamNest) {
+  if (debug::StreamNest) {
     for (auto S : staticNestRegion.streams) {
       auto &dynS = nestSE->getStream(S->staticId)->getLastDynStream();
       SE_DPRINTF("[Nest] TripCount %8lld  %s.\n", dynS.getTotalTripCount(),

@@ -91,11 +91,11 @@ Cache::Cache(const CacheParams &p)
      */
     if (p.use_stream_aware_cpu_port) {
         cpuSidePort = new StreamAwareCpuSidePort(
-            p.name + ".cpu_side", this, "CpuSidePort"
+            p.name + ".cpu_side", *this, "CpuSidePort"
         );
     } else {
         cpuSidePort = new CpuSidePort(
-            p.name + ".cpu_side", this, "CpuSidePort"
+            p.name + ".cpu_side", *this, "CpuSidePort"
         );
     }
 }
@@ -364,13 +364,25 @@ Cache::handleTimingReqMiss(PacketPtr pkt, CacheBlk *blk, Tick forward_time,
         if (pkt->isWrite()) {
             allocateWriteBuffer(pkt, forward_time);
         } else {
-            assert(pkt->isRead());
-
             // uncacheable accesses always allocate a new MSHR
 
             // Here we are using forward_time, modelling the latency of
             // a miss (outbound) just as forwardLatency, neglecting the
             // lookupLatency component.
+
+            // Here we allow allocating miss buffer for read requests
+            // and x86's clflush requests. A clflush request should be
+            // propagate through all levels of the cache system.
+
+            // Doing clflush in uncacheable regions might sound contradictory;
+            // however, it is entirely possible due to how the Linux kernel
+            // handle page property changes. When a linux kernel wants to
+            // change a page property, it flushes the related cache lines. The
+            // kernel might change the page property before flushing the cache
+            // lines. This results in the clflush might occur in an uncacheable
+            // region, where the kernel marks a region uncacheable before
+            // flushing. clflush results in a CleanInvalidReq.
+            assert(pkt->isRead() || pkt->isCleanInvalidateRequest());
             allocateMissBuffer(pkt, forward_time);
         }
 
@@ -1532,7 +1544,7 @@ Cycles Cache::getLookupLatency() const {
 }
 
 Cache::StreamAwareCpuSidePort::StreamAwareCpuSidePort(const std::string &_name,
-                                                      Cache *_cache,
+                                                      BaseCache &_cache,
                                                       const std::string &_label)
     : CpuSidePort(_name, _cache, _label), blockedUpper(false),
       processEvent([this] { this->process(); }, _name) {
@@ -1601,7 +1613,7 @@ void Cache::StreamAwareCpuSidePort::process() {
 
     if ((this->blocked || this->mustSendRetry) &&
         !this->processEvent.scheduled()) {
-      this->owner.schedule(this->processEvent, this->cache->nextCycle());
+      this->owner.schedule(this->processEvent, this->cache.nextCycle());
       return;
     }
 
@@ -1623,7 +1635,7 @@ void Cache::StreamAwareCpuSidePort::process() {
 
     // If there is still packets, schedule next process event.
     if (!this->blockedPkts.empty() && !this->processEvent.scheduled()) {
-      this->owner.schedule(this->processEvent, this->cache->nextCycle());
+      this->owner.schedule(this->processEvent, this->cache.nextCycle());
     }
 
     return;

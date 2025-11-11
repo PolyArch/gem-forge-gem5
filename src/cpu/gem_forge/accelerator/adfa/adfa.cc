@@ -63,15 +63,15 @@ void AbstractDataFlowCore::regStats() {
   this->numIssuedDist.init(0, this->issueWidth, 1)
       .name(this->id + ".issued_per_cycle")
       .desc("Number of inst issued each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numIssuedLoadDist.init(0, this->numBanks * this->numPortsPerBank, 1)
       .name(this->id + ".issued_load_per_cycle")
       .desc("Number of inst issued loads each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numCommittedDist.init(0, 8, 1)
       .name(this->id + ".adfa.committed_per_cycle")
       .desc("Number of insts committed each cycle")
-      .flags(Stats::pdf);
+      .flags(statistics::pdf);
   this->numExecution.name(this->id + ".numExecution")
       .desc("Number of times ADFA get executed")
       .prereq(this->numExecution);

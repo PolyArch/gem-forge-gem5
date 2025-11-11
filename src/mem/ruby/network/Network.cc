@@ -138,13 +138,13 @@ Network::Network(const Params &p)
     }
 
     // Register a callback function for combining the statistics
-    Stats::registerDumpCallback(
+    statistics::registerDumpCallback(
         [this]() -> void { this->collateStats(); });
     /**
      * ! GemForge
      * We need to resetStats.
      */
-    Stats::registerResetCallback(
+    statistics::registerResetCallback(
         [this]() -> void { this->resetStats(); });
 
     for (auto &it : dynamic_cast<Network *>(this)->params().ext_links) {
