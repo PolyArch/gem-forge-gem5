@@ -11,12 +11,15 @@ namespace gem5 {
 
 class MLCStreamNDCController {
 public:
+  using ResponseMsg = ruby_stream::ResponseMsg;
+  using CoherenceRequestType = ruby_stream::CoherenceRequestType;
   MLCStreamNDCController(MLCStreamEngine *_mlcSE);
 
   void receiveStreamNDCRequest(PacketPtr pkt);
-  void receiveStreamNDCResponse(const ruby::ResponseMsg &msg);
+  void receiveStreamNDCResponse(const ResponseMsg &msg);
 
 private:
+  ruby::RubySystem *rubySystem;
   MLCStreamEngine *mlcSE;
 
   using NDCPacketMapT =

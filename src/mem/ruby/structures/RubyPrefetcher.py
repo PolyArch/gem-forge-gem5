@@ -37,6 +37,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from m5.objects.System import System
+
 from m5.params import *
 from m5.proxy import *
 from m5.SimObject import SimObject
@@ -66,8 +67,11 @@ class RubyPrefetcher(SimObject):
         12, "Number of bits to mask to get a page number"
     )
     bulk_prefetch_size = Param.UInt32(1,
-        "Set to >= 2 to enable buld prefetch")
+        "Set to >= 2 to enable bulk prefetch")
     sys = Param.System(Parent.any, "System this prefetcher belongs to")
+    block_size = Param.UInt32(
+        "Size of block to prefetch, usually cache line size"
+    )
 
 
 class Prefetcher(RubyPrefetcher):
@@ -82,6 +86,7 @@ class RubyBingoPrefetcher(SimObject):
     cxx_header = 'mem/ruby/structures/RubyBingoPrefetcher.hh'
 
     sys = Param.System(Parent.any, "System this prefetcher belongs to")
+    ruby_sys = Param.RubySystem(Parent.any, "Ruby system")
 
     page_shift = Param.UInt32(
         12, "Number of bits to mask to get a page number"

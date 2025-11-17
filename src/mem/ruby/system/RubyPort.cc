@@ -268,7 +268,7 @@ RubyPort::MemResponsePort::recvTimingReq(PacketPtr pkt)
     }
     // Check for pio requests and directly send them to the dedicated
     // pio port.
-    if (pkt->cmd != MemCmd::MemSyncReq) {
+    if (pkt->cmd != MemCmd::MemSyncReq && !pkt->req->hasNoAddr()) {
         if (!pkt->req->isMemMgmt() && !isPhysMemAddress(pkt)) {
             assert(owner.memRequestPort.isConnected());
             DPRINTF(RubyPort, "Request address %#x assumed to be a "
@@ -326,6 +326,8 @@ RubyPort::MemResponsePort::recvAtomic(PacketPtr pkt)
         panic("Ruby supports atomic accesses only in noncaching mode\n");
     }
 
+    RubySystem *rs = owner.m_ruby_system;
+
     // Check for pio requests and directly send them to the dedicated
     // pio port.
     if (pkt->cmd != MemCmd::MemSyncReq) {
@@ -343,8 +345,8 @@ RubyPort::MemResponsePort::recvAtomic(PacketPtr pkt)
             return owner.ticksToCycles(req_ticks);
         }
 
-        assert(getOffset(pkt->getAddr()) + pkt->getSize() <=
-               RubySystem::getBlockSizeBytes());
+        assert(owner.getOffset(pkt->getAddr()) + pkt->getSize() <=
+               rs->getBlockSizeBytes());
     }
 
     /**
@@ -374,7 +376,6 @@ RubyPort::MemResponsePort::recvAtomic(PacketPtr pkt)
     }
 
     // Find the machine type of memory controller interface
-    RubySystem *rs = owner.m_ruby_system;
     static int mem_interface_type = -1;
     if (mem_interface_type == -1) {
         if (rs->m_abstract_controls[MachineType_Directory].size() != 0) {
@@ -421,6 +422,11 @@ RubyPort::MemResponsePort::recvFunctional(PacketPtr pkt)
 {
     DPRINTF(RubyPort, "Functional access for address: %#x\n", pkt->getAddr());
 
+    // In a CPU+dGPU system, GPU functional packets are injected into
+    // the CPU network. This happens because the requestorId is automatically
+    // set to that of the CPU network for these packets. Here, we set it
+    // to that of the GPU RubyPort so that it uses the right network to
+    // access GPU caches
     RubySystem *rs = owner.m_ruby_system;
 
     // Check for pio requests and directly send them to the dedicated
@@ -433,7 +439,11 @@ RubyPort::MemResponsePort::recvFunctional(PacketPtr pkt)
     }
 
     assert(pkt->getAddr() + pkt->getSize() <=
-           makeLineAddress(pkt->getAddr()) + RubySystem::getBlockSizeBytes());
+           owner.makeLineAddress(pkt->getAddr()) + rs->getBlockSizeBytes());
+
+    if (pkt->req->getGPUFuncAccess()) {
+        pkt->req->requestorId(owner.m_controller->getRequestorId());
+    }
 
     if (access_backing_store) {
         // The attached physmem contains the official version of data.
@@ -487,7 +497,9 @@ RubyPort::ruby_hit_callback(PacketPtr pkt)
 
     // The packet was destined for memory and has not yet been turned
     // into a response
-    assert(system->isMemAddr(pkt->getAddr()) || system->isDeviceMemAddr(pkt));
+    assert(system->isMemAddr(pkt->getAddr()) ||
+        system->isDeviceMemAddr(pkt) ||
+        pkt->req->hasNoAddr());
     assert(pkt->isRequest());
 
     // First we must retrieve the request port from the sender State
@@ -532,7 +544,7 @@ RubyPort::ruby_stale_translation_callback(Addr txnId)
     // assumed they will not be modified or deleted by receivers.
     // TODO: should this really be using funcRequestorId?
     auto request = std::make_shared<Request>(
-        0, RubySystem::getBlockSizeBytes(), Request::TLBI_EXT_SYNC,
+        0, m_ruby_system->getBlockSizeBytes(), Request::TLBI_EXT_SYNC,
         Request::funcRequestorId);
     // Store the txnId in extraData instead of the address
     request->setExtraData(txnId);
@@ -646,7 +658,7 @@ RubyPort::MemResponsePort::hitCallback(PacketPtr pkt, bool noTimingResponse)
 
     // Flush, acquire, release requests don't access physical memory
     if (pkt->isFlush() || pkt->cmd == MemCmd::MemSyncReq
-        || pkt->cmd == MemCmd::WriteCompleteResp) {
+        || pkt->cmd == MemCmd::WriteCompleteResp || pkt->req->hasNoAddr()) {
         accessPhysMem = false;
     }
 
@@ -745,7 +757,7 @@ RubyPort::ruby_eviction_callback(Addr address)
     // assumed they will not be modified or deleted by receivers.
     // TODO: should this really be using funcRequestorId?
     auto request = std::make_shared<Request>(
-        address, RubySystem::getBlockSizeBytes(), 0,
+        address, m_ruby_system->getBlockSizeBytes(), 0,
         Request::funcRequestorId);
 
     // Use a single packet to signal all snooping ports of the invalidation.
@@ -781,6 +793,24 @@ RubyPort::functionalWrite(Packet *func_pkt)
         }
     }
     return num_written;
+}
+
+Addr
+RubyPort::getOffset(Addr addr) const
+{
+    return ruby::getOffset(addr, m_ruby_system->getBlockSizeBits());
+}
+
+Addr
+RubyPort::makeLineAddress(Addr addr) const
+{
+    return ruby::makeLineAddress(addr, m_ruby_system->getBlockSizeBits());
+}
+
+std::string
+RubyPort::printAddress(Addr addr) const
+{
+    return ruby::printAddress(addr, m_ruby_system->getBlockSizeBits());
 }
 
 } // namespace ruby

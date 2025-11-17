@@ -98,6 +98,8 @@ class MinorCPU : public BaseCPU
     /** List of threads that are ready to wake up and run */
     std::vector<ThreadID> readyThreads;
 
+    Random::RandomPtr rng = Random::genRandom();
+
   public:
     /** Activity recording for pipeline.  This belongs to Pipeline but
      *  stages will access it through the CPU as the MinorCPU object
@@ -206,7 +208,7 @@ class MinorCPU : public BaseCPU
         }
 
         std::shuffle(prio_list.begin(), prio_list.end(),
-                     random_mt.gen);
+                     rng->gen);
 
         return prio_list;
     }

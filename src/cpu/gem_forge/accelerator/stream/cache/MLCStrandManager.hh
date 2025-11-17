@@ -57,6 +57,7 @@ public:
 
 private:
   MLCStreamEngine *mlcSE;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *controller;
   std::unique_ptr<StreamReuseAnalyzer> reuseAnalyzer;
 

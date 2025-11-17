@@ -46,6 +46,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "cpu/testers/rubytest/RubyTester.hh"
 #include "mem/cache/cache_prefetcher_view.hh"
 #include "mem/ruby/common/Address.hh"
 #include "mem/ruby/common/PCRequestRecorder.hh"
@@ -152,6 +153,10 @@ class Sequencer : public RubyPort, public CachePrefetcherView
                              const Cycles forwardRequestTime = Cycles(0),
                              const Cycles firstResponseTime = Cycles(0));
 
+    void completeHitCallback(std::vector<PacketPtr>& list);
+    void invL1Callback();
+    void invL1();
+
     RequestStatus makeRequest(PacketPtr pkt) override;
     virtual bool empty() const;
     int outstandingCount() const override {
@@ -219,17 +224,25 @@ class Sequencer : public RubyPort, public CachePrefetcherView
     statistics::Counter getIncompleteTimes(const MachineType t) const
     { return m_IncompleteTimes[t]; }
 
-  private:
+  protected:
     void issueRequest(PacketPtr pkt, RubyRequestType type);
+    virtual void hitCallback(SequencerRequest* srequest, DataBlock& data,
+                             bool llscSuccess,
+                             const MachineType mach, const bool externalHit,
+                             const Cycles initialRequestTime,
+                             const Cycles forwardRequestTime,
+                             const Cycles firstResponseTime,
+                             const bool was_coalesced,
+                             bool issuedToCache);
 
-    void hitCallback(SequencerRequest* srequest, DataBlock& data,
-                     bool llscSuccess,
-                     const MachineType mach, const bool externalHit,
-                     const Cycles initialRequestTime,
-                     const Cycles forwardRequestTime,
-                     const Cycles firstResponseTime,
-                     const bool was_coalesced,
-                     bool issuedToCache);
+    virtual bool processReadCallback(SequencerRequest &seq_req,
+                                     DataBlock& data,
+                                     const bool rubyRequest,
+                                     bool externalHit,
+                                     const MachineType mach,
+                                     Cycles initialRequestTime,
+                                     Cycles forwardRequestTime,
+                                     Cycles firstResponseTime);
 
     void recordMissLatency(SequencerRequest* srequest, bool llscSuccess,
                            const MachineType respondingMach,
@@ -237,6 +250,7 @@ class Sequencer : public RubyPort, public CachePrefetcherView
                            Cycles forwardRequestTime,
                            Cycles firstResponseTime);
 
+  private:
     // Private copy constructor and assignment operator
     Sequencer(const Sequencer& obj);
     Sequencer& operator=(const Sequencer& obj);
@@ -254,9 +268,15 @@ class Sequencer : public RubyPort, public CachePrefetcherView
                                         RubyRequestType primary_type,
                                         RubyRequestType secondary_type);
 
+    RubySystem *m_ruby_system;
+
   private:
     int m_max_outstanding_data_requests;
     int m_max_outstanding_inst_requests;
+
+    int m_num_pending_invs;
+
+    PacketPtr m_cache_inv_pkt;
 
     CacheMemory* m_instCache_ptr;
     CacheMemory* m_dataCache_ptr;

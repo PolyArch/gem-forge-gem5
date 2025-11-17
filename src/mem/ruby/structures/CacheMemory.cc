@@ -72,12 +72,9 @@ operator<<(std::ostream& out, const CacheMemory& obj)
 
 CacheMemory::CacheMemory(const Params &p)
     : SimObject(p),
-    dataArray(p.dataArrayBanks, p.dataAccessLatency,
-              p.start_index_bit, p.ruby_system),
-    tagArray(p.tagArrayBanks, p.tagAccessLatency,
-             p.start_index_bit, p.ruby_system),
-    atomicALUArray(p.atomicALUs, p.atomicLatency *
-             p.ruby_system->clockPeriod()),
+    dataArray(p.dataArrayBanks, p.dataAccessLatency, p.start_index_bit),
+    tagArray(p.tagArrayBanks, p.tagAccessLatency, p.start_index_bit),
+    atomicALUArray(p.atomicALUs, p.atomicLatency),
     cacheMemoryStats(this)
 {
     m_cache_size = p.size;
@@ -97,11 +94,24 @@ CacheMemory::CacheMemory(const Params &p)
 }
 
 void
+CacheMemory::setRubySystem(RubySystem* rs)
+{
+    dataArray.setClockPeriod(rs->clockPeriod());
+    tagArray.setClockPeriod(rs->clockPeriod());
+    atomicALUArray.setClockPeriod(rs->clockPeriod());
+    atomicALUArray.setBlockSize(rs->getBlockSizeBytes());
+
+    if (m_block_size == 0) {
+        m_block_size = rs->getBlockSizeBytes();
+    }
+
+    m_ruby_system = rs;
+}
+
+void
 CacheMemory::init()
 {
-    if (m_block_size == 0) {
-        m_block_size = RubySystem::getBlockSizeBytes();
-    }
+    assert(m_block_size != 0);
     m_cache_num_sets = (m_cache_size / m_cache_assoc) / m_block_size;
     if (m_cache_num_sets <= 1) {
         panic("Invalid CacheSets %d Size %d Assoc %d BlkSize %d.\n",
@@ -339,6 +349,9 @@ CacheMemory::allocate(Addr address, AbstractCacheEntry *entry)
     assert(!isTagPresent(address));
     assert(cacheAvail(address));
     DPRINTF(RubyCache, "allocating address: %#x\n", address);
+
+    entry->initBlockSize(m_block_size);
+    entry->setRubySystem(m_ruby_system);
 
     // Find the first open slot
     int64_t cacheSet = addressToCacheSet(address);

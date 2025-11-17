@@ -5,7 +5,7 @@
 
 #include "SlicedDynStream.hh"
 #include "cpu/gem_forge/accelerator/stream/stream.hh"
-#include "mem/ruby/protocol/CoherenceRequestType.hh"
+#include "mem/ruby/protocol/MESI_Three_Level_Stream/CoherenceRequestType.hh"
 #include "mem/ruby/system/RubySystem.hh"
 
 #include <deque>
@@ -30,17 +30,20 @@ class LLCDynStream;
 using LLCDynStreamPtr = LLCDynStream *;
 
 struct LLCStreamRequest {
+  using CoherenceRequestType =
+      ruby::MESI_Three_Level_Stream::CoherenceRequestType;
   LLCStreamRequest(Stream *_S, const DynStreamSliceId &_sliceId,
                    Addr _paddrLine, ruby::MachineType _destMachineType,
-                   ruby::CoherenceRequestType _type, Cycles _issueCycle)
+                   CoherenceRequestType _type, Cycles _issueCycle,
+                   int _payloadSize)
       : S(_S), sliceId(_sliceId), paddrLine(_paddrLine),
         destMachineType(_destMachineType), requestType(_type),
-        issueCycle(_issueCycle) {}
+        issueCycle(_issueCycle), payloadSize(_payloadSize) {}
   Stream *S;
   DynStreamSliceId sliceId;
   Addr paddrLine;
   ruby::MachineType destMachineType;
-  ruby::CoherenceRequestType requestType;
+  CoherenceRequestType requestType;
 
   // Remember the created cycle for statistic.
   Cycles issueCycle = Cycles(0);
@@ -57,7 +60,7 @@ struct LLCStreamRequest {
   int storeSize = 8;
 
   // Optional for StreamForward request with smaller payload size.
-  int payloadSize = ruby::RubySystem::getBlockSizeBytes();
+  int payloadSize = 64;
 
   // Optional for Multicast request, excluding the original stream
   DynStreamSliceIdVec multicastSliceIds;
@@ -317,11 +320,14 @@ public:
     return this->pumPrefetchDoneSlices;
   }
 
+  ruby::RubySystem *getRubySystem() const { return this->rubySystem; }
+
 private:
   uint64_t streamAckedSlices = 0;
   uint64_t pumPrefetchDoneSlices = 0;
 
   State state = INITIALIZED;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *mlcController;
   ruby::AbstractStreamAwareController *llcController;
   ruby::AbstractStreamAwareController *nextLLCController;

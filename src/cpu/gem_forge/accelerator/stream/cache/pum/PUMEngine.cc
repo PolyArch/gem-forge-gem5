@@ -9,9 +9,9 @@
 namespace gem5 {
 
 PUMEngine::PUMEngine(LLCStreamEngine *_se)
-    : se(_se), controller(_se->controller) {}
+    : se(_se), rubySystem(_se->getRubySystem()), controller(_se->controller) {}
 
-void PUMEngine::receiveKick(const ruby::RequestMsg &msg) {
+void PUMEngine::receiveKick(const ruby_stream::RequestMsg &msg) {
   assert(this->pumManager && "Not configured yet.");
   if (this->acked) {
     // We are waiting for the kick after sync.
@@ -222,9 +222,11 @@ void PUMEngine::kickNextCommand() {
 void PUMEngine::sendPUMDataToLLC(const DynStreamSliceId &sliceId,
                                  const ruby::NetDest &recvBanks, int bytes,
                                  bool isPUMPrefetch) {
-  auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
+  auto msg = std::make_shared<ruby_stream::RequestMsg>(
+      this->controller->clockEdge(), this->rubySystem->getBlockSizeBytes(),
+      this->rubySystem);
   msg->m_addr = 0;
-  msg->m_Type = ruby::CoherenceRequestType_STREAM_PUM_DATA;
+  msg->m_Type = ruby_stream::CoherenceRequestType_STREAM_PUM_DATA;
   msg->m_Requestors.add(this->controller->getMachineID());
   msg->m_Destination = recvBanks;
   msg->m_MessageSize = this->controller->getMessageSizeType(bytes);
@@ -551,7 +553,7 @@ void PUMEngine::synced() {
   this->kickNextCommand();
 }
 
-void PUMEngine::receiveData(const ruby::RequestMsg &msg) {
+void PUMEngine::receiveData(const ruby_stream::RequestMsg &msg) {
 
   /**
    * So far if this is from PUMPrefetchStream, we simply discard it.
@@ -571,10 +573,10 @@ void PUMEngine::receiveData(const ruby::RequestMsg &msg) {
   }
 }
 
-void PUMEngine::receiveDataFromPUM(const ruby::RequestMsg &msg) {
+void PUMEngine::receiveDataFromPUM(const ruby_stream::RequestMsg &msg) {
 
   auto sender = msg.m_Requestors.singleElement();
-  auto senderNodeId = sender.getRawNodeID();
+  auto senderNodeId = this->rubySystem->getRawNodeID(sender);
   auto iter = this->recvPUMDataPktMap
                   .emplace(std::piecewise_construct,
                            std::forward_as_tuple(senderNodeId),
@@ -609,7 +611,7 @@ void PUMEngine::receiveDataFromPUM(const ruby::RequestMsg &msg) {
         recvPackets, sender, this->recvDataPkts,
         this->recvPUMDataPktMap.size());
     for (const auto &entry : this->recvPUMDataPktMap) {
-      auto sender = ruby::MachineID::getMachineIDFromRawNodeID(entry.first);
+      auto sender = this->rubySystem->getMachineIDFromRawNodeID(entry.first);
       LLC_SE_DPRINTF("[Sync] Remain Entry from %s %d %d.\n", sender,
                      entry.second.first, entry.second.second);
     }
@@ -617,7 +619,7 @@ void PUMEngine::receiveDataFromPUM(const ruby::RequestMsg &msg) {
   }
 }
 
-void PUMEngine::receiveDataFromStream(const ruby::RequestMsg &msg) {
+void PUMEngine::receiveDataFromStream(const ruby_stream::RequestMsg &msg) {
 
   const auto &sliceId = msg.m_sliceIds.singleSliceId();
   auto sender = sliceId.getDynStrandId();
@@ -666,7 +668,8 @@ void PUMEngine::receiveDataFromStream(const ruby::RequestMsg &msg) {
 }
 
 void PUMEngine::sendDoneToMLC(int recvPackets) {
-  this->sendAckToMLC(ruby::CoherenceResponseType_STREAM_DONE, recvPackets);
+  this->sendAckToMLC(ruby_stream::CoherenceResponseType_STREAM_DONE,
+                     recvPackets);
 }
 
 void PUMEngine::sendSyncToMLC(int sentPackets) {
@@ -675,13 +678,17 @@ void PUMEngine::sendSyncToMLC(int sentPackets) {
    * This is represented as a StreamAck message.
    */
   LLC_SE_DPRINTF("[Sync] Sent Sync %d to MLC.\n", sentPackets);
-  this->sendAckToMLC(ruby::CoherenceResponseType_STREAM_ACK, sentPackets);
+  this->sendAckToMLC(ruby_stream::CoherenceResponseType_STREAM_ACK,
+                     sentPackets);
 }
 
-void PUMEngine::sendAckToMLC(ruby::CoherenceResponseType type, int ackCount) {
+void PUMEngine::sendAckToMLC(ruby_stream::CoherenceResponseType type,
+                             int ackCount) {
 
   assert(this->pumManager);
-  auto msg = std::make_shared<ruby::ResponseMsg>(this->controller->clockEdge());
+  auto msg = std::make_shared<ruby_stream::ResponseMsg>(
+      this->controller->clockEdge(), this->rubySystem->getBlockSizeBytes(),
+      this->rubySystem);
   msg->m_addr = 0;
   msg->m_Type = type;
   msg->m_Sender = this->controller->getMachineID();
@@ -712,7 +719,7 @@ void PUMEngine::sendSyncToLLCs(const SentPktMapT &sentMap,
   for (const auto &entry : sentMap) {
     auto nodeId = entry.first;
     auto packets = entry.second;
-    auto machineId = ruby::MachineID::getMachineIDFromRawNodeID(nodeId);
+    auto machineId = this->rubySystem->getMachineIDFromRawNodeID(nodeId);
     LLC_SE_DPRINTF("[Sync] Sent Packets %d to %s.\n", packets, machineId);
     // Send a done msg to the destination bank.
     this->sendSyncToLLC(machineId, packets, sliceId);
@@ -726,9 +733,11 @@ void PUMEngine::sendSyncToLLC(ruby::MachineID recvBank, int sentPackets,
    * This is represented as a StreamAck message.
    */
   assert(this->pumManager);
-  auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
+  auto msg = std::make_shared<ruby_stream::RequestMsg>(
+      this->controller->clockEdge(), this->rubySystem->getBlockSizeBytes(),
+      this->rubySystem);
   msg->m_addr = 0;
-  msg->m_Type = ruby::CoherenceRequestType_STREAM_PUM_DATA;
+  msg->m_Type = ruby_stream::CoherenceRequestType_STREAM_PUM_DATA;
   msg->m_Requestors.add(this->controller->getMachineID());
   msg->m_MessageSize = ruby::MessageSizeType_Control;
   msg->m_isPUM = true;
@@ -745,4 +754,3 @@ void PUMEngine::sendSyncToLLC(ruby::MachineID recvBank, int sentPackets,
       this->controller->cyclesToTicks(Cycles(1)));
 }
 } // namespace gem5
-

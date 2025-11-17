@@ -6,9 +6,7 @@
 
 #include "cpu/gem_forge/accelerator/stream/stream_translation_buffer.hh"
 
-// Generate by slicc.
-#include "mem/ruby/protocol/RequestMsg.hh"
-#include "mem/ruby/protocol/ResponseMsg.hh"
+#include "RubyStreamInclude.hh"
 
 #include "mem/ruby/common/Consumer.hh"
 
@@ -35,6 +33,8 @@ class PUMEngine;
 
 class LLCStreamEngine : public ruby::Consumer {
 public:
+  using RequestMsg = ruby_stream::RequestMsg;
+  using ResponseMsg = ruby_stream::ResponseMsg;
   LLCStreamEngine(ruby::AbstractStreamAwareController *_controller,
                   ruby::MessageBuffer *_streamMigrateMsgBuffer,
                   ruby::MessageBuffer *_streamIssueMsgBuffer,
@@ -51,9 +51,9 @@ public:
                                      const DynStreamSliceIdVec &sliceIds,
                                      const ruby::DataBlock &dataBlock,
                                      const ruby::DataBlock &storeValueBlock);
-  void receiveStreamIndirectReq(const ruby::RequestMsg &req);
-  void receiveStreamIndirectReqImpl(const ruby::RequestMsg &req);
-  void receiveStreamFwdReq(const ruby::RequestMsg &req);
+  void receiveStreamIndirectReq(const RequestMsg &req);
+  void receiveStreamIndirectReqImpl(const RequestMsg &req);
+  void receiveStreamFwdReq(const RequestMsg &req);
   void notifyStreamRequestMiss(const DynStreamSliceIdVec &sliceIds);
   void wakeup() override;
   void print(std::ostream &out) const override;
@@ -68,6 +68,7 @@ public:
   ruby::MachineType myMachineType() const;
   const char *curRemoteMachineType() const;
 
+  ruby::RubySystem *getRubySystem() const { return this->rubySystem; }
   Cycles curCycle() const { return this->controller->curCycle(); }
 
   /**
@@ -83,12 +84,12 @@ public:
   /**
    * Receive the PUM configure.
    */
-  void receivePUMConfigure(const ruby::RequestMsg &req);
+  void receivePUMConfigure(const RequestMsg &req);
 
   /**
    * Receive the PUM data.
    */
-  void receivePUMData(const ruby::RequestMsg &req);
+  void receivePUMData(const RequestMsg &req);
 
 private:
   friend class LLCDynStream;
@@ -97,6 +98,7 @@ private:
   friend class LLCStreamNDCController;
   friend class LLCStreamAtomicLockManager;
   friend class PUMEngine;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *controller;
   // Out going stream migrate buffer.
   ruby::MessageBuffer *streamMigrateMsgBuffer;
@@ -294,7 +296,8 @@ private:
   /**
    * Get the request type for this stream.
    */
-  ruby::CoherenceRequestType getStreamReqType(LLCDynStream *stream) const;
+  ruby_stream::CoherenceRequestType
+  getStreamReqType(LLCDynStream *stream) const;
 
   /**
    * Generate indirect stream request.
@@ -324,7 +327,7 @@ private:
   RequestQueueIter enqueueRequest(Stream *S, const DynStreamSliceId &sliceId,
                                   Addr vaddrLine, Addr paddrLine,
                                   ruby::MachineType destMachineType,
-                                  ruby::CoherenceRequestType type);
+                                  ruby_stream::CoherenceRequestType type);
   void translationCallback(PacketPtr pkt, ThreadContext *tc,
                            RequestQueueIter reqIter);
 
@@ -333,7 +336,7 @@ private:
    */
   void issueStreamReqToRemoteBank(const LLCStreamRequest &req);
 
-  using ResponseMsgPtr = std::shared_ptr<ruby::ResponseMsg>;
+  using ResponseMsgPtr = std::shared_ptr<ResponseMsg>;
   /**
    * Create the stream message to MLC SE.
    * @param payloadSize: the network should model the payload of this size,
@@ -342,7 +345,7 @@ private:
    * smaller.
    */
   ResponseMsgPtr createStreamMsgToMLC(const DynStreamSliceId &sliceId,
-                                      ruby::CoherenceResponseType type,
+                                      ruby_stream::CoherenceResponseType type,
                                       Addr paddrLine, const uint8_t *data,
                                       int dataSize, int payloadSize,
                                       int lineOffset);
@@ -555,7 +558,7 @@ private:
   /**
    * Process the StreamForward request.
    */
-  void processStreamFwdReq(const ruby::RequestMsg &req,
+  void processStreamFwdReq(const RequestMsg &req,
                            const DynStreamSliceId &recvSliceId);
 
   /**
@@ -563,7 +566,7 @@ private:
    * process it.
    * @return whether this message is processed.
    */
-  bool tryToProcessIndirectAtomicUnlockReq(const ruby::RequestMsg &req);
+  bool tryToProcessIndirectAtomicUnlockReq(const RequestMsg &req);
 
   /**
    * We handle the computation and charge its latency here.

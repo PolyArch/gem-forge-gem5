@@ -99,6 +99,7 @@ class StaticInstFlags(Enum):
         "IsHtmStart",  # Starts a HTM transaction
         "IsHtmStop",  # Stops (commits) a HTM transaction
         "IsHtmCancel",  # Explicitely aborts a HTM transaction
+        "IsInvalid",  # An invalid instruction
 
         "IsLockedRMW",      # X86 LockedRMW
         'IsGemForge',       # A GemForge instruction

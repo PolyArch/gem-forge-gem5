@@ -160,6 +160,8 @@ class CacheMemory : public SimObject
     void htmAbortTransaction();
     void htmCommitTransaction();
 
+    void setRubySystem(RubySystem* rs);
+
   public:
     int getCacheSize() const { return m_cache_size; }
     int getCacheAssoc() const { return m_cache_assoc; }
@@ -223,6 +225,14 @@ class CacheMemory : public SimObject
      * false.
      */
     bool m_use_occupancy;
+
+    RubySystem *m_ruby_system = nullptr;
+
+    Addr
+    makeLineAddress(Addr addr) const
+    {
+        return ruby::makeLineAddress(addr, floorLog2(m_block_size));
+    }
 
     public:
       struct CacheMemoryStats : public statistics::Group

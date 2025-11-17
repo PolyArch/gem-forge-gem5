@@ -209,7 +209,8 @@ MLCPUMManager::PUMContext::~PUMContext() {
 }
 
 MLCPUMManager::MLCPUMManager(MLCStreamEngine *_mlcSE)
-    : mlcSE(_mlcSE), controller(_mlcSE->controller) {
+    : mlcSE(_mlcSE), rubySystem(_mlcSE->getRubySystem()),
+      controller(_mlcSE->controller) {
   this->scheduler = std::make_unique<PUMScheduler>(this);
 
   this->modelRegPressure =
@@ -2919,7 +2920,7 @@ MLCPUMManager::generatePrefetchStream(const ConfigPtr &config) {
 
   // Opt: prefetch patterns only describes an element from each of the
   // required cache-lines.
-  auto clSize = ruby::RubySystem::getBlockSizeBytes();
+  auto clSize = this->rubySystem->getBlockSizeBytes();
   prefetchConfig->elementSize = clSize;
 
   auto totalBytes = streamNUCARegion.numElement * streamNUCARegion.elementSize;
@@ -2975,7 +2976,7 @@ MLCPUMManager::generatePUMPrefetchStreams(PUMComputeStreamGroup &group) {
 
 #define ADD_PREFETCH_STREAM(stream)                                            \
   {                                                                            \
-    auto pStream = this -> generatePrefetchStream(stream);                     \
+    auto pStream = this->generatePrefetchStream(stream);                       \
     if (pStream != nullptr) {                                                  \
       configs.emplace_back(pStream);                                           \
     }                                                                          \
@@ -3892,9 +3893,11 @@ void MLCPUMManager::kickPUMEngine(PUMContext &context,
    * Broadcast the kick packet.
    * So far this is implemented as a PUMConfig packet.
    */
-  auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
+  auto msg = std::make_shared<ruby_stream::RequestMsg>(
+      this->controller->clockEdge(), this->rubySystem->getBlockSizeBytes(),
+      this->rubySystem);
   msg->m_addr = 0;
-  msg->m_Type = ruby::CoherenceRequestType_STREAM_CONFIG;
+  msg->m_Type = ruby_stream::CoherenceRequestType_STREAM_CONFIG;
   msg->m_Requestors.add(this->controller->getMachineID());
   msg->m_MessageSize = sizeType;
   msg->m_isPUM = true;

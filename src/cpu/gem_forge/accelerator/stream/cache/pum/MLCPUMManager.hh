@@ -98,6 +98,7 @@ public:
 private:
   using ConfigPtr = CacheStreamConfigureDataPtr;
   MLCStreamEngine *mlcSE;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *controller;
 
   /**

@@ -672,7 +672,7 @@ class PrefetchStreamer : public LRUSetAssociativeCache<PrefetchStreamerData> {
 
 public:
   PrefetchStreamer(int size, int pattern_len, int debug_level = 0,
-                   int num_ways = 16)
+                   int num_ways = 16, int cache_line_size = 64)
       : Super(size, num_ways, debug_level), pattern_len(pattern_len) {
     if (this->debug_level >= 1)
       cerr << "PrefetchStreamer::PrefetchStreamer(size=" << size
@@ -701,7 +701,7 @@ public:
       //        << cache->MSHR.SIZE << " MSHR entries occupied." << dec << endl;
     }
     uint64_t base_addr = block_address
-                         << gem5::ruby::RubySystem::getBlockSizeBytesLog2();
+                         << pf->getRubySystem()->getBlockSizeBytesLog2();
     int region_offset = block_address % this->pattern_len;
     uint64_t region_number = block_address / this->pattern_len;
     uint64_t key = this->build_key(region_number);
@@ -724,9 +724,8 @@ public:
         pf_offset = region_offset + sgn * d;
         if (0 <= pf_offset && pf_offset < this->pattern_len &&
             pattern[pf_offset] > 0) {
-          uint64_t pf_address =
-              (region_number * this->pattern_len + pf_offset)
-              << gem5::ruby::RubySystem::getBlockSizeBytesLog2();
+          uint64_t pf_address = (region_number * this->pattern_len + pf_offset)
+                                << pf->getRubySystem()->getBlockSizeBytesLog2();
           //   if (cache->PQ.occupancy + cache->MSHR.occupancy <
           //           cache->MSHR.SIZE - 1 &&
           //       cache->PQ.occupancy < cache->PQ.SIZE) {
@@ -1144,12 +1143,12 @@ namespace gem5 {
 namespace ruby {
 
 RubyBingoPrefetcher::RubyBingoPrefetcher(const Params &p)
-    : SimObject(p), enabled(p.enabled), m_page_shift(p.page_shift),
-      m_pf_queue_size(p.pf_queue_size) {
+    : SimObject(p), m_ruby_system(p.ruby_sys), enabled(p.enabled),
+      m_page_shift(p.page_shift), m_pf_queue_size(p.pf_queue_size) {
   this->bingo = std::make_unique<L1D_PREF::Bingo>(
-      p.region_size >> RubySystem::getBlockSizeBytesLog2(), p.min_addr_width,
-      p.max_addr_width, p.pc_width, p.ft_size, p.at_size, p.pht_size,
-      p.pht_ways, p.pf_streamer_size, L1D_PREF::DEBUG_LEVEL);
+      p.region_size >> this->m_ruby_system->getBlockSizeBytesLog2(),
+      p.min_addr_width, p.max_addr_width, p.pc_width, p.ft_size, p.at_size,
+      p.pht_size, p.pht_ways, p.pf_streamer_size, L1D_PREF::DEBUG_LEVEL);
 }
 
 RubyBingoPrefetcher::~RubyBingoPrefetcher() {}
@@ -1200,7 +1199,8 @@ void RubyBingoPrefetcher::observeReq(Addr address, Addr pc, bool hit,
     this->numMissObserved++;
   }
 
-  uint64_t blockNumber = address >> RubySystem::getBlockSizeBytesLog2();
+  uint64_t blockNumber =
+      address >> this->m_ruby_system->getBlockSizeBytesLog2();
 
   /* update BINGO with most recent LOAD access */
   this->bingo->access(blockNumber, pc);
@@ -1211,7 +1211,7 @@ void RubyBingoPrefetcher::observeReq(Addr address, Addr pc, bool hit,
 
 void RubyBingoPrefetcher::observeEvict(Addr evictedAddr) {
   uint64_t evictedBlockNumber =
-      evictedAddr >> RubySystem::getBlockSizeBytesLog2();
+      evictedAddr >> this->m_ruby_system->getBlockSizeBytesLog2();
   DPRINTF(RubyPrefetcher, "Bingo::observeEvict line %#x .\n", evictedAddr);
 
   /* inform of the eviction */
@@ -1222,7 +1222,7 @@ int RubyBingoPrefetcher::prefetchLine(Addr pc, Addr baseAddr, Addr pfAddr,
                                       int pfFillLevel) {
   // So far Bingo only supports prefetching data.
   auto type = RubyRequestType_LD;
-  auto pfAddrLine = makeLineAddress(pfAddr);
+  auto pfAddrLine = this->m_ruby_system->makeLineAddress(pfAddr);
   DPRINTF(RubyPrefetcher,
           "Prefetching line pc %#x baseAddr %#x pfAddr %#x type %s.\n", pc,
           baseAddr, pfAddrLine, RubyRequestType_to_string(type));

@@ -92,6 +92,8 @@
 #define M5OP_STREAM_NUCA_GET_PROPERTY     0x71
 #define M5OP_WORKLOAD           0x80
 
+#define M5OP_HYPERCALL          0x91
+
 #define M5OP_FOREACH                                            \
     M5OP(m5_arm, M5OP_ARM)                                      \
     M5OP(m5_quiesce, M5OP_QUIESCE)                              \
@@ -120,6 +122,7 @@
     M5OP(m5_work_mark, M5OP_WORK_MARK)                          \
     M5OP(m5_dist_toggle_sync, M5OP_DIST_TOGGLE_SYNC)            \
     M5OP(m5_workload, M5OP_WORKLOAD)                            \
+    M5OP(m5_hypercall, M5OP_HYPERCALL)                          \
 
 #define M5OP_MERGE_TOKENS_I(a, b) a##b
 #define M5OP_MERGE_TOKENS(a, b) M5OP_MERGE_TOKENS_I(a, b)

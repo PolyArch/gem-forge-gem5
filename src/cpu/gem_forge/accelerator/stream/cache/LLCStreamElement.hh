@@ -40,6 +40,7 @@ public:
   static void releaseDeferredElements();
 
   Stream *S;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *mlcController;
   const DynStrandId strandId;
   const uint64_t idx;

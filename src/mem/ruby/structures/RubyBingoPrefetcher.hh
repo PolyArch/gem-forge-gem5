@@ -80,7 +80,10 @@ public:
   int getInqueuePfRequests() const { return inqueuePfRequests; }
   int getPfQueueSize() const { return m_pf_queue_size; }
 
+  RubySystem* getRubySystem() const { return m_ruby_system; }
+
 private:
+  RubySystem *m_ruby_system;
   bool enabled;
   AbstractController *m_controller;
 

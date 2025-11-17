@@ -122,6 +122,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 observe_hit=options.gem_forge_prefetch_on_hit,
                 prefetch_inst=options.gem_forge_prefetch_inst,
                 filter_dup=options.gem_forge_prefetch_filter_dup,
+                block_size=options.cacheline_size,
             )
 
             bingo_prefetcher = RubyBingoPrefetcher(
@@ -228,6 +229,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 cross_page=options.gem_forge_l2_prefetch_cross_page,
                 observe_hit=options.gem_forge_l2_prefetch_on_hit,
                 bulk_prefetch_size=options.gem_forge_l2_bulk_prefetch_size,
+                block_size=options.cacheline_size,
             )
 
             l1_cntrl = L1Cache_Controller(

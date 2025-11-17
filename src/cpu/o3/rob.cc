@@ -151,12 +151,7 @@ ROB::resetEntries()
     if (robPolicy != SMTQueuePolicy::Dynamic || numThreads > 1) {
         auto active_threads = activeThreads->size();
 
-        std::list<ThreadID>::iterator threads = activeThreads->begin();
-        std::list<ThreadID>::iterator end = activeThreads->end();
-
-        while (threads != end) {
-            ThreadID tid = *threads++;
-
+        for (ThreadID tid : *activeThreads) {
             if (robPolicy == SMTQueuePolicy::Partitioned) {
                 maxEntries[tid] = numEntries / active_threads;
             } else if (robPolicy == SMTQueuePolicy::Threshold &&
@@ -280,12 +275,7 @@ bool
 ROB::canCommit()
 {
     //@todo: set ActiveThreads through ROB or CPU
-    std::list<ThreadID>::iterator threads = activeThreads->begin();
-    std::list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
+    for (ThreadID tid : *activeThreads) {
         if (isHeadReady(tid)) {
             return true;
         }
@@ -399,12 +389,7 @@ ROB::updateHead()
     bool first_valid = true;
 
     // @todo: set ActiveThreads through ROB or CPU
-    std::list<ThreadID>::iterator threads = activeThreads->begin();
-    std::list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
+    for (ThreadID tid : *activeThreads) {
         if (instList[tid].empty())
             continue;
 
@@ -439,12 +424,7 @@ ROB::updateTail()
     tail = instList[0].end();
     bool first_valid = true;
 
-    std::list<ThreadID>::iterator threads = activeThreads->begin();
-    std::list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
+    for (ThreadID tid : *activeThreads) {
         if (instList[tid].empty()) {
             continue;
         }

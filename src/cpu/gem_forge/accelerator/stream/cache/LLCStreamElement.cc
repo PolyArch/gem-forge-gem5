@@ -21,7 +21,8 @@ LLCStreamElement::LLCStreamElement(
     Stream *_S, ruby::AbstractStreamAwareController *_mlcController,
     const DynStrandId &_strandId, uint64_t _idx, Addr _vaddr, int _size,
     bool _isNDCElement)
-    : S(_S), mlcController(_mlcController), strandId(_strandId), idx(_idx),
+    : S(_S), rubySystem(_mlcController->getRubySystem()),
+      mlcController(_mlcController), strandId(_strandId), idx(_idx),
       size(_size), isNDCElement(_isNDCElement), vaddr(_vaddr), readyBytes(0) {
   if (this->size > sizeof(this->value)) {
     panic("LLCStreamElem size overflow %d, %s.\n", this->size, this->strandId);
@@ -258,8 +259,8 @@ int LLCStreamElement::computeOverlapImpl(int elemSize, Addr rangeVAddr,
     rangeOffset = rangeSize;
     return 0;
   }
-  assert(ruby::makeLineAddress(overlapLHS) ==
-             ruby::makeLineAddress(overlapRHS - 1) &&
+  assert(this->rubySystem->makeLineAddress(overlapLHS) ==
+             this->rubySystem->makeLineAddress(overlapRHS - 1) &&
          "Illegal overlap.");
   auto overlapSize = overlapRHS - overlapLHS;
   rangeOffset = overlapLHS - rangeVAddr;
@@ -301,7 +302,7 @@ void LLCStreamElement::extractElementDataFromSlice(
 
   // Get the data from the cache line.
   auto data = dataBlock.getData(
-      overlapLHS % ruby::RubySystem::getBlockSizeBytes(), overlapSize);
+      overlapLHS % this->rubySystem->getBlockSizeBytes(), overlapSize);
   memcpy(this->getUInt8Ptr(elemOffset), data, overlapSize);
   LLC_SLICE_DPRINTF(sliceId, "Extract elem data %dB %s.\n", overlapSize,
                     GemForgeUtils::dataToString(data, overlapSize));
@@ -345,7 +346,7 @@ void LLCStreamElement::extractComputedValueFromSlice(
 
   // Get the data from the cache line.
   auto data = dataBlock.getData(
-      overlapLHS % ruby::RubySystem::getBlockSizeBytes(), overlapSize);
+      overlapLHS % this->rubySystem->getBlockSizeBytes(), overlapSize);
 
   LLC_SLICE_DPRINTF(
       sliceId, "Recv ComputedVal %lu Size %d [%lu, %lu) Slice [%lu, %lu) %s.\n",

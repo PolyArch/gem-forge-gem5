@@ -31,7 +31,8 @@ StreamNUCAManager::initialize(Process *_process, const ProcessParams *_params) {
 
 StreamNUCAManager::StreamNUCAManager(Process *_process,
                                      const ProcessParams *_params)
-    : process(_process), enabledMemStream(_params->enableMemStream),
+    : process(_process), cacheLineBits(floorLog2(_params->block_size_bytes)),
+      enabledMemStream(_params->enableMemStream),
       enabledNUCA(_params->enableStreamNUCA),
       enablePUM(_params->enableStreamPUMMapping),
       enablePUMTiling(_params->enableStreamPUMTiling),
@@ -57,9 +58,9 @@ StreamNUCAManager::StreamNUCAManager(Process *_process,
 }
 
 StreamNUCAManager::StreamNUCAManager(const StreamNUCAManager &other)
-    : process(other.process), enabledMemStream(other.enabledMemStream),
-      enabledNUCA(other.enabledNUCA), enablePUM(other.enablePUM),
-      enablePUMTiling(other.enablePUMTiling),
+    : process(other.process), cacheLineBits(other.cacheLineBits),
+      enabledMemStream(other.enabledMemStream), enabledNUCA(other.enabledNUCA),
+      enablePUM(other.enablePUM), enablePUMTiling(other.enablePUMTiling),
       forcePUMTilingSize(other.forcePUMTilingSize),
       forceDistributeArray(other.forceDistributeArray),
       directRegionFitPolicy(other.directRegionFitPolicy),
@@ -1186,7 +1187,8 @@ void StreamNUCAManager::estimateCSRMigration(ThreadContext *tc,
 
       for (int j = 0; j < numEdges; ++j) {
         auto thisEdgeVAddr = edgeLhs + j * region.elementSize;
-        auto thisEdgeVAddrLine = ruby::makeLineAddress(thisEdgeVAddr);
+        auto thisEdgeVAddrLine =
+            ruby::makeLineAddress(thisEdgeVAddr, this->cacheLineBits);
         Addr thisEdgePAddrLine;
         panic_if(!pTable->translate(thisEdgeVAddrLine, thisEdgePAddrLine),
                  "Failed address translation.");
@@ -1227,8 +1229,9 @@ void StreamNUCAManager::estimateCSRMigration(ThreadContext *tc,
        */
       auto fullLineBegin = lines.begin();
       auto fullLineEnd = lines.end();
-      auto isFullLine = [edgeLhs, edgeRhs](Addr vaddr) -> bool {
-        return vaddr == ruby::makeLineAddress(vaddr) && vaddr >= edgeLhs &&
+      auto isFullLine = [edgeLhs, edgeRhs, this](Addr vaddr) -> bool {
+        return vaddr == ruby::makeLineAddress(vaddr, this->cacheLineBits) &&
+               vaddr >= edgeLhs &&
                vaddr + StreamNUCAMap::getCacheBlockSize() <= edgeRhs;
       };
       if (fullLineBegin < fullLineEnd) {

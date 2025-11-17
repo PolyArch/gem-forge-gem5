@@ -50,6 +50,8 @@ namespace gem5
 namespace ruby
 {
 
+class RubySystem;
+
 namespace garnet
 {
 
@@ -164,6 +166,8 @@ class InputUnit : public Consumer
     uint32_t functionalWrite(Packet *pkt);
 
     void resetStats();
+
+    RubySystem* getRubySystem() const;
 
   private:
     Router *m_router;

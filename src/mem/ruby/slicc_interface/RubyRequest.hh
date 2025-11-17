@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 ARM Limited
+ * Copyright (c) 2020-2021, 2024 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -89,12 +89,14 @@ class RubyRequest : public Message
     // explicitly set to true in the program in order to bypass caches
     bool m_isGLCSet;
     bool m_isSLCSet;
+    bool m_isSecure;
 
-    RubyRequest(Tick curTime, uint64_t _paddr, int _len,
+    RubyRequest(Tick curTime, int block_size, RubySystem *rs,
+        uint64_t _paddr, int _len,
         uint64_t _pc, RubyRequestType _type, RubyAccessMode _access_mode,
         PacketPtr _pkt, PrefetchBit _pb = PrefetchBit_No,
         ContextID _proc_id = 100, ContextID _core_id = 99)
-        : Message(curTime),
+        : Message(curTime, block_size, rs),
           m_PhysicalAddress(_paddr),
           m_Type(_type),
           m_ProgramCounter(_pc),
@@ -103,12 +105,16 @@ class RubyRequest : public Message
           m_Prefetch(_pb),
           m_pkt(_pkt),
           m_contextId(_core_id),
+          m_writeMask(block_size),
+          m_WTData(block_size),
           m_htmFromTransaction(false),
           m_htmTransactionUid(0),
           m_isTlbi(false),
-          m_tlbiTransactionUid(0)
+          m_tlbiTransactionUid(0),
+          m_isSecure(m_pkt ? m_pkt->req->isSecure() : false)
     {
-        m_LineAddress = makeLineAddress(m_PhysicalAddress);
+        int block_size_bits = floorLog2(block_size);
+        m_LineAddress = makeLineAddress(m_PhysicalAddress, block_size_bits);
         if (_pkt) {
             m_isGLCSet = m_pkt->req->isGLCSet();
             m_isSLCSet = m_pkt->req->isSLCSet();
@@ -119,10 +125,10 @@ class RubyRequest : public Message
     }
 
     /** RubyRequest for memory management commands */
-    RubyRequest(Tick curTime,
+    RubyRequest(Tick curTime, int block_size, RubySystem *rs,
         uint64_t _pc, RubyRequestType _type, RubyAccessMode _access_mode,
         PacketPtr _pkt, ContextID _proc_id, ContextID _core_id)
-        : Message(curTime),
+        : Message(curTime, block_size, rs),
           m_PhysicalAddress(0),
           m_Type(_type),
           m_ProgramCounter(_pc),
@@ -131,10 +137,13 @@ class RubyRequest : public Message
           m_Prefetch(PrefetchBit_No),
           m_pkt(_pkt),
           m_contextId(_core_id),
+          m_writeMask(block_size),
+          m_WTData(block_size),
           m_htmFromTransaction(false),
           m_htmTransactionUid(0),
           m_isTlbi(false),
-          m_tlbiTransactionUid(0)
+          m_tlbiTransactionUid(0),
+          m_isSecure(m_pkt->req->isSecure())
     {
         assert(m_pkt->req->isMemMgmt());
         if (_pkt) {
@@ -146,14 +155,14 @@ class RubyRequest : public Message
         }
     }
 
-    RubyRequest(Tick curTime, uint64_t _paddr, int _len,
-        uint64_t _pc, RubyRequestType _type,
+    RubyRequest(Tick curTime, int block_size, RubySystem *rs,
+        uint64_t _paddr, int _len, uint64_t _pc, RubyRequestType _type,
         RubyAccessMode _access_mode, PacketPtr _pkt, PrefetchBit _pb,
         unsigned _proc_id, unsigned _core_id,
         int _wm_size, std::vector<bool> & _wm_mask,
         DataBlock & _Data,
         uint64_t _instSeqNum = 0)
-        : Message(curTime),
+        : Message(curTime, block_size, rs),
           m_PhysicalAddress(_paddr),
           m_Type(_type),
           m_ProgramCounter(_pc),
@@ -169,9 +178,11 @@ class RubyRequest : public Message
           m_htmFromTransaction(false),
           m_htmTransactionUid(0),
           m_isTlbi(false),
-          m_tlbiTransactionUid(0)
+          m_tlbiTransactionUid(0),
+          m_isSecure(m_pkt->req->isSecure())
     {
-        m_LineAddress = makeLineAddress(m_PhysicalAddress);
+        int block_size_bits = floorLog2(block_size);
+        m_LineAddress = makeLineAddress(m_PhysicalAddress, block_size_bits);
         if (_pkt) {
             m_isGLCSet = m_pkt->req->isGLCSet();
             m_isSLCSet = m_pkt->req->isSLCSet();
@@ -181,15 +192,15 @@ class RubyRequest : public Message
         }
     }
 
-    RubyRequest(Tick curTime, uint64_t _paddr, int _len,
-        uint64_t _pc, RubyRequestType _type,
+    RubyRequest(Tick curTime, int block_size, RubySystem *rs,
+        uint64_t _paddr, int _len, uint64_t _pc, RubyRequestType _type,
         RubyAccessMode _access_mode, PacketPtr _pkt, PrefetchBit _pb,
         unsigned _proc_id, unsigned _core_id,
         int _wm_size, std::vector<bool> & _wm_mask,
         DataBlock & _Data,
         std::vector< std::pair<int,AtomicOpFunctor*> > _atomicOps,
         uint64_t _instSeqNum = 0)
-        : Message(curTime),
+        : Message(curTime, block_size, rs),
           m_PhysicalAddress(_paddr),
           m_Type(_type),
           m_ProgramCounter(_pc),
@@ -205,9 +216,11 @@ class RubyRequest : public Message
           m_htmFromTransaction(false),
           m_htmTransactionUid(0),
           m_isTlbi(false),
-          m_tlbiTransactionUid(0)
+          m_tlbiTransactionUid(0),
+          m_isSecure(m_pkt->req->isSecure())
     {
-        m_LineAddress = makeLineAddress(m_PhysicalAddress);
+        int block_size_bits = floorLog2(block_size);
+        m_LineAddress = makeLineAddress(m_PhysicalAddress, block_size_bits);
         if (_pkt) {
             m_isGLCSet = m_pkt->req->isGLCSet();
             m_isSLCSet = m_pkt->req->isSLCSet();
@@ -218,7 +231,12 @@ class RubyRequest : public Message
         }
     }
 
-    RubyRequest(Tick curTime) : Message(curTime) {}
+    RubyRequest(Tick curTime, int block_size, RubySystem *rs)
+        : Message(curTime, block_size, rs),
+          m_writeMask(block_size),
+          m_WTData(block_size)
+    {
+    }
     MsgPtr clone() const
     { return std::shared_ptr<Message>(new RubyRequest(*this)); }
 

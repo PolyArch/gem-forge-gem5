@@ -163,6 +163,7 @@ public:
 
 private:
   Process *process;
+  const int cacheLineBits;
   const bool enabledMemStream;
   const bool enabledNUCA;
   const bool enablePUM;

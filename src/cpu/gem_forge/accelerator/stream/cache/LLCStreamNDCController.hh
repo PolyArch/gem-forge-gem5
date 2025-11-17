@@ -5,10 +5,16 @@
 
 #include "cpu/gem_forge/accelerator/stream/stream_ndc_packet.hh"
 
+#include "RubyStreamInclude.hh"
+
 namespace gem5 {
 
 class LLCStreamNDCController {
 public:
+  using RequestMsg = ruby_stream::RequestMsg;
+  using ResponseMsg = ruby_stream::ResponseMsg;
+  using CoherenceRequestType = ruby_stream::CoherenceRequestType;
+
   LLCStreamNDCController(LLCStreamEngine *_llcSE);
 
   void receiveStreamNDCRequest(PacketPtr pkt);
@@ -16,7 +22,7 @@ public:
   void receiveStreamData(const DynStreamSliceId &sliceId,
                          const ruby::DataBlock &dataBlock,
                          const ruby::DataBlock &storeValueBlock);
-  void receiveStreamForwardRequest(const ruby::RequestMsg &msg);
+  void receiveStreamForwardRequest(const ruby_stream::RequestMsg &msg);
 
   /**
    * Compute the element value.
@@ -31,10 +37,12 @@ public:
   void completeComputation(const LLCStreamElementPtr &element,
                            const StreamValue &value);
 
-  static void allocateContext(ruby::AbstractStreamAwareController *mlcController,
-                              StreamNDCPacketPtr &streamNDC);
+  static void
+  allocateContext(ruby::AbstractStreamAwareController *mlcController,
+                  StreamNDCPacketPtr &streamNDC);
 
 private:
+  ruby::RubySystem *rubySystem;
   LLCStreamEngine *llcSE;
 
   struct NDCContext {
@@ -68,10 +76,8 @@ private:
 
   void handleNDC(NDCContext &context, const DynStreamSliceId &sliceId,
                  const ruby::DataBlock &dataBlock);
-  void handleAtomicNDC(NDCContext &context,
-                       const DynStreamSliceId &sliceId);
-  void handleForwardNDC(NDCContext &context,
-                        const DynStreamSliceId &sliceId,
+  void handleAtomicNDC(NDCContext &context, const DynStreamSliceId &sliceId);
+  void handleForwardNDC(NDCContext &context, const DynStreamSliceId &sliceId,
                         const ruby::DataBlock &dataBlock);
   void handleStoreNDC(NDCContext &context);
 };

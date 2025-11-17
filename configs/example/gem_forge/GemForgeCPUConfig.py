@@ -66,6 +66,7 @@ def get_processes(args):
             process.markHistory = history
         process.markSwitchcpu = args.gem_forge_work_mark_switch_cpu
         process.markEnd = args.gem_forge_work_mark_end
+        process.block_size_bytes = args.cacheline_size
         process.enableMemStream = \
             args.gem_forge_stream_engine_enable_float_mem
         process.enableStreamNUCA = \

@@ -25,7 +25,7 @@ LLCStreamNDCController::NDCContextMapT
     LLCStreamNDCController::inflyNDCContextMap;
 
 LLCStreamNDCController::LLCStreamNDCController(LLCStreamEngine *_llcSE)
-    : llcSE(_llcSE) {}
+    : rubySystem(_llcSE->getRubySystem()), llcSE(_llcSE) {}
 
 void LLCStreamNDCController::receiveStreamNDCRequest(PacketPtr pkt) {
   llcSE->initializeTranslationBuffer();
@@ -60,11 +60,11 @@ void LLCStreamNDCController::processStreamNDCRequest(PacketPtr pkt) {
   sliceId.getEndIdx() = elementIdx + 1;
   sliceId.vaddr = streamNDC->vaddr;
   sliceId.size = S->getMemElementSize();
-  auto vaddrLine = ruby::makeLineAddress(streamNDC->vaddr);
-  auto paddrLine = ruby::makeLineAddress(streamNDC->paddr);
-  auto requestType = ruby::CoherenceRequestType_STREAM_STORE;
+  auto vaddrLine = this->rubySystem->makeLineAddress(streamNDC->vaddr);
+  auto paddrLine = this->rubySystem->makeLineAddress(streamNDC->paddr);
+  auto requestType = ruby_stream::CoherenceRequestType_STREAM_STORE;
   if (streamNDC->isForward) {
-    requestType = ruby::CoherenceRequestType_GETH;
+    requestType = ruby_stream::CoherenceRequestType_GETH;
   }
   llcSE->enqueueRequest(S, sliceId, vaddrLine, paddrLine,
                         llcSE->myMachineType(), requestType);
@@ -210,7 +210,7 @@ void LLCStreamNDCController::handleAtomicNDC(NDCContext &context,
   }
 
   // Send back the response.
-  auto paddrLine = ruby::makeLineAddress(context.ndc->paddr);
+  auto paddrLine = this->rubySystem->makeLineAddress(context.ndc->paddr);
   auto lineOffset = context.ndc->paddr - paddrLine;
   auto dataSize = S->getCoreElementSize();
   auto payloadSize = S->getCoreElementSize();
@@ -241,12 +241,13 @@ void LLCStreamNDCController::handleForwardNDC(
   }
 
   // Forward the cache line to the receiver bank.
-  auto paddrLine = ruby::makeLineAddress(context.ndc->receiverPAddr);
+  auto paddrLine =
+      this->rubySystem->makeLineAddress(context.ndc->receiverPAddr);
   auto selfMachineId = llcSE->controller->getMachineID();
   auto destMachineId = selfMachineId;
   bool handledHere =
       llcSE->isPAddrHandledByMe(paddrLine, selfMachineId.getType());
-  auto requestType = ruby::CoherenceRequestType_STREAM_FORWARD;
+  auto requestType = ruby_stream::CoherenceRequestType_STREAM_FORWARD;
   if (handledHere) {
     LLC_NDC_DPRINTF(context.ndc,
                     "NDC Forward [local] %#x paddrLine %#x value %s.\n",
@@ -257,7 +258,9 @@ void LLCStreamNDCController::handleForwardNDC(
                     MachineIDToString(destMachineId), dataBlock);
   }
 
-  auto msg = std::make_shared<ruby::RequestMsg>(llcSE->controller->clockEdge());
+  auto msg = std::make_shared<ruby_stream::RequestMsg>(
+      llcSE->controller->clockEdge(), this->rubySystem->getBlockSizeBytes(),
+      this->rubySystem);
   msg->m_addr = paddrLine;
   msg->m_Type = requestType;
   msg->m_Requestors.add(
@@ -288,7 +291,7 @@ void LLCStreamNDCController::handleForwardNDC(
 }
 
 void LLCStreamNDCController::receiveStreamForwardRequest(
-    const ruby::RequestMsg &msg) {
+    const ruby_stream::RequestMsg &msg) {
   const auto &sliceId = msg.m_sliceIds.singleSliceId();
   const auto &recvDynId = msg.m_sendToSliceIds.singleSliceId().getDynStrandId();
 
@@ -331,7 +334,7 @@ void LLCStreamNDCController::issueStreamNDCResponseToMLC(
     int dataSize, int payloadSize, int lineOffset, bool forceIdea) {
 
   auto msg = llcSE->createStreamMsgToMLC(
-      sliceId, ruby::CoherenceResponseType_STREAM_NDC, paddrLine, data,
+      sliceId, ruby_stream::CoherenceResponseType_STREAM_NDC, paddrLine, data,
       dataSize, payloadSize, lineOffset);
   llcSE->issueStreamMsgToMLC(msg, forceIdea);
 }
@@ -398,7 +401,7 @@ void LLCStreamNDCController::completeComputation(
     /**
      * Send back the response, which is just an Ack.
      */
-    auto paddrLine = ruby::makeLineAddress(context->ndc->paddr);
+    auto paddrLine = this->rubySystem->makeLineAddress(context->ndc->paddr);
     auto lineOffset = 0;
     auto dataSize = 4;
     auto payloadSize = 0;

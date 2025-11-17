@@ -18,8 +18,8 @@ class PUMEngine {
 public:
   PUMEngine(LLCStreamEngine *_se);
 
-  void receiveKick(const ruby::RequestMsg &msg);
-  void receiveData(const ruby::RequestMsg &msg);
+  void receiveKick(const ruby_stream::RequestMsg &msg);
+  void receiveData(const ruby_stream::RequestMsg &msg);
   void setPUMManager(MLCPUMManager *pumManager);
   void configure(MLCPUMManager *pumManager, int64_t pumContextId,
                  const PUMCommandVecT &commands);
@@ -50,6 +50,7 @@ private:
   friend class MLCPUMManager;
 
   LLCStreamEngine *se;
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *controller;
 
   std::unique_ptr<PUMHWConfiguration> hwConfig;
@@ -89,12 +90,12 @@ private:
   void synced();
 
   void sendDoneToMLC(int recvPackets);
-  void sendAckToMLC(ruby::CoherenceResponseType type, int ackCount);
+  void sendAckToMLC(ruby_stream::CoherenceResponseType type, int ackCount);
   void sendSyncToLLC(ruby::MachineID recvBank, int sentPackets,
                      const DynStreamSliceId &sliceId);
 
-  void receiveDataFromPUM(const ruby::RequestMsg &msg);
-  void receiveDataFromStream(const ruby::RequestMsg &msg);
+  void receiveDataFromPUM(const ruby_stream::RequestMsg &msg);
+  void receiveDataFromStream(const ruby_stream::RequestMsg &msg);
 };
 
 } // namespace gem5

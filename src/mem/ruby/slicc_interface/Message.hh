@@ -62,8 +62,10 @@ using MsgPtr = std::shared_ptr<Message>;
 class Message
 {
   public:
-    Message(Tick curTime)
-        : m_time(curTime),
+    Message(Tick curTime, int block_size, const RubySystem *rs)
+        : m_ruby_system(rs),
+          m_block_size(block_size),
+          m_time(curTime),
           m_LastEnqueueTime(curTime),
           m_DelayedTicks(0), m_msg_counter(0),
           m_chainMsg(nullptr)
@@ -139,6 +141,9 @@ class Message
     int getVnet() const { return vnet; }
     void setVnet(int net) { vnet = net; }
 
+    /**
+     * ! GemForge: Chaining msg for bulk prefetch.
+     */
     void chainMsg(const MsgPtr &msg);
     const MsgPtr &getChainMsg() const {
       return this->m_chainMsg;
@@ -154,12 +159,19 @@ class Message
       return this->m_unchainWhenEnqueue;
     }
 
+    const RubySystem *getRubySystem() const { return m_ruby_system; }
+
+  protected:
+    const RubySystem *m_ruby_system;
+    int m_block_size = 0;
+
   private:
     Tick m_time;
     Tick m_LastEnqueueTime; // my last enqueue time
     Tick m_DelayedTicks; // my delayed cycles
     uint64_t m_msg_counter; // FIXME, should this be a 64-bit value?
     MsgPtr m_chainMsg; // Used to implement bulk prefetch.
+
     /**
      * Whether the message should be unchained when enqueued into the
      * MessageBuffer.

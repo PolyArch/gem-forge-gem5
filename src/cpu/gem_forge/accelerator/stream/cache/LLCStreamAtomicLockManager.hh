@@ -111,7 +111,7 @@ private:
     /**
      * So far we build the lock queue at line granularity.
      */
-    return ruby::makeLineAddress(paddr);
+    return this->se->getRubySystem()->makeLineAddress(paddr);
   }
 
   /**

@@ -37,6 +37,7 @@
 
 #include "arch/x86/regs/int.hh"
 #include "sim/guest_abi.hh"
+#include "sim/pseudo_inst.hh"
 
 namespace gem5
 {
@@ -84,10 +85,26 @@ struct Argument<X86PseudoInstABI, uint64_t>
     }
 };
 
+/**
+ * ! GemForge
+ * Provide int64_t specialization for StreamNUCA pseudo instructions.
+ */
 template <>
 struct Argument<X86PseudoInstABI, int64_t>
 {
     static int64_t
+    get(ThreadContext *tc, X86PseudoInstABI::State &state)
+    {
+        return Argument<X86PseudoInstABI, uint64_t>::get(tc, state);
+    }
+};
+
+template <>
+struct Argument<X86PseudoInstABI, pseudo_inst::GuestAddr>
+{
+    using Arg = pseudo_inst::GuestAddr;
+
+    static Arg
     get(ThreadContext *tc, X86PseudoInstABI::State &state)
     {
         // The first 6 integer arguments are passed in registers, the rest
@@ -97,16 +114,12 @@ struct Argument<X86PseudoInstABI, int64_t>
 
         using namespace X86ISA;
 
-        const RegId int_reg_map[] = {
-            X86ISA::int_reg::Rdi,
-            X86ISA::int_reg::Rsi,
-            X86ISA::int_reg::Rdx,
-            X86ISA::int_reg::Rcx,
-            X86ISA::int_reg::R8,  
-            X86ISA::int_reg::R9
+        constexpr RegId int_reg_map[] = {
+            int_reg::Rdi, int_reg::Rsi, int_reg::Rdx,
+            int_reg::Rcx, int_reg::R8, int_reg::R9
         };
 
-        return tc->getReg(int_reg_map[state++]);
+        return (Arg)tc->getReg(int_reg_map[state++]);
     }
 };
 

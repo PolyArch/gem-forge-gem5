@@ -52,20 +52,17 @@ namespace {
 class ExitLogger : public Logger
 {
   public:
-    using Logger::Logger;
-
-  protected:
-    void
-    log(const Loc &loc, std::string s) override
+    ExitLogger(const char *prefix) : Logger(prefix)
     {
-        std::stringstream ss;
-        /**
-         * Zhengrong: Get rid of memUsage(). So that I can
-         * relatively use the logging functions in the standalone
-         * binary.
-         */
-        // ccprintf(ss, "Memory Usage: %ld KBytes\n", memUsage());
-        Logger::log(loc, s + ss.str());
+        registerExtraLog([]() {
+            /**
+             * Zhengrong: Get rid of memUsage(). So that I can
+             * relatively use the logging functions in the standalone
+             * binary.
+             */
+            // return csprintf("Memory Usage: %ld KBytes\n", memUsage());
+            return "";
+        });
     }
 };
 

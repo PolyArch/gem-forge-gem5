@@ -217,6 +217,7 @@ uint64_t m5_stream_nuca_get_property(const void *buffer,
 void m5_stream_nuca_remap();
 uint64_t m5_stream_nuca_get_cached_bytes(void *buffer);
 
+void m5_hypercall(uint64_t hypercall_id);
 /*
  * Send a very generic poke to the workload so it can do something. It's up to
  * the workload to know what information to look for to interpret an event,

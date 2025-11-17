@@ -17,7 +17,8 @@ namespace gem5 {
 
 class SlicedDynStream {
 public:
-  SlicedDynStream(CacheStreamConfigureDataPtr _configData);
+  SlicedDynStream(CacheStreamConfigureDataPtr _configData,
+                  int64_t _cacheBlockBytes);
 
   DynStreamSliceId getNextSlice();
   const DynStreamSliceId &peekNextSlice() const;
@@ -56,10 +57,16 @@ public:
   int32_t getMemElementSize() const { return this->elemSize; }
   float getElemPerSlice() const { return this->elemPerSlice; }
 
+  Addr makeLineAddress(Addr addr) const {
+    return ruby::makeLineAddress(addr, this->cacheBlockBits);
+  }
+
 private:
   DynStrandId strandId;
   DynStreamFormalParamV formalParams;
   AddrGenCallbackPtr addrGenCallback;
+  const int64_t cacheBlockBytes;
+  const int64_t cacheBlockBits;
   const int64_t stepElemCount;
   const int32_t elemSize;
   // On average how many elements per slice.

@@ -73,6 +73,7 @@ namespace ruby
 class Network;
 class GPUCoalescer;
 class DMASequencer;
+class RubySystem;
 
 // used to communicate that an in_port peeked the wrong message type
 class RejectException: public std::exception
@@ -134,6 +135,14 @@ class AbstractController : public ClockedObject, public Consumer
     virtual bool functionalReadBuffers(PacketPtr&) = 0;
     virtual void functionalRead(const Addr &addr, PacketPtr)
     { panic("functionalRead(Addr,PacketPtr) not implemented"); }
+    /**
+     * Returns the priority used by functional reads when deciding from which
+     * controller to read a Maybe_Stale data block.
+     * Lower positive values have higher priority, negative values are ignored.
+     *
+     * @return the controller's priority
+     */
+    virtual int functionalReadPriority() { return -1; }
 
     //! Functional read that reads only blocks not present in the mask.
     //! Return number of bytes read.
@@ -264,6 +273,18 @@ class AbstractController : public ClockedObject, public Consumer
 
     /** List of upstream destinations (towards the CPU) */
     const NetDest& allUpstreamDest() const { return upstreamDestinations; }
+
+    // Helper methods for commonly used functions called in common/address.hh
+    Addr getOffset(Addr addr) const;
+    Addr makeLineAddress(Addr addr) const;
+    std::string printAddress(Addr addr) const;
+
+    /**
+     * To support multiple ruby systems.
+     */
+    RubySystem *getRubySystem() const {
+        return this->m_ruby_system;
+    }
 
   protected:
     //! Profiles original cache requests including PUTs
@@ -488,6 +509,13 @@ class AbstractController : public ClockedObject, public Consumer
         SenderState(MachineID _id) : id(_id)
         {}
     };
+
+    RubySystem *m_ruby_system = nullptr;
+
+    // Formerly in RubySlicc_ComponentMapping.hh. Moved here to access
+    // RubySystem pointer.
+    NetDest broadcast(MachineType type);
+    int machineCount(MachineType machType);
 
   private:
     /** The address range to which the controller responds on the CPU side. */

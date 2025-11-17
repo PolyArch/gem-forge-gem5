@@ -15,6 +15,10 @@ class MLCDynIndirectStream;
  */
 class MLCDynDirectStream : public MLCDynStream {
 public:
+  using RequestMsg = ruby::MESI_Three_Level_Stream::RequestMsg;
+  using ResponseMsg = ruby::MESI_Three_Level_Stream::ResponseMsg;
+  using CoherenceRequestType =
+      ruby::MESI_Three_Level_Stream::CoherenceRequestType;
   MLCDynDirectStream(
       CacheStreamConfigureDataPtr _configData,
       ruby::AbstractStreamAwareController *_controller,
@@ -146,8 +150,8 @@ protected:
      */
     if (this->config->isPointerChase) {
       return mlc.getStartIdx() == core.getStartIdx() &&
-             ruby::makeLineAddress(mlc.vaddr) ==
-                 ruby::makeLineAddress(core.vaddr);
+             this->rubySystem->makeLineAddress(mlc.vaddr) ==
+                 this->rubySystem->makeLineAddress(core.vaddr);
     } else {
       // By default match the vaddr.
       // TODO: This is really wrong.

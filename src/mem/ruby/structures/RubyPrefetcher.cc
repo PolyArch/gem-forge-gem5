@@ -57,7 +57,7 @@ namespace ruby
 
 RubyPrefetcher::RubyPrefetcher(const Params &p)
     : SimObject(p), m_num_streams(p.num_streams),
-    m_array(p.num_streams), m_train_misses(p.train_misses),
+    m_array(p.num_streams, p.block_size), m_train_misses(p.train_misses),
     m_num_startup_pfs(p.num_startup_pfs),
     m_bulk_prefetch_size(p.bulk_prefetch_size),
     unitFilter(p.unit_filter),
@@ -65,6 +65,8 @@ RubyPrefetcher::RubyPrefetcher(const Params &p)
     nonUnitFilter(p.nonunit_filter),
     m_prefetch_cross_pages(p.cross_page),
     pageShift(p.page_shift),
+    m_block_size_bits(floorLog2(p.block_size)),
+    m_block_size_bytes(p.block_size),
     rubyPrefetcherStats(this)
 {
     assert(m_num_streams > 0);
@@ -106,7 +108,7 @@ RubyPrefetcher::observeMissWithPC(
     }
     DPRINTF(RubyPrefetcher, "ObserveMiss for %#x pc %#x %s\n",
         address, pc, RubyRequestType_to_string(type));
-    Addr line_addr = makeLineAddress(address);
+    Addr line_addr = makeLineAddress(address, m_block_size_bits);
     rubyPrefetcherStats.numMissObserved++;
 
     // check to see if we have already issued a prefetch for this block
@@ -161,7 +163,7 @@ RubyPrefetcher::observeHitWithPC(
         return;
     }
 
-    Addr line_addr = makeLineAddress(address);
+    Addr line_addr = makeLineAddress(address, m_block_size_bits);
 
     // check to see if we have already issued a prefetch for this block
     uint32_t index = 0;
@@ -316,7 +318,8 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
     DPRINTF(RubyPrefetcher,
         "Initialize stream, line %#x, page %#x, stride %d, LRU pos %u.\n",
-        makeLineAddress(address), pageAddress(address), stride, index);
+        makeLineAddress(address, m_block_size_bits),
+        pageAddress(address), stride, index);
     if (debug::RubyPrefetcher) {
         for (int i = 0; i < m_array.size(); ++i) {
             const auto &stream = m_array[i];
@@ -327,7 +330,7 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
                 "[CurStrm] %3d page %#x line %#x stride %3d\n",
                 i,
                 pageAddress(stream.m_address),
-                makeLineAddress(stream.m_address),
+                makeLineAddress(stream.m_address, m_block_size_bits),
                 stream.m_stride);
         }
     }
@@ -372,7 +375,7 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
     // initialize the stream prefetcher
     PrefetchEntry *mystream = &(m_array[index]);
-    mystream->m_address = makeLineAddress(address);
+    mystream->m_address = makeLineAddress(address, m_block_size_bits);
     mystream->m_stride = stride;
     mystream->m_use_time = m_controller->curCycle();
     mystream->m_is_valid = true;
@@ -380,7 +383,7 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
     // create a number of initial prefetches for this stream
     Addr page_addr = pageAddress(mystream->m_address);
-    Addr line_addr = makeLineAddress(mystream->m_address);
+    Addr line_addr = makeLineAddress(mystream->m_address, m_block_size_bits);
 
     // insert a number of prefetches into the prefetch table
     for (int k = 0; k < m_num_startup_pfs; k++) {
@@ -492,8 +495,7 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
                         // This stride HAS to be the multiplicative constant of
                         // dataBlockBytes (bc makeNextStrideAddress is
                         // calculated based on this multiplicative constant!)
-                        const int stride = entry.stride /
-                            RubySystem::getBlockSizeBytes();
+                        const int stride = entry.stride / m_block_size_bytes;
 
                         // clear this filter entry
                         entry.clear();

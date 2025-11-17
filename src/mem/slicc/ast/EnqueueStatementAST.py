@@ -84,7 +84,8 @@ class EnqueueStatementAST(StatementAST):
         # Declare message
         code(
             "std::shared_ptr<${{msg_type.c_ident}}> out_msg = "
-            "std::make_shared<${{msg_type.c_ident}}>(clockEdge());"
+            "std::make_shared<${{msg_type.c_ident}}>(clockEdge(), "
+            "    m_ruby_system->getBlockSizeBytes(), m_ruby_system);"
         )
 
         # The other statements
@@ -100,17 +101,21 @@ class EnqueueStatementAST(StatementAST):
                 bypass_strict_fifo_code = self.bypass_strict_fifo.inline(False)
                 code(
                     "(${{self.queue_name.var.code}}).enqueue("
-                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), $bypass_strict_fifo_code);"
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), "
+                    "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled(), "
+                    "$bypass_strict_fifo_code);"
                 )
             else:
                 code(
                     "(${{self.queue_name.var.code}}).enqueue("
-                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)));"
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), "
+                    "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled());"
                 )
         else:
             code(
                 "(${{self.queue_name.var.code}}).enqueue(out_msg, "
-                "clockEdge(), cyclesToTicks(Cycles(1)));"
+                "clockEdge(), cyclesToTicks(Cycles(1)),"
+                "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled());"
             )
         if self.condvar is not None:
             code.dedent()

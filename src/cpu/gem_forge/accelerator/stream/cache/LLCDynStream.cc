@@ -29,9 +29,12 @@ std::unordered_map<ruby::NodeID, std::list<std::vector<LLCDynStream *>>>
 LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
                            ruby::AbstractStreamAwareController *_llcController,
                            CacheStreamConfigureDataPtr _configData)
-    : mlcController(_mlcController), llcController(_llcController),
+    : rubySystem(_mlcController->getRubySystem()),
+      mlcController(_mlcController), llcController(_llcController),
       maxInflyRequests(_llcController->getLLCStreamMaxInflyRequest()),
-      configData(_configData), slicedStream(_configData),
+      configData(_configData),
+      slicedStream(_configData,
+                   _mlcController->getRubySystem()->getBlockSizeBytes()),
       strandId(_configData->dynamicId, _configData->strandIdx,
                _configData->totalStrands),
       initializedCycle(_mlcController->curCycle()), creditedSliceIdx(0) {
@@ -1609,7 +1612,7 @@ void LLCDynStream::completeComputation(LLCStreamEngine *se,
     Addr elemPAddr;
     panic_if(!this->translateToPAddr(elemVAddr, elemPAddr),
              "Fault on vaddr of UpdateStream.");
-    const auto lineSize = ruby::RubySystem::getBlockSizeBytes();
+    const auto lineSize = this->rubySystem->getBlockSizeBytes();
 
     assert(elemMemSize <= sizeof(value) && "UpdateStream size overflow.");
     for (int storedSize = 0; storedSize < elemMemSize;) {
@@ -1799,7 +1802,7 @@ void LLCDynStream::completeFinalReduce(LLCStreamEngine *se, uint64_t elemIdx) {
   Addr paddrLine = 0;
   int dataSize =
       std::min(sizeof(finalReductionValue),
-               static_cast<size_t>(ruby::RubySystem::getBlockSizeBytes()));
+               static_cast<size_t>(this->rubySystem->getBlockSizeBytes()));
   int payloadSize = finalReduceElem->size;
   int lineOffset = 0;
   bool forceIdea = false;
@@ -1820,7 +1823,7 @@ void LLCDynStream::completeFinalReduce(LLCStreamEngine *se, uint64_t elemIdx) {
                        "[Reduce] Forward result.\n");
   se->issueStreamDataToLLC(
       this, sliceId, dataBlock, this->sendToEdges,
-      ruby::RubySystem::getBlockSizeBytes() /* PayloadSize */);
+      this->rubySystem->getBlockSizeBytes() /* PayloadSize */);
 }
 
 void LLCDynStream::completeIndReduceElem(LLCStreamEngine *se,

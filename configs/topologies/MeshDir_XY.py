@@ -242,16 +242,16 @@ class MeshDir_XY(SimpleTopology):
         dir_nodes = []
         dma_nodes = []
         for node in nodes:
-            if node.type == 'L1Cache_Controller' or \
-                node.type == 'L2Cache_Controller' or \
-                node.type == 'L0Cache_Controller':
+            # Now node.type has a prefix of the protocol, so check for
+            # substring.
+            if 'Cache_Controller' in node.type:
                 cache_nodes.append(node)
-            elif node.type == 'Directory_Controller':
+            elif 'Directory_Controller' in node.type:
                 dir_nodes.append(node)
-            elif node.type == 'DMA_Controller':
+            elif 'DMA_Controller' in node.type:
                 dma_nodes.append(node)
             else:
-                print('Unkown node controller {t}'.format(t=node.type))
+                print(f'Unknown node controller {node.type}')
                 assert(False)
 
         # Obviously the number or rows must be <= the number of routers

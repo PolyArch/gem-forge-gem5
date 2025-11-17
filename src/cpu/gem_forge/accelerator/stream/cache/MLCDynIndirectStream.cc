@@ -122,10 +122,10 @@ void MLCDynIndirectStream::receiveStreamData(const DynStreamSliceId &sliceId,
   auto sliceIter = slicesBegin;
   // We only check for the address if we are not waiting for Ack.
   if (!this->isWaitingAck()) {
-    auto targetLineAddr = ruby::makeLineAddress(sliceId.vaddr);
+    auto targetLineAddr = this->rubySystem->makeLineAddress(sliceId.vaddr);
     while (sliceIter != slicesEnd) {
       assert(sliceIter->sliceId.getStartIdx() == sliceId.getStartIdx());
-      auto sliceLineAddr = ruby::makeLineAddress(sliceIter->sliceId.vaddr);
+      auto sliceLineAddr = this->rubySystem->makeLineAddress(sliceIter->sliceId.vaddr);
       if (sliceLineAddr == targetLineAddr) {
         break;
       } else if (sliceLineAddr < targetLineAddr) {
@@ -151,7 +151,7 @@ void MLCDynIndirectStream::receiveStreamData(const DynStreamSliceId &sliceId,
   if (sliceIter->coreStatus == MLCStreamSlice::CoreStatusE::WAIT_DATA) {
     // Sanity check that LLC and Core generated the same address.
     // ! Core is line address.
-    if (sliceIter->coreSliceId.vaddr != ruby::makeLineAddress(sliceId.vaddr)) {
+    if (sliceIter->coreSliceId.vaddr != this->rubySystem->makeLineAddress(sliceId.vaddr)) {
       MLC_SLICE_PANIC(sliceId, "Mismatch between Core %#x and LLC %#x.\n",
                       sliceIter->coreSliceId.vaddr, sliceId.vaddr);
     }
@@ -215,10 +215,10 @@ void MLCDynIndirectStream::fillElemVAddr(uint64_t strandElemIdx,
   while (totalSliceSize < elemSize) {
     Addr curSliceVAddr = elemVAddr + totalSliceSize;
     // Make sure the slice is contained within one line.
-    int lineOffset = curSliceVAddr % ruby::RubySystem::getBlockSizeBytes();
+    int lineOffset = curSliceVAddr % this->rubySystem->getBlockSizeBytes();
     auto curSliceSize = std::min(
         elemSize - totalSliceSize,
-        static_cast<int>(ruby::RubySystem::getBlockSizeBytes()) - lineOffset);
+        static_cast<int>(this->rubySystem->getBlockSizeBytes()) - lineOffset);
     // Here we set the slice vaddr and size.
     sliceId.vaddr = curSliceVAddr;
     sliceId.size = curSliceSize;
@@ -491,11 +491,11 @@ MLCDynIndirectStream::findOrInsertSliceBySliceId(
     ret->sliceId.vaddr = sliceId.vaddr;
     return ret;
   }
-  auto targetLineAddr = ruby::makeLineAddress(sliceId.vaddr);
+  auto targetLineAddr = this->rubySystem->makeLineAddress(sliceId.vaddr);
   while (ret != end) {
     assert(ret->sliceId.getStartIdx() == sliceId.getStartIdx() &&
            "Invalid elementIdx.");
-    auto lineAddr = ruby::makeLineAddress(ret->sliceId.vaddr);
+    auto lineAddr = this->rubySystem->makeLineAddress(ret->sliceId.vaddr);
     if (lineAddr == targetLineAddr) {
       // We found it.
       return ret;

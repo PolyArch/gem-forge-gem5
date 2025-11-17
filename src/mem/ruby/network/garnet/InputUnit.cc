@@ -36,6 +36,7 @@
 #include "mem/ruby/network/garnet/Credit.hh"
 #include "mem/ruby/network/garnet/Router.hh"
 #include "mem/ruby/network/garnet/NetworkInterface.hh"
+#include "mem/ruby/system/RubySystem.hh"
 
 namespace gem5
 {
@@ -210,7 +211,7 @@ InputUnit::PortToDestinationMap InputUnit::groupDestinationByRouting(
     PortToDestinationMap grouped;
     for (auto &destMachineID : destMachineIDs) {
         // Create a fake RouteInfo to the the routing decision.
-        auto destRawNodeID = destMachineID.getRawNodeID();
+        auto destRawNodeID = this->getRubySystem()->getRawNodeID(destMachineID);
         RouteInfo fakeRoute;
         fakeRoute.vnet = route.vnet;
         fakeRoute.net_dest.add(destMachineID);
@@ -245,6 +246,10 @@ InputUnit::PortToDestinationMap InputUnit::groupDestinationByRouting(
     return grouped;
 }
 
+RubySystem* InputUnit::getRubySystem() const {
+    return m_router->get_net_ptr()->getRubySystem();
+}
+
 void InputUnit::allocateMulticastBuffer(flit *f) {
     auto flitType = f->get_type();
     if (flitType != HEAD_ && flitType != HEAD_TAIL_) {
@@ -262,7 +267,7 @@ void InputUnit::allocateMulticastBuffer(flit *f) {
     std::vector<MachineID> destMachineIDs;
     for (auto &destRawNodeID : destRawNodeIDs) {
         destMachineIDs.push_back(
-            MachineID::getMachineIDFromRawNodeID(destRawNodeID));
+            this->getRubySystem()->getMachineIDFromRawNodeID(destRawNodeID));
     }
     assert(m_router->get_net_ptr()->isMulticastEnabled() &&
         "Message with multiple destinations received when Multicast disabled.");
@@ -304,7 +309,7 @@ void InputUnit::allocateMulticastBuffer(flit *f) {
         }
         for (const auto &dest : group.second) {
             if (remainDestRawNodeId == -1) {
-                remainDestRawNodeId = dest.getRawNodeID();
+                remainDestRawNodeId = this->getRubySystem()->getRawNodeID(dest);
             }
             remainRoute.net_dest.add(dest);
         }
@@ -359,7 +364,8 @@ void InputUnit::duplicateMulticastFlit(flit *f) {
         std::vector<NodeID> destRawNodeIDs = destination.getAllDest();
         for (auto &destRawNodeID : destRawNodeIDs) {
             destMachineIDs.push_back(
-                MachineID::getMachineIDFromRawNodeID(destRawNodeID));
+                this->getRubySystem()
+                    ->getMachineIDFromRawNodeID(destRawNodeID));
         }
     }
     // Modify the original flit to subtract these destinations.
@@ -371,7 +377,7 @@ void InputUnit::duplicateMulticastFlit(flit *f) {
             continue;
         }
         if (selectDestRawNodeID == -1) {
-            selectDestRawNodeID = dest.getRawNodeID();
+            selectDestRawNodeID = this->getRubySystem()->getRawNodeID(dest);
         }
         route.net_dest.add(dest);
     }
@@ -407,7 +413,8 @@ void InputUnit::duplicateMulticastMsgToNetworkInterface(
     // ! This assumes one router per node.
     auto senderNI = m_router->get_net_ptr()->getNetworkInterface(f->get_route().src_ni);
     auto senderNodeId = senderNI->get_node_id();
-    auto senderMachineId = MachineID::getMachineIDFromRawNodeID(senderNodeId);
+    auto senderMachineId =
+        this->getRubySystem()->getMachineIDFromRawNodeID(senderNodeId);
     auto senderMachineType = senderMachineId.getType();
     /**
      * Try to get the LocalMachineId. Here I assume all routers are connected to the L2 cache.
@@ -424,11 +431,12 @@ void InputUnit::duplicateMulticastMsgToNetworkInterface(
             senderMachineId, msg->getDestination(), *msg);
     }
     auto localMachineId = MachineID(localMachineType, m_router->get_id());
-    if (localMachineId.getNum() >= MachineType_base_count(localMachineType)) {
-        panic("Local MachineId %s Overflow. Total %d.",
-              localMachineId, MachineType_base_count(localMachineType));
+    if (localMachineId.getNum() >=
+        this->getRubySystem()->MachineType_base_count(localMachineType)) {
+        panic("Local MachineId %s Overflow. Total %d.", localMachineId,
+            this->getRubySystem()->MachineType_base_count(localMachineType));
     }
-    auto localNodeId = localMachineId.getRawNodeID();
+    auto localNodeId = this->getRubySystem()->getRawNodeID(localMachineId);
     auto localNI = m_router->get_net_ptr()->getNetworkInterface(localNodeId);
     // Inject the message.
     localNI->injectMsgToInput(msg);
@@ -436,7 +444,8 @@ void InputUnit::duplicateMulticastMsgToNetworkInterface(
     if (debug::RubyMulticast) {
         std::stringstream ss;
         for (const auto &destNodeId : msg->getDestination().getAllDest()) {
-            auto destMachineId = MachineID::getMachineIDFromRawNodeID(destNodeId);
+            auto destMachineId =
+                this->getRubySystem()->getMachineIDFromRawNodeID(destNodeId);
             ss << ' ' << destMachineId;
         }
         DPRINTF(RubyMulticast, "InputUnit[%d][%s] Inject Duplicated Multicast from %s to %s.\n",

@@ -63,12 +63,12 @@ void StreamRequestBuffer::pushRequest(RequestPtr req) {
 }
 
 void StreamRequestBuffer::dequeue(ruby::MsgPtr msg) {
-  auto req = std::dynamic_pointer_cast<ruby::RequestMsg>(msg);
+  auto req = std::dynamic_pointer_cast<ruby_stream::RequestMsg>(msg);
   if (!req) {
     LLC_SE_PANIC("Message should be RequestMsg.");
   }
 
-  if (req->m_Type == ruby::CoherenceRequestType_STREAM_PUM_DATA) {
+  if (req->m_Type == ruby_stream::CoherenceRequestType_STREAM_PUM_DATA) {
     // This not handled by us.
     return;
   }
@@ -102,7 +102,8 @@ void StreamRequestBuffer::dequeue(ruby::MsgPtr msg) {
     auto injectLatency = this->controller->curCycle() -
                          this->controller->ticksToCycles(msg->getTime());
     S->statistic.remoteIndReqNoCInjectDelay.sample(injectLatency);
-    S->statistic.getStaticStat().remoteIndReqNoCInjectDelay.sample(injectLatency);
+    S->statistic.getStaticStat().remoteIndReqNoCInjectDelay.sample(
+        injectLatency);
   }
 
   if (!inqueueState.buffered.empty()) {
@@ -194,16 +195,16 @@ bool StreamRequestBuffer::shouldTryMulticast(const RequestPtr &req) const {
   switch (req->getType()) {
   default:
     return false;
-  case ruby::CoherenceRequestType_GETU:
-  case ruby::CoherenceRequestType_GETH:
-  case ruby::CoherenceRequestType_STREAM_STORE:
-  case ruby::CoherenceRequestType_STREAM_UNLOCK: {
+  case ruby_stream::CoherenceRequestType_GETU:
+  case ruby_stream::CoherenceRequestType_GETH:
+  case ruby_stream::CoherenceRequestType_STREAM_STORE:
+  case ruby_stream::CoherenceRequestType_STREAM_UNLOCK: {
     if (!this->enableIndMulticast) {
       return false;
     }
     break;
   }
-  case ruby::CoherenceRequestType_STREAM_FORWARD: {
+  case ruby_stream::CoherenceRequestType_STREAM_FORWARD: {
     if (this->controller->myParams->stream_strand_broadcast_size == 0) {
       return false;
     }
@@ -246,7 +247,8 @@ bool StreamRequestBuffer::tryMulticast(const RequestPtr &req) {
        * 1. Same Stream, and StrandElemIdx.
        * 2. Belong to merged broadcast strand.
        */
-      if (req->getType() == ruby::CoherenceRequestType_STREAM_FORWARD) {
+      if (req->getType() ==
+          ruby_stream::CoherenceRequestType_STREAM_FORWARD) {
         auto sliceId1 = candidate->getsliceIds().firstSliceId();
         auto sliceId2 = req->getsliceIds().firstSliceId();
         if (sliceId1.getDynStreamId() != sliceId2.getDynStreamId() ||

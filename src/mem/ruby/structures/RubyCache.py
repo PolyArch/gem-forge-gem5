@@ -60,9 +60,10 @@ class RubyCache(SimObject):
     dataAccessLatency = Param.Cycles(1, "cycles for a data array access")
     tagAccessLatency = Param.Cycles(1, "cycles for a tag array access")
     resourceStalls = Param.Bool(False, "stall if there is a resource failure")
+
     ruby_system = Param.RubySystem(Parent.any, "")
 
-    # ! Sean: Stream NUCA.
+    # ! GemForge: Stream NUCA.
     # Whether we should query StreamNUCAMap for remapped set.
     query_stream_nuca = Param.Bool(False, "query StreamNUCA for set.")
     num_bitlines = Param.Int(256, "Number of bitlines per SRAM array.")

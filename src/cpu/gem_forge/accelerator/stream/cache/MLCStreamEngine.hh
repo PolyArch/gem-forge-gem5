@@ -35,6 +35,8 @@ class MessageBuffer;
  */
 class MLCStreamEngine : public ruby::Consumer {
 public:
+  using CoherenceRequestType =
+      ruby::MESI_Three_Level_Stream::CoherenceRequestType;
   MLCStreamEngine(ruby::AbstractStreamAwareController *_controller,
                   ruby::MessageBuffer *_responseToUpperMsgBuffer,
                   ruby::MessageBuffer *_requestToLLCMsgBuffer);
@@ -51,7 +53,7 @@ public:
    * Receive a StreamEnd message and end all streams.
    */
   void receiveStreamEnd(PacketPtr pkt);
-  void receiveStreamData(const ruby::ResponseMsg &msg);
+  void receiveStreamData(const ruby_stream::ResponseMsg &msg);
   void receiveStreamDataForSingleSlice(const DynStreamSliceId &sliceId,
                                        const ruby::DataBlock &dataBlock,
                                        Addr paddrLine, bool isAck);
@@ -67,7 +69,7 @@ public:
    * Basically handled by MLCStreamNDCController.
    */
   void receiveStreamNDCRequest(PacketPtr pkt);
-  void receiveStreamNDCResponse(const ruby::ResponseMsg &msg);
+  void receiveStreamNDCResponse(const ruby_stream::ResponseMsg &msg);
 
   /**
    * Receive a StreamLoopBound Result.
@@ -95,7 +97,13 @@ public:
    */
   void notifyMLCPUMManagerPrefetchDone(int64_t numSentPkts) const;
 
+  /**
+   * Get the RubySystem.
+   */
+  ruby::RubySystem *getRubySystem() const { return this->rubySystem; }
+
 private:
+  ruby::RubySystem *rubySystem;
   ruby::AbstractStreamAwareController *controller;
   ruby::MessageBuffer *responseToUpperMsgBuffer;
   ruby::MessageBuffer *requestToLLCMsgBuffer;
@@ -143,7 +151,7 @@ private:
     this->prevRecordedStreamCycle = curCycle;
   }
 
-  void recordStreamRespDelay(const ruby::ResponseMsg &msg);
+  void recordStreamRespDelay(const ruby_stream::ResponseMsg &msg);
 };
 
 } // namespace gem5
