@@ -1,6 +1,9 @@
 import argparse
 import os
+import sys
 
+import m5
+from m5.objects import *
 from m5.util import addToPath, fatal
 
 addToPath('../../')
@@ -22,9 +25,7 @@ import GemForgePrefetchConfig
 parser = argparse.ArgumentParser()
 Options.addCommonOptions(parser)
 Options.addSEOptions(parser)
-
-if '--ruby' in sys.argv:
-    Ruby.define_options(parser)
+Ruby.define_options(parser)
 
 def parse_tdg_files(value):
     vs = value.split(',')
@@ -456,92 +457,197 @@ parser.add_argument("--gem-forge-idea-inorder-cpu", action="store_true",
                   default=False,
                   help="Enable idea inorder cpu.")
 
-args = parser.parse_args()
+parser.add_argument("--gem-forge-gpgpusim-enable", action="store_true",
+                  default=False,
+                  help="Enable GPGPUSim integration.")
 
-if args.cpu_type == "LLVMTraceCPU":
-    fatal("The host CPU should be a normal CPU other than LLVMTraceCPU\n")
+# Support loading configuration from file
+parser.add_argument("--gem-forge-config-file", action="store", type=str,
+                  help="Load configuration from text file with one argument per line")
 
-# Create the cpus.
-(initial_cpus, future_cpus, test_mem_mode) = \
-     GemForgeCPUConfig.initializeCPUs(args)
+def load_config_from_file(config_file):
+    """
+    Load configuration from a text file with one argument per line.
+    
+    Each line should contain a single command-line argument, e.g.:
+        --cpu-type=TimingSimpleCPU
+        --num-cpus=4
+        --gem-forge-stream-engine-enable
+        --mem-size=4GB
+    
+    Empty lines and lines starting with # are ignored.
+    
+    Args:
+        config_file: Path to text configuration file
+    
+    Returns:
+        Namespace with configuration values
+    """
+    args_list = []
+    with open(config_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if line and not line.startswith('#'):
+                args_list.append(line)
+    
+    return parser.parse_args(args_list)
 
-system = System(cpu=initial_cpus,
-                mem_mode=test_mem_mode,
-                mem_ranges=[AddrRange(args.mem_size)],
-                cache_line_size=args.cacheline_size)
-# Add future_cpus to system so that they can be instantiated.
-if future_cpus:
-    system.future_cpus = future_cpus
+def initialize_system(args=None, config_file=None):
+    """
+    Main entry point for system initialization.
+    Can be called from gem5_wrapper with programmatic args or from command line.
+    
+    Args:
+        args: Optional parsed arguments. If None, will parse from command line.
+        config_file: Optional path to text config file. Takes precedence over args.
+    
+    Returns:
+        root: The Root SimObject containing the configured system.
+    """
+    
+    # Load from config file if provided
+    if config_file is not None:
+        args = load_config_from_file(config_file)
+    # Parse args from command line if not provided
+    elif args is None:
+        args = parser.parse_args()
+        # Check if config file specified in command line
+        if hasattr(args, 'gem_forge_config_file') and args.gem_forge_config_file:
+            args = load_config_from_file(args.gem_forge_config_file)
+    
+    if args.cpu_type == "LLVMTraceCPU":
+        fatal("The host CPU should be a normal CPU other than LLVMTraceCPU\n")
 
-system.workload = SEWorkload.init_compatible(
-    system.cpu[0].workload[0].executable
-)
+    if args.gem_forge_gpgpusim_enable:
+        # But we have to create the number of GPGPUSimRequestor.
+        gpgpusim_requestors = list()
+        for i in range(args.num_cpus):
+            gpgpusim_requestors.append(GPGPUSimRequestor(
+                core_id=i,
+            ))
+        # GPGPUSim does not has CPU and only timing model.
+        initial_cpus = []
+        future_cpus = []
+        test_mem_mode = 'timing'
+        system = System(mem_mode=test_mem_mode,
+                        mem_ranges=[AddrRange(args.mem_size)],
+                        cache_line_size=args.cacheline_size,
+                        )
+        system.gpgpusim_requestors = gpgpusim_requestors
+    else:
+        # Create the cpus.
+        (initial_cpus, future_cpus, test_mem_mode) = \
+             GemForgeCPUConfig.initializeCPUs(args)
+        gpgpusim_requestors = list()
+        system = System(cpu=initial_cpus,
+                        mem_mode=test_mem_mode,
+                        mem_ranges=[AddrRange(args.mem_size)],
+                        cache_line_size=args.cacheline_size,
+                        )
+        # Add future_cpus to system so that they can be instantiated.
+        if future_cpus:
+            system.future_cpus = future_cpus
 
-# Set the work count options.
-Simulation.setWorkCountOptions(system, args)
+        system.workload = SEWorkload.init_compatible(
+            system.cpu[0].workload[0].executable
+        )
 
-# Create a top-level voltage domain
-system.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
+    # Set the work count options.
+    Simulation.setWorkCountOptions(system, args)
 
-# Create a source clock for the system. This is used as the clock period for
-# xbar and memory
-system.clk_domain = SrcClockDomain(clock=args.sys_clock,
-                                   voltage_domain=system.voltage_domain)
+    # Create a top-level voltage domain
+    system.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
 
-# Create a CPU voltage domain
-system.cpu_voltage_domain = VoltageDomain()
+    # Create a source clock for the system. This is used as the clock period for
+    # xbar and memory
+    system.clk_domain = SrcClockDomain(clock=args.sys_clock,
+                                       voltage_domain=system.voltage_domain)
 
-# Create a separate clock domain for the CPUs. In case of Trace CPUs this clock
-# is actually used only by the caches connected to the CPU.
-system.cpu_clk_domain = SrcClockDomain(clock=args.cpu_clock,
-                                       voltage_domain=system.cpu_voltage_domain)
+    # Create a CPU voltage domain
+    system.cpu_voltage_domain = VoltageDomain()
 
-# All cpus belong to a common cpu_clk_domain, therefore running at a common
-# frequency.
-for cpu in system.cpu:
-    cpu.clk_domain = system.cpu_clk_domain
-for cpu in future_cpus:
-    cpu.clk_domain = system.cpu_clk_domain
+    # Create a separate clock domain for the CPUs. In case of Trace CPUs this clock
+    # is actually used only by the caches connected to the CPU.
+    system.cpu_clk_domain = SrcClockDomain(clock=args.cpu_clock,
+                                           voltage_domain=system.cpu_voltage_domain)
 
-# Assign input trace files to the Trace CPU
-# system.cpu.traceFile = args.llvm_trace_file
+    # All cpus belong to a common cpu_clk_domain, therefore running at a common
+    # frequency.
+    if args.gem_forge_gpgpusim_enable:
+        for req in system.gpgpusim_requestors:
+            req.clk_domain = system.cpu_clk_domain
+    else:
+        for cpu in system.cpu:
+            cpu.clk_domain = system.cpu_clk_domain
+        for cpu in future_cpus:
+            cpu.clk_domain = system.cpu_clk_domain
 
-# Configure the classic memory system options
-if args.ruby:
-    Ruby.create_system(args, False, system)
-    assert(args.num_cpus == len(system.ruby._cpu_ports))
+    # Assign input trace files to the Trace CPU
+    # system.cpu.traceFile = args.llvm_trace_file
 
-    system.ruby.clk_domain = \
-        SrcClockDomain(clock=args.ruby_clock,
-                       voltage_domain=system.voltage_domain)
-    for i in range(len(system.cpu)):
-        ruby_port = system.ruby._cpu_ports[i]
+    # Configure the classic memory system options
+    if args.ruby:
+        Ruby.create_system(args, False, system)
+        assert(args.num_cpus == len(system.ruby._cpu_ports))
 
-        # Create the interrupt controller and connect its ports to Ruby
-        # Note that the interrupt controller is always present but only
-        # in x86 does it have message ports that need to be connected
-        system.cpu[i].createInterruptController()
+        system.ruby.clk_domain = \
+            SrcClockDomain(clock=args.ruby_clock,
+                           voltage_domain=system.voltage_domain)
+        for i in range(args.num_cpus):
+            ruby_port = system.ruby._cpu_ports[i]
 
-        # Connect the cpu's cache ports to Ruby
-        ruby_port.connectCpuPorts(system.cpu[i])
-else:
-    MemClass = Simulation.setMemClass(args)
-    system.membus = SystemXBar()
-    system.system_port = system.membus.slave
-    CacheConfig.config_cache(args, system)
-    MemConfig.config_mem(args, system)
-    config_filesystem(system, args)
+            if args.gem_forge_gpgpusim_enable:
+                # Connect the GPGPUSimRequestor to Ruby
+                # Later these requestors will receive requests from GPGPUSim
+                gpgpusim_requestor = system.gpgpusim_requestors[i]
+                # Connect the requestor's port to Ruby's in_ports
+                gpgpusim_requestor.req_port = ruby_port.in_ports
+            else:
+                # Connect the cpu to Ruby
 
-if args.llvm_mcpat == 1:
-    print('McPATManager is not working anymore.')
-    system.mcpat_manager = McPATManager()
+                # Create the interrupt controller and connect its ports to Ruby
+                # Note that the interrupt controller is always present but only
+                # in x86 does it have message ports that need to be connected
+                system.cpu[i].createInterruptController()
 
-# Disable snoop filter
-if not args.ruby and args.l2cache:
-    system.tol2bus.snoop_filter = NULL
+                # Connect the cpu's cache ports to Ruby
+                ruby_port.connectCpuPorts(system.cpu[i])
+    else:
+        assert(not args.gem_forge_gpgpusim_enable), \
+            "GPGPUSim integration requires Ruby memory system."
+        MemClass = Simulation.setMemClass(args)
+        system.membus = SystemXBar()
+        system.system_port = system.membus.slave
+        CacheConfig.config_cache(args, system)
+        MemConfig.config_mem(args, system)
+        config_filesystem(system, args)
 
-GemForgeLLVMTraceCPUConfig.initializeStreamPolicy(args, system)
-GemForgePrefetchConfig.initializePrefetch(args, system)
+    if args.llvm_mcpat == 1:
+        print('McPATManager is not working anymore.')
+        system.mcpat_manager = McPATManager()
 
-root = Root(full_system=False, system=system)
-GemForgeSystem.run(args, root, system, future_cpus)
+    # Disable snoop filter
+    if not args.ruby and args.l2cache:
+        system.tol2bus.snoop_filter = NULL
+
+    GemForgeLLVMTraceCPUConfig.initializeStreamPolicy(args, system)
+    GemForgePrefetchConfig.initializePrefetch(args, system)
+
+    root = Root(full_system=False, system=system)
+
+    # We only allow some number of maximum instructions in real simulation.
+    if future_cpus:
+        future_cpus[0].max_insts_any_thread = 5e10
+
+    # Instantiate now.
+    m5.instantiate()
+    
+    # If called from gem5_wrapper, just instantiate the system
+    # Otherwise (command line), run the full simulation
+    return root, system, future_cpus, args
+
+# When called directly from gem5 command line (not from wrapper)
+if __name__ == '__m5_main__':
+    root, system, future_cpus, args = initialize_system()
+    GemForgeSystem.run(args, root, system, future_cpus)

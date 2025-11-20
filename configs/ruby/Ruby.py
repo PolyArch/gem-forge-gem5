@@ -249,7 +249,7 @@ def create_system(
     ) = Network.create_network(options, ruby)
     ruby.network = network
 
-    if cpus is None:
+    if cpus is None and hasattr(system, "cpu"):
         cpus = system.cpu
 
     try:

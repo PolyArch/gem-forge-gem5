@@ -129,17 +129,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                 enabled=(options.gem_forge_prefetcher == 'bingo'),
             )
 
-            # the ruby random tester reuses num_cpus to specify the
-            # number of cpu ports connected to the tester object, which
-            # is stored in system.cpu. because there is only ever one
-            # tester object, num_cpus is not necessarily equal to the
-            # size of system.cpu; therefore if len(system.cpu) == 1
-            # we use system.cpu[0] to set the clk_domain, thereby ensuring
-            # we don't index off the end of the cpu list.
-            if len(system.cpu) == 1:
-                clk_domain = cpus[0].clk_domain
-            else:
-                clk_domain = cpus[i].clk_domain
+            clk_domain = system.cpu_clk_domain
 
             l0_cntrl = L0Cache_Controller(
                 version=i * num_cpus_per_cluster + j, Icache=l0i_cache,
@@ -197,6 +187,9 @@ def create_system(options, full_system, system, dma_ports, bootmem,
             if options.gem_forge_prefetcher == 'imp':
                 if not options.gem_forge_prefetch_on_access:
                     raise ValueError('IMP must be used with PrefetchOnAccess.')
+                # assert that system has cpu.
+                # When integrated with GPGPUSim, system may not have cpu.
+                assert(hasattr(system, 'cpu'))
                 cpu = system.cpu[i * num_cpus_per_cluster + j]
                 if not hasattr(cpu, 'dtb'):
                     raise ValueError('IMP requires TLB to work with virtual address.')

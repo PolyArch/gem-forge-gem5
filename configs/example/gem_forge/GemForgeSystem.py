@@ -1,11 +1,6 @@
 import m5
 
 def run(args, root, system, future_cpus):
-    checkpoint_dir = None
-    # We only allow some number of maximum instructions in real simulation.
-    if future_cpus:
-        future_cpus[0].max_insts_any_thread = 5e10
-    m5.instantiate(checkpoint_dir)
     max_tick = args.abs_max_tick if args.abs_max_tick else m5.MaxTick
     if future_cpus:
         assert(len(future_cpus) == len(system.cpu))
