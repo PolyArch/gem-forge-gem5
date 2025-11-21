@@ -36,6 +36,7 @@
 #include "base/cast.hh"
 #include "base/compiler.hh"
 #include "debug/RubyNetwork.hh"
+#include "debug/Arteen.hh"
 #include "mem/ruby/common/NetDest.hh"
 #include "mem/ruby/network/MessageBuffer.hh"
 #include "mem/ruby/network/garnet/CommonTypes.hh"
@@ -65,7 +66,10 @@ namespace garnet
 GarnetNetwork::GarnetNetwork(const Params &p)
     : Network(p)
 {
-    m_num_rows = p.num_rows;
+  m_num_rows = p.num_rows;
+  // all chiplets are square -- Arteen
+  m_num_cols = m_num_rows;
+
     m_ni_flit_size = p.ni_flit_size;
     m_max_vcs_per_vnet = 0;
     m_buffers_per_data_vc = p.buffers_per_data_vc;
@@ -204,8 +208,7 @@ GarnetNetwork::init()
         // Only for Mesh topology
         // m_num_rows and m_num_cols are only used for
         // implementing XY or custom routing in RoutingUnit.cc
-        m_num_rows = getNumRows();
-        m_num_cols = m_routers.size() / m_num_rows;
+        DPRINTF(Arteen, "m_num_rows: %d, m_num_cols: %d\n", m_num_rows, m_num_cols);
 	//        assert(m_num_rows * m_num_cols == m_routers.size());
 
         /**

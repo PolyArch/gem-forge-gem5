@@ -152,6 +152,9 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     assert(is_valid(directory_entry));
     DPRINTF(RubySlicc, "machineID: %s, requestor: %s, address: %#x\n",
             machineID, requestor, addr);
+    DPRINTF(Arteen, "machineID: %s, requestor: %s, address: %#x\n",
+            machineID, requestor, addr);
+    DPRINTF(Arteen, "machineID: %s\n", machineID);
     directory_entry.Sharers.add(requestor);
   }
 
@@ -165,7 +168,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
   // ** OBJECTS **
   TBETable TBEs, template="<Directory_TBE>", constructor="m_number_of_TBEs";
 
-  /**
+  /**.
    * ! Sean: StreamAwareCache
    */
   structure(LLCStreamEngine, external="yes", desc="Stream Engine at MC") {
@@ -445,6 +448,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_ACK;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendAck: %s\n", in_msg.Sender);
         out_msg.Destination.add(in_msg.Sender);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
@@ -457,6 +461,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_DATA;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendData: %s\n", in_msg.OriginalRequestorMachId);        
         out_msg.Destination.add(in_msg.OriginalRequestorMachId);
         out_msg.DataBlk := in_msg.DataBlk;
         out_msg.Dirty := false;
@@ -475,6 +480,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_ACK;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID aa_sendAck: %s\n", in_msg.OriginalRequestorMachId);                
         out_msg.Destination.add(in_msg.OriginalRequestorMachId);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
@@ -551,6 +557,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.DataBlk := in_msg.DataBlk;   // we send the entire data block and rely on the dma controller to split it up if need be
+        DPRINTF(Arteen, "machineID aa_sendDMAData: %s\n", tbe.Requestor);                        
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
@@ -576,6 +583,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         assert(is_valid(tbe));
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:ACK;
+        DPRINTF(Arteen, "machineID _sendDMAAck: %s\n", tbe.Requestor);                                
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Writeback_Control;
       }
@@ -599,6 +607,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:INV;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendCacheInv: %s\n",getDirectoryEntry(address).Owner);                                        
         out_msg.Destination.add(getDirectoryEntry(address).Owner);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
@@ -611,6 +620,8 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
       enqueue(requestNetwork_out, RequestMsg, directory_latency) {
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:INV_GET;
+        DPRINTF(Arteen, "machineID sendCacheInvGetAsRequest: %s\n",machineID);        
+        DPRINTF(Arteen, "machineID sendCacheInvGetAsRequest: %s\n",getDirectoryEntry(address).Owner);
         out_msg.Requestors.add(machineID);
         out_msg.Destination.add(getDirectoryEntry(address).Owner);
         out_msg.MessageSize := MessageSizeType:Request_Control;
@@ -627,6 +638,7 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.DataBlk := in_msg.DataBlk;   // we send the entire data block and rely on the dma controller to split it up if need be
+        DPRINTF(Arteen, "machineID sendDMAData: %s\n",tbe.Requestor);                
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
@@ -636,12 +648,14 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
   action(ss_recordFetchID, "\s\s", desc="Record Fetch for load response") {
     peek(requestNetwork_in, RequestMsg) {
       assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordFetchID: %s\n",in_msg.Requestors.singleElement());                      
       tbe.Fetch_IDs.add(in_msg.Requestors.singleElement());
     }
   }
   action(su_recordGetUID, "su", desc="Record GetU for load response") {
     peek(requestNetwork_in, RequestMsg) {
       assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordGetUID: %s\n",in_msg.Requestors.singleElement());                            
       tbe.GetU_IDs.add(in_msg.Requestors.singleElement());
       tbe.sliceIds.merge(in_msg.sliceIds);
     }
@@ -786,7 +800,8 @@ DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
 /* Support for S state actions */
 action(sos_recordGetSID, "sos", desc="Record GetS to send to guys") {
    peek(requestNetwork_in, RequestMsg) {
-      assert(is_valid(tbe));
+     assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordGetSID: %s\n",in_msg.Requestors.singleElement());                                 
       tbe.GetS_IDs.add(in_msg.Requestors.singleElement());
     }
   }

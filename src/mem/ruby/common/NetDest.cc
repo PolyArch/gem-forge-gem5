@@ -27,7 +27,8 @@
  */
 
 #include "mem/ruby/common/NetDest.hh"
-
+#include "base/trace.hh"
+#include "debug/Arteen.hh"
 #include <algorithm>
 
 namespace gem5
@@ -45,6 +46,7 @@ NetDest::NetDest()
 void
 NetDest::add(MachineID newElement)
 {
+    DPRINTF(Arteen, "newElement.num: %d, bitIndex(newElement.num): %d, newElement: %s, vecIndex(newElement): %d, m_bits[vecIndex(newElement)]: %d, .size(): %d\n", newElement.num, bitIndex(newElement.num), MachineIDToString(newElement).c_str(), vecIndex(newElement), m_bits[vecIndex(newElement)], m_bits[vecIndex(newElement)].getSize());
     assert(bitIndex(newElement.num) < m_bits[vecIndex(newElement)].getSize());
     m_bits[vecIndex(newElement)].add(bitIndex(newElement.num));
 }

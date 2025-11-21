@@ -169,8 +169,8 @@ class AMD_Chiplet(SimpleTopology):
                     int_links.append(IntLink(link_id=self.link_count,
                                              src_node=routers[north_out],
                                              dst_node=routers[south_in],
-                                             src_outport="North",
-                                             dst_inport="South",
+                                             src_outport="South",
+                                             dst_inport="North",
                                              latency=self.link_latency,
                                              weight=1))
                     print(f'[I/O Chiplet] Router {north_out} -> Router {south_in} with Link Latency {self.link_latency}')
@@ -186,8 +186,8 @@ class AMD_Chiplet(SimpleTopology):
                     int_links.append(IntLink(link_id=self.link_count,
                                              src_node=routers[south_out],
                                              dst_node=routers[north_in],
-                                             src_outport="South",
-                                             dst_inport="North",
+                                             src_outport="North",
+                                             dst_inport="South",
                                              latency=self.link_latency,
                                              weight=1))
                     print(f'[I/O Chiplet] Router {south_out} -> Router {north_in} with Link Latency {self.link_latency}')
@@ -267,8 +267,8 @@ class AMD_Chiplet(SimpleTopology):
                         int_links.append(IntLink(link_id=self.link_count,
                                                  src_node=routers[north_out],
                                                  dst_node=routers[south_in],
-                                                 src_outport="North",
-                                                 dst_inport="South",
+                                                 src_outport="South",
+                                                 dst_inport="North",
                                                  latency=self.link_latency,
                                                  weight=weightY))
                         print(f'[CPU Chiplet] Router {north_out} -> Router {south_in} with Link Latency{self.link_latency}')
@@ -284,8 +284,8 @@ class AMD_Chiplet(SimpleTopology):
                         int_links.append(IntLink(link_id=self.link_count,
                                                  src_node=routers[south_out],
                                                  dst_node=routers[north_in],
-                                                 src_outport="South",
-                                                 dst_inport="North",
+                                                 src_outport="North",
+                                                 dst_inport="South",
                                                  latency=self.link_latency,
                                                  weight=weightY))
                         print(f'[CPU Chiplet] Router {south_out} -> Router {north_in} with Link Latency{self.link_latency}')
@@ -307,13 +307,18 @@ class AMD_Chiplet(SimpleTopology):
         chiplet_routers = None
         if num_cpus == 64:
             chiplet_routers = [15, 28, 35, 48]
-        elif num_cpus == 16:
-            chiplet_routers = [3, 6, 9, 12]
-        elif num_cpus == 4:
-            chiplet_routers = [0, 1, 2, 3]
+            # my port, the io router port
+            chiplet_router_dirs = {15: ("South", "North"), 28: ("South", "North"), 35: ("North", "South"), 48:("North", "South")}
+#        elif num_cpus == 16:
+ #           chiplet_routers = [3, 6, 9, 12]
+  #      elif num_cpus == 4:
+   #         chiplet_routers = [0, 1, 2, 3]
         else:
             print('not implemented or invalid')
             assert(False)
+
+        for r in routers[num_cpus:]:
+            r.vcs_per_vnet = options.chiplet_vcs_per_vnet
 
         chiplets_connected = 0
         for io_router_id in range(self.num_routers - num_dir_nodes, self.num_routers):
@@ -322,14 +327,18 @@ class AMD_Chiplet(SimpleTopology):
                 int_links.append(IntLink(link_id=self.link_count,
                                          src_node=routers[io_router_id],
                                          dst_node=routers[cpu_router_id],
-                                         latency=self.chiplet_link_latency,
-                                         weight=1))  # indeterminate weight
+                                         latency=self.link_latency,
+                                         src_outport=chiplet_router_dirs[cpu_router_id][1],
+                                         dst_inport=chiplet_router_dirs[cpu_router_id][0],
+                                         weight=weightY))  # indeterminate weight
                 self.link_count += 1
                 int_links.append(IntLink(link_id=self.link_count,
                                          src_node=routers[cpu_router_id],
                                          dst_node=routers[io_router_id],
+                                         src_outport=chiplet_router_dirs[cpu_router_id][0],
+                                         dst_inport=chiplet_router_dirs[cpu_router_id][1],
                                          latency=self.chiplet_link_latency,
-                                         weight=1))
+                                         weight=weightY))
                 self.link_count += 1
                 print(f'[I/O to CPU Chiplet] Router {io_router_id} <-> Router {cpu_router_id} with Link Latency {self.chiplet_link_latency}')
                 chiplets_connected += 1

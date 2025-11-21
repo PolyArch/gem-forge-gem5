@@ -500,7 +500,8 @@ NetworkInterface::calculateVC(int vnet)
     }
 
     vc_busy_counter[vnet] += 1;
-    panic_if(vc_busy_counter[vnet] > m_deadlock_threshold,
+  // increase ARTEEN
+    panic_if(vc_busy_counter[vnet] > m_deadlock_threshold * 10,
         "%s: Possible network deadlock in vnet: %d at time: %llu \n",
         name(), vnet, curTick());
 

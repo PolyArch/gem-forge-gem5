@@ -12,74 +12,72 @@ import math
 import sys
 
 class Intel_Chiplet(SimpleTopology):
-    description = 'A Chiplet config with a off-chip I/O'
+    description = ''
 
     def __init__(self, controllers):
         self.nodes = controllers
 
     def makeTopology(self, options, network, IntLink, ExtLink, Router):
         nodes = self.nodes
+        num_cpus = options.num_cpus        
         
         self.link_latency = options.link_latency
-        router_latency = options.router_latency 
+        router_latency = options.router_latency
         print(f'Base Link Latency: {self.link_latency}')
-        self.chiplet_link_latency = options.link_latency + options.chiplet_latency_increase
-        print(f'Chiplet Link Latency: {self.chiplet_link_latency}')
+        # not sure if should be adding or what, if it can be 0 or not, or how to handle when inside the bridge
+        self.bridge_latency = options.chiplet_latency_increase + self.link_latency
+        print(f'Bridge link latency: {self.bridge_latency}')
+
         cache_nodes = []
         dir_nodes = []
         dma_nodes = []
         for node in nodes:
             if node.type == 'L1Cache_Controller' or \
-                    node.type == 'L2Cache_Controller' or \
-                    node.type == 'L0Cache_Controller':
+               node.type == 'L2Cache_Controller' or \
+               node.type == 'L0Cache_Controller':
                 cache_nodes.append(node)
             elif node.type == 'Directory_Controller':
                 dir_nodes.append(node)
             elif node.type == 'DMA_Controller':
                 dma_nodes.append(node)
             else:
-                print('Unkown node controller {t}'.format(t=node.type))
-                assert (False)
+                raise Exception('Unkown node controller {t}'.format(t=node.type))
         print(f'Number of Each Level Cache Controller: {len(cache_nodes)//3}')
         print(f'Number of DMA Controllers: {len(dma_nodes)}')
-        print(f'Number of Directory Controllers: {len(dir_nodes)}')
+        print(f'Number of Directory Controllers: {len(dir_nodes)}')        
 
         num_dir_nodes = len(dir_nodes)
         assert(num_dir_nodes == 4)
         num_cpu_chiplets = 4
-        # we divy up our CPUs accordingly
-        num_cpus_per_chiplet = int(options.num_cpus / num_cpu_chiplets)
+        num_cpus_per_chiplet = int(num_cpus / num_cpu_chiplets)
 
         print(f'Number of CPUs per Chiplet: {num_cpus_per_chiplet}')
         
-        # and we set our number of rows and number of columns for our chiplets like this
-        self.num_chiplet_rows = int(math.sqrt(num_cpus_per_chiplet))  # 4 for 16 cpus
-        self.num_chiplet_cols = int(num_cpus_per_chiplet / self.num_chiplet_rows)  # 4 for 16 cpus
+        self.num_chiplet_rows = math.isqrt(num_cpus_per_chiplet)
+        assert(num_cpus_per_chiplet / self.num_chiplet_rows == self.num_chiplet_rows)
+        self.num_chiplet_cols = self.num_chiplet_rows
         print(f'there are {num_cpu_chiplets} chiplets that are each {self.num_chiplet_rows} x {self.num_chiplet_cols}')
 
         print(f'Total Number of CPUs in Chiplets: {self.num_chiplet_rows * self.num_chiplet_cols * num_cpu_chiplets}')
-        assert ((self.num_chiplet_rows * self.num_chiplet_cols * num_cpu_chiplets) == options.num_cpus)  # all is well
-
-        # at this time, it can only be a square
-        assert math.sqrt(num_dir_nodes) % 1 == 0
+        assert ((self.num_chiplet_rows * self.num_chiplet_cols * num_cpu_chiplets) == num_cpus)
 
         # the number of caches must be a multiple of the number of cpus
-        caches_per_cpu_router, remainder = divmod(len(cache_nodes), options.num_cpus)
+        caches_per_cpu_router, remainder = divmod(len(cache_nodes), num_cpus)
         assert (remainder == 0)
 
-        self.num_routers = options.num_cpus
-        print(f'Total Number of Routers for all Chiplets: {self.num_routers}')
+        self.num_routers = num_cpus
+        print(f'Total Number of Routers for chiplets: {self.num_routers}')
+        bridge_routers = self.num_chiplet_rows * num_cpu_chiplets
+        self.num_routers += bridge_routers
         
         # Create the routers in the mesh
         routers = [Router(router_id=i, latency=router_latency) \
                    for i in range(self.num_routers)]
+        
         # Set the enable trace flag.
         for router in routers:
             router.enable_trace = options.gem_forge_enable_llc_stream_engine_trace
         network.routers = routers
-
-        num_cpus = options.num_cpus
-        assert (num_cpus == self.num_routers)
 
         # link counter to set unique link ids
         self.link_count = 0
@@ -87,33 +85,34 @@ class Intel_Chiplet(SimpleTopology):
         # Connect each cache controller to the appropriate router
         ext_links = []
         for (i, n) in enumerate(cache_nodes):
-            cntrl_level, router_id = divmod(i, self.num_routers)
+            cntrl_level, router_id = divmod(i, num_cpus)
             assert (cntrl_level < caches_per_cpu_router)
             n.router_id = router_id
             ext_links.append(ExtLink(link_id=self.link_count, ext_node=n,
                                      int_node=routers[router_id],
                                      latency=self.link_latency))
-            print(f'[Topology] Connect {n.type} {n.version} to Rounter {router_id} with Link Latency {self.link_latency}')
+            print(f'[Topology] Connect {n.type} {n.version} to Router {router_id} with Link Latency {self.link_latency}')
             self.link_count += 1
 
         # Connect the dma nodes to router 0.  These should only be DMA nodes.
+        # Feature unused
         for (i, node) in enumerate(dma_nodes):
             assert (node.type == 'DMA_Controller')
             node.router_id = 0
             ext_links.append(ExtLink(link_id=self.link_count, ext_node=node,
                                      int_node=routers[0],
                                      latency=self.link_latency))
-            # don't care where DMA nodes go, will not be using this feature
+            self.link_count += 1
 
-        # dirs in corners
+        # Directories in corners
+        # for the chiplet routers
         dir_routers = None
         if num_cpus == 64:
             dir_routers = [0, 19, 44, 63]
         elif num_cpus == 16:
             dir_routers = [0, 5, 10, 15]
         else:
-            print('not implemented or invalid')
-            assert(False)
+            raise Exception('not implemented number of CPUs')
         
         for (i, node) in enumerate(dir_nodes):
             r_id = dir_routers[i]            
@@ -123,86 +122,8 @@ class Intel_Chiplet(SimpleTopology):
                                      int_node=routers[r_id], latency=self.link_latency))
             self.link_count += 1
 
-        # Create the mesh links.
-        int_links = []
-
-        # io_chiplet_router_start = self.num_routers - num_dir_nodes # start point for i/o chiplet
-
-        # for row in range(self.num_io_chiplet_rows):
-        #     for col in range(self.num_io_chiplet_cols):
-        #         if col + 1 < self.num_io_chiplet_cols:  # if next col is within range
-        #             east_out = io_chiplet_router_start + col + (row * self.num_io_chiplet_cols)
-        #             west_in = io_chiplet_router_start + (col + 1) + (row * self.num_io_chiplet_cols)
-        #             int_links.append(IntLink(link_id=self.link_count, # connect to next router
-        #                                      src_node=routers[east_out],
-        #                                      dst_node=routers[west_in],
-        #                                      src_outport="East",
-        #                                      dst_inport="West",
-        #                                      latency=self.link_latency,
-        #                                      weight=1))
-        #             print(f'[I/O Chiplet] Router {east_out} -> Router {west_in} with Link Latency {self.link_latency}')
-        #             self.link_count += 1
-
-        # # West output to East input links (weight = 1)
-
-        # for row in range(self.num_io_chiplet_rows):
-        #     for col in range(self.num_io_chiplet_cols):
-        #         if col + 1 < self.num_io_chiplet_cols:
-        #             east_in = io_chiplet_router_start + col + (row * self.num_io_chiplet_cols)
-        #             west_out = io_chiplet_router_start + (col + 1) + (row * self.num_io_chiplet_cols)
-        #             int_links.append(IntLink(link_id=self.link_count,
-        #                                      src_node=routers[west_out],
-        #                                      dst_node=routers[east_in],
-        #                                      src_outport="West",
-        #                                      dst_inport="East",
-        #                                      latency=self.link_latency,
-        #                                      weight=1))
-        #             print(f'[I/O Chiplet] Router {west_out} -> Router {east_in} with Link Latency {self.link_latency}')
-        #             self.link_count += 1
-
-        # # North output to South input links (weight = 1)
-
-        # for col in range(self.num_io_chiplet_cols):
-        #     for row in range(self.num_io_chiplet_rows):
-        #         if row + 1 < self.num_io_chiplet_rows:
-        #             north_out = io_chiplet_router_start + col +  (row * self.num_io_chiplet_cols)
-        #             south_in = io_chiplet_router_start + col + ((row + 1) * self.num_io_chiplet_cols)
-        #             int_links.append(IntLink(link_id=self.link_count,
-        #                                      src_node=routers[north_out],
-        #                                      dst_node=routers[south_in],
-        #                                      src_outport="North",
-        #                                      dst_inport="South",
-        #                                      latency=self.link_latency,
-        #                                      weight=1))
-        #             print(f'[I/O Chiplet] Router {north_out} -> Router {south_in} with Link Latency {self.link_latency}')
-        #             self.link_count += 1
-
-        # # South output to North input links (weight = 1)
-
-        # for col in range(self.num_io_chiplet_cols):
-        #     for row in range(self.num_io_chiplet_rows):
-        #         if row + 1 < self.num_io_chiplet_rows:
-        #             north_in = io_chiplet_router_start + col + (row * self.num_io_chiplet_cols)
-        #             south_out = io_chiplet_router_start + col + ((row + 1) * self.num_io_chiplet_cols)
-        #             int_links.append(IntLink(link_id=self.link_count,
-        #                                      src_node=routers[south_out],
-        #                                      dst_node=routers[north_in],
-        #                                      src_outport="South",
-        #                                      dst_inport="North",
-        #                                      latency=self.link_latency,
-        #                                      weight=1))
-        #             print(f'[I/O Chiplet] Router {south_out} -> Router {north_in} with Link Latency {self.link_latency}')
-        #             self.link_count += 1
-
-        # # print config
-
-        # print('Configuration:\n Number of CPU Chiplets ' + str(num_cpu_chiplets) +
-        #       '\nCPU Chiplet config: ' + str(self.num_chiplet_rows) + ' x ' + str(self.num_chiplet_cols) +
-        #       '\nI/O Chiplet Config: ' + str(self.num_io_chiplet_rows) + ' x ' + str(self.num_io_chiplet_cols)
-        #       + '\n Mesh')
-
+        # leave empty for now, not useful once we do 1:(num_chiplets_llc) address mapping            
         for dir_idx in range(len(dir_nodes)):
-            # leave empty for now, not useful once we do 1:(num_chiplets_llc) address mapping
             dir_nodes[dir_idx].numa_banks = []
 
         # Smaller weight means higher priority 
@@ -215,13 +136,13 @@ class Intel_Chiplet(SimpleTopology):
         else:
             print('XY Routing')
 
+        # Create the mesh links.
+        int_links = []
+            
         test_num_cpus = 0
         print('Num CPU Chiplets', num_cpu_chiplets)
         for chiplet in range(num_cpu_chiplets):
             print('Topology for CPU Chiplet ' + str(chiplet) + ': ')
-
-            # East output to West input links (weight = 1)
-            # s.t east_out = self router id and west_in = next router id, pattern continue
 
             for row in range(self.num_chiplet_rows):
                 for col in range(self.num_chiplet_cols):
@@ -239,8 +160,6 @@ class Intel_Chiplet(SimpleTopology):
                         print(f'[CPU Chiplet] Router East {east_out} -> Router West {west_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
 
-            # West output to East input links (weight = 1)
-
             for row in range(self.num_chiplet_rows):
                 for col in range(self.num_chiplet_cols):
                     if col + 1 < self.num_chiplet_cols:
@@ -256,8 +175,6 @@ class Intel_Chiplet(SimpleTopology):
                         print(f'[CPU Chiplet] Router West {west_out} -> Router East {east_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
 
-            # North output to South input links (weight = 2)
-
             for col in range(self.num_chiplet_cols):
                 for row in range(self.num_chiplet_rows):
                     if row + 1 < self.num_chiplet_rows:
@@ -272,8 +189,6 @@ class Intel_Chiplet(SimpleTopology):
                                                  weight=weightY))
                         print(f'[CPU Chiplet] Router South {south_out} -> Router North {north_in} with Link Latency{self.link_latency}')
                         self.link_count += 1
-
-            # South output to North input links (weight = 2)
 
             for col in range(self.num_chiplet_cols):
                 for row in range(self.num_chiplet_rows):
@@ -292,73 +207,73 @@ class Intel_Chiplet(SimpleTopology):
 
         assert (test_num_cpus == num_cpus)
 
-        # connect chiplets to each other
-        # we want a topology with top-left, top-right, bot-left, bot-right chiplets 
-        # perfectly, we make sure to pick out those nodes who have available ports on the respective sides
-        # to make an exact 4 quadrant chiplet
-        
-        vert = None
-        hor = None
+        # chiplets need to be connected through the bridge routers
+        # set the bridge routers to have their appropriate vcs
+        for r in routers[num_cpus:]:
+            r.vcs_per_vnet = options.chiplet_vcs_per_vnet   
+
+        # now we must connect the chiplets to their proper bridge routers with the appropriate latencies
         if num_cpus == 64:
-            ver = [(3, 16), (7, 20), (11, 24), (15, 28), (35, 48), (39, 52), (43, 56), (47, 60)]
-            hor = [(12, 32), (13, 33), (14, 34), (15, 35), (28, 48), (29, 49), (30, 50), (31, 51)]
+            # format: bridge_router: (chiplet_router, direction of src outport from bridge to chiplet, dest inport at chiplet from bridge to chiplet)
+            mp = {
+                64: [(15, "West", "East"), (28, "East", "West")],
+                65: [(11, "West", "East"), (24, "East", "West")],
+                66: [(7, "West", "East"), (20, "East", "West")],
+                67: [(3, "West", "East"), (16, "East", "West")],
+                68: [(28, "North", "South"), (48, "South", "North")],
+                69: [(29, "North", "South"), (49, "South", "North")],
+                70: [(30, "North", "South"), (50, "South", "North")],
+                71: [(31, "North", "South"), (51, "South", "North")],
+                72: [(48, "East", "West"), (35, "West", "East")],
+                73: [(52, "East", "West"), (39, "West", "East")],
+                74: [(56, "East", "West"), (43, "West", "East")],
+                75: [(60, "East", "West"), (47, "West", "East")],
+                76: [(15, "North", "South"), (35, "South", "North")],
+                77: [(14, "North", "South"), (34, "South", "North")],
+                78: [(13, "North", "South"), (33, "South", "North")],
+                79: [(12, "North", "South"), (32, "South", "North")]
+                }
         elif num_cpus == 16:
-            ver = [(1,4), (3,6), (9,12), (11, 14)]
-            hor = [(2,8), (3, 9), (6, 12), (7, 13)]
+            mp = {
+                16: [(3, "West", "East"), (6, "East", "West")],
+                17: [(1, "West", "East"), (4, "East", "West")],
+                18: [(6, "North", "South"), (12, "South", "North")],
+                19: [(7, "North", "South"), (13, "South", "North")],
+                20: [(12, "East", "West"), (9, "West", "East")],
+                21: [(14, "East", "West"), (11, "West", "East")],
+                22: [(3, "North", "South"), (9, "South", "North")],
+                23: [(2, "North", "South"), (8, "South", "North")]
+                }
         else:
-            print('not implemented or invalid')
-            assert(False)
+            raise Exception(f'not implemented for num_cpus {num_cpus}')
 
-        chip_len = math.isqrt(num_cpus)
-        assert(len(ver) == len(hor) == chip_len)
+        assert(len(mp) == self.num_chiplet_rows * num_cpu_chiplets)
         
-        for i in range(chip_len):
-            east = ver[i][0]
-            west = ver[i][1]
-            int_links.append(IntLink(link_id=self.link_count,
-                                     src_node=routers[east],
-                                     dst_node=routers[west],
-                                     src_outport="East",
-                                     dst_inport="West",
-                                     latency=self.chiplet_link_latency,
-                                     weight=weightX))
-            print(f'[Chiplet Connect] Router East {east} -> Router West {west} with Link Latency {self.chiplet_link_latency}')
-            self.link_count += 1
-
-            int_links.append(IntLink(link_id=self.link_count,
-                                     src_node=routers[west],
-                                     dst_node=routers[east],
-                                     src_outport="West",
-                                     dst_inport="East",
-                                     latency=self.chiplet_link_latency,
-                                     weight=weightX))
-            print(f'[Chiplet Connect] Router West {west} -> Router East {east} with Link Latency{self.chiplet_link_latency}')
-            self.link_count += 1
-
-            # note that the one on North connects its south down...
-            north = hor[i][0]
-            south = hor[i][1]
- 
-            int_links.append(IntLink(link_id=self.link_count,
-                                     src_node=routers[north],
-                                     dst_node=routers[south],
-                                     src_outport="South",
-                                     dst_inport="North",
-                                     latency=self.chiplet_link_latency,
-                                     weight=weightY))
-            print(f'[Chiplet Connect] Router South {north} -> Router North {south} with Link Latency{self.chiplet_link_latency}')
-            self.link_count += 1
-            
-            int_links.append(IntLink(link_id=self.link_count,
-                                     src_node=routers[south],
-                                     dst_node=routers[north],
-                                     src_outport="North",
-                                     dst_inport="South",
-                                     latency=self.chiplet_link_latency,
-                                     weight=weightY))
-            print(f'[Chiplet Connect] Router North {south} -> Router South {north} with Link Latency{self.chiplet_link_latency}')
-            self.link_count += 1
-            
+        for i in mp:
+            for j in mp[i]:
+                if j[1] == "East" or j[1] == "West":
+                    weight = weightX
+                else:
+                    weight = weightY
+                int_links.append(IntLink(link_id=self.link_count,
+                                         src_node=routers[i],
+                                         dst_node=routers[j[0]],
+                                         src_outport=j[1],
+                                         dst_inport=j[2],
+                                         latency=self.link_latency,
+                                         weight=weight))
+                self.link_count += 1
+                print(f'[Cross] Bridge Router {j[1]} {i} -> Router {j[2]} {j[0]} with latency {self.link_latency}')
+    
+                int_links.append(IntLink(link_id=self.link_count,
+                                         src_node=routers[j[0]],
+                                         dst_node=routers[i],
+                                         src_outport=j[2],
+                                         dst_inport=j[1],
+                                         latency=self.bridge_latency,
+                                         weight=weight))
+                self.link_count += 1
+                print(f'[Cross] Router {j[2]} {j[0]} -> Bridge Router {j[1]} {i} with latency {self.bridge_latency}')
         
         network.ext_links = ext_links            
         network.int_links = int_links            

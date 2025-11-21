@@ -1836,6 +1836,7 @@ StreamNUCAManager::determineInterleave(const StreamRegion &region) {
             bytesPerBank, interleave);
   }
 
+  DPRINTF(StreamNUCAManager, "Setting defaultColWrapAroundBytes with interleave: %lu\n", interleave);
   auto defaultWrapAroundBytes = interleave * numBanks;
   auto defaultColWrapAroundBytes = interleave * numCols;
 
@@ -1883,6 +1884,7 @@ StreamNUCAManager::determineInterleave(const StreamRegion &region) {
                 "%lu.\n",
                 region.name, region.vaddr, interleave, bytesOffset,
                 defaultInterleave, defaultColWrapAroundBytes);
+	DPRINTF(StreamNUCAManager, "Numrows: %lu and Numcols: %lu\n", numRows, numCols);
         if (interleave != 128 && interleave != 256 && interleave != 512) {
           panic("Weird Interleave Found: Range %s %#x SelfAlign ElemOffset %lu "
                 "BytesOffset %lu Intrlv %llu.\n",

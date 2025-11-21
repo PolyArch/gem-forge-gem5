@@ -35,6 +35,7 @@ def parse_int_list(value):
     return vs
 
 parser.add_argument("--chiplet-latency-increase", action="store", type=int, default=0)
+parser.add_argument("--chiplet-vcs-per-vnet", action="store", type=int, default=4)
 parser.add_argument("--gem-forge-work-mark-history", action="store", type=str,
                   help="""work mark history""")
 parser.add_argument("--gem-forge-work-mark-switch-cpu", action="store", type=int, default=-1,

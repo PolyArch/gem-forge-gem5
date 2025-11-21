@@ -18,6 +18,7 @@
 #include "debug/MLCRubyStreamLife.hh"
 #include "debug/MLCStreamLoopBound.hh"
 #include "debug/StreamRangeSync.hh"
+#include "debug/Arteen.hh"
 
 #define DEBUG_TYPE MLCRubyStreamBase
 #include "../stream_log.hh"
@@ -678,6 +679,7 @@ void MLCDynDirectStream::sendCreditToLLC(const LLCSegmentPosition &segment) {
   auto msg = std::make_shared<ruby::RequestMsg>(this->controller->clockEdge());
   msg->m_addr = ruby::makeLineAddress(remotePAddr);
   msg->m_Type = ruby::CoherenceRequestType_STREAM_FLOW;
+  DPRINTF(Arteen, "Inside MLC, Requestor: %s, Destination: %s\n", this->controller->getMachineID(), remoteBank);
   msg->m_Requestors.add(this->controller->getMachineID());
   msg->m_Destination.add(remoteBank);
   msg->m_MessageSize = ruby::MessageSizeType_Control;

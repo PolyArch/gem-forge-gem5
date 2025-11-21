@@ -6,6 +6,7 @@
 
 #include "debug/MLCStreamPUM.hh"
 #include "debug/StreamNUCAMap.hh"
+#include "debug/Arteen.hh"
 
 namespace gem5 {
 
@@ -253,15 +254,20 @@ StreamNUCAMap::getPUMLocation(Addr paddr, const RangeMap &range) {
 
 int StreamNUCAMap::getBank(Addr paddr) {
   if (auto *range = getRangeMapContaining(paddr)) {
+    DPRINTF(Arteen, "found range map containing our addr\n");
     if (range->isStreamPUM) {
+      DPRINTF(Arteen, "is a streamPUM\n");
       return getPUMLocation(paddr, *range).bank;
     } else if (range->startBank != -1) {
+      DPRINTF(Arteen, "is a NUCABank\n");      
       return getNUCABank(paddr, *range);
     }
   }
+  DPRINTF(Arteen, "did not found range map\n");
   const auto lineSize = getCacheBlockSize();
   auto paddrLine = paddr - (paddr % lineSize);
   if (paddrLineToBankMap.count(paddrLine)) {
+    DPRINTF(Arteen, "lineSize: %d, paddrLine: %d, paddrLinetoMap.count: %d\n", lineSize, paddrLine, paddrLineToBankMap.count(paddrLine));
     return paddrLineToBankMap.at(paddrLine);
   }
   return -1;

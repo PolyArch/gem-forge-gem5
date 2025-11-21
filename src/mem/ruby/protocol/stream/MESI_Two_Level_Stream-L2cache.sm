@@ -261,6 +261,7 @@ machine(MachineType:L2Cache, "MESI Directory L2 Cache CMP", interface="AbstractS
     assert(is_valid(cache_entry));
     DPRINTF(RubySlicc, "machineID: %s, requestor: %s, address: %#x\n",
             machineID, requestor, addr);
+    DPRINTF(Arteen, "L2 machineID: %s\n", machineID);
     cache_entry.Sharers.add(requestor);
   }
 
@@ -653,6 +654,7 @@ DPRINTF(ProtocolTrace, "Received LLC requestNetwork_in %s\n", in_msg.addr);
       enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:GETS;
+        DPRINTF(Arteen, "L2 machineID issueFetchReqToMemory: %s\n", machineID);
         out_msg.Requestors.add(machineID);
         out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
         out_msg.MessageSize := MessageSizeType:Control;
@@ -665,6 +667,7 @@ DPRINTF(ProtocolTrace, "Received LLC requestNetwork_in %s\n", in_msg.addr);
       enqueue(DirRequestL2Network_out, RequestMsg, l2_request_latency) {
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:GETX;
+        DPRINTF(Arteen, "L2 machineID issueWriteReqToMemory: %s\n", machineID);        
         out_msg.Requestors.add(machineID);
         out_msg.Destination.add(mapAddressToMachine(address, MachineType:Directory));
         out_msg.MessageSize := MessageSizeType:Control;
@@ -696,6 +699,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
         out_msg.addr := address;
         out_msg.Type := in_msg.Type;
         out_msg.Requestors.addNetDest(in_msg.Requestors);
+        DPRINTF(Arteen, "L2 machineID forwardRequestToExclusive: %s\n", cache_entry.Exclusive);        
         out_msg.Destination.add(cache_entry.Exclusive);
         out_msg.MessageSize := MessageSizeType:Request_Control;
         // Don't forget to copy the slice id.
@@ -942,6 +946,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
       out_msg.addr := address;
       out_msg.Type := CoherenceResponseType:DATA;
       out_msg.Sender := machineID;
+        DPRINTF(Arteen, "L2 machineID sendDataToGetXRequestor: %s\n", tbe.L1_GetX_ID);              
       out_msg.Destination.add(tbe.L1_GetX_ID);
       DPRINTF(RubySlicc, "%s\n", out_msg.Destination);
       out_msg.DataBlk := cache_entry.DataBlk;
@@ -956,6 +961,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
       assert(is_valid(cache_entry));
       out_msg.addr := address;
       out_msg.Type := CoherenceRequestType:INV;
+        DPRINTF(Arteen, "L2 machineID sendInvToSharers: %s\n", machineID);                    
       out_msg.Requestors.add(machineID);
       out_msg.Destination := cache_entry.Sharers;
       out_msg.MessageSize := MessageSizeType:Request_Control;
@@ -1076,6 +1082,7 @@ action(a_issueUpgradeRequestToMemory, "a2", desc="want to write to memory") {
   action(ss_recordGetSL1ID, "\s", desc="Record L1 GetS for load response") {
     peek(L1RequestL2Network_in, RequestMsg) {
       assert(is_valid(tbe));
+      DPRINTF(Arteen, "L2 machineID recordGetSL1ID: %s\n", in_msg.Requestors.singleElement());                          
       tbe.L1_GetS_IDs.add(in_msg.Requestors.singleElement());
     }
   }
@@ -1357,7 +1364,8 @@ transition({MCT_I, M_I, MT_I}, {L1_GETV, L2_GETH, STREAM_STORE}) {
     zz_stallAndWaitL1RequestQueue;
 }
 
-transition(I_I, STREAM_STORE) {
+// added L2_GETH here and then got deadlock for large graphs. had to deal with it in I_I
+transition(I_I, {STREAM_STORE, L2_GETH}) {
   // I_I dealing from SOS state
   zz_stallAndWaitL1RequestQueue;
 }

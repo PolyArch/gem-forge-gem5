@@ -7,6 +7,8 @@
 #include "sim/stream_nuca/stream_nuca_map.hh"
 
 #include "RubySlicc_ComponentMapping.hh"
+#include "base/trace.hh"
+#include "debug/Arteen.hh"
 
 namespace gem5 {
 
@@ -237,6 +239,8 @@ AbstractStreamAwareController::mapAddressToLLCOrMem(Addr addr,
   // Ideally we should check mtype to be LLC or directory, etc.
   // But here I ignore it.
   if (mtype == MachineType::MachineType_L2Cache) {
+    DPRINTF(Arteen, "mapAddrToLLC: addr %s mtype %s this->llcSelectLowBit %d, this->llcSelectNumBits %d, m_clusterID %d\n",
+            addr, mtype, this->llcSelectLowBit, this->llcSelectNumBits, m_clusterID);
     return mapAddressToRange(addr, mtype, this->llcSelectLowBit,
                              this->llcSelectNumBits, m_clusterID /* cluster_id. */
     );
