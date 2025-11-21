@@ -1,0 +1,9 @@
+Import('*')
+
+DebugFlag('GPGPUSim')
+
+SimObject('GPGPUSimRequestor.py', 
+    sim_objects=[
+        'GPGPUSimRequestor',
+    ])
+Source('gpgpusim_requestor.cc')

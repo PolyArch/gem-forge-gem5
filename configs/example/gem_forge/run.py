@@ -461,6 +461,10 @@ parser.add_argument("--gem-forge-gpgpusim-enable", action="store_true",
                   default=False,
                   help="Enable GPGPUSim integration.")
 
+parser.add_argument("--gem-forge-ruby-sequencer-deadlock-threshold", type=int,
+                  action="store", default="400000",
+                  help="Deadlock threshold for Ruby sequencer in cycles.")
+
 # Support loading configuration from file
 parser.add_argument("--gem-forge-config-file", action="store", type=str,
                   help="Load configuration from text file with one argument per line")

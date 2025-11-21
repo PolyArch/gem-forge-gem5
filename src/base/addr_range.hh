@@ -120,7 +120,7 @@ class AddrRange
         // either merge if got all ranges or keep this equal to the single
         // interleaved range
         if (count > 1) {
-            fatal_if(count != (1ULL << masks.size()),
+            fatal_if(count != (1LL << masks.size()),
                     "Got %d ranges spanning %d interleaving bits.",
                     count, masks.size());
 

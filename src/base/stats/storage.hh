@@ -521,7 +521,7 @@ class HistStor
         data.min_val = min_bucket;
         data.max_val = max_bucket;
 
-        int buckets = params->buckets;
+        auto buckets = params->buckets;
         data.cvec.resize(buckets);
         for (off_type i = 0; i < buckets; ++i)
             data.cvec[i] = cvec[i];

@@ -5,10 +5,10 @@
 --llvm-mcpat=0
 --caches
 --l2cache
---num-cpus=64
+--num-cpus=256
 --num-dirs=4
---num-l2caches=64
---mesh-rows=8
+--num-l2caches=256
+--mesh-rows=16
 --ruby
 --access-backing-store
 --network=garnet
@@ -16,7 +16,7 @@
 --router-latency=2
 --link-latency=1
 --mem-channels=2
---mem-size=128MB
+--mem-size=4GiB
 --no-file-system
 --topology=MeshDir_XY
 --ruby-mesh-dir-location=corner
@@ -66,3 +66,4 @@
 --options=64 4194304 0 1
 --fast-forward=-1
 --gem-forge-gpgpusim-enable
+--gem-forge-ruby-sequencer-deadlock-threshold=40000

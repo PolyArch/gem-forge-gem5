@@ -182,7 +182,7 @@ def create_system(options, full_system, system, dma_ports, bootmem,
                                     is_ideal=options.gem_forge_ideal_ruby,
                                     max_outstanding_data_requests=options.gem_forge_ruby_max_infly_data_req,
                                     max_outstanding_inst_requests=options.gem_forge_ruby_max_infly_inst_req,
-                                    deadlock_threshold=400000,
+                                    deadlock_threshold=options.gem_forge_ruby_sequencer_deadlock_threshold,
                                     )
             if options.gem_forge_prefetcher == 'imp':
                 if not options.gem_forge_prefetch_on_access:

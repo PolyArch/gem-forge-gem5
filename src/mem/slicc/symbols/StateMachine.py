@@ -1570,6 +1570,8 @@ ${ident}_Controller::wakeup()
         serviceMemoryQueue();
     }
 
+    DPRINTF(RubyGenerated, "%s waking up\\n", this->name());
+
     m_used_transitions = 0;
     while (true) {
         unsigned char rejected[${{len(msg_bufs)}}];

@@ -39,3 +39,6 @@ typings
 .DS_Store
 compile_commands.json
 fixed_compile_commands.json
+/ext/gpgpusim/*.o
+/ext/gpgpusim/*.d
+/ext/gpgpusim/*.so

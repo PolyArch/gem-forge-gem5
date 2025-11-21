@@ -67,7 +67,7 @@ namespace std
         size_t operator()(const gem5::FutexKey& in) const
         {
             size_t hash = 65521;
-            for (int i = 0; i < sizeof(uint64_t) / sizeof(size_t); i++) {
+            for (auto i = 0u; i < sizeof(uint64_t) / sizeof(size_t); i++) {
                 hash ^= (size_t)(in.addr >> sizeof(size_t) * i) ^
                         (size_t)(in.tgid >> sizeof(size_t) * i);
             }

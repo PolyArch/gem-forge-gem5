@@ -745,8 +745,15 @@ bool
 RubyPort::MemResponsePort::isPhysMemAddress(PacketPtr pkt) const
 {
     Addr addr = pkt->getAddr();
-    return (owner.system->isMemAddr(addr) && !isShadowRomAddress(addr))
-           || owner.system->isDeviceMemAddr(pkt);
+    bool is_mem = owner.system->isMemAddr(addr);
+    bool is_shadow = isShadowRomAddress(addr);
+    bool is_device = owner.system->isDeviceMemAddr(pkt);
+    
+    DPRINTF(RubyPort, "isPhysMemAddress check: addr=0x%x, isMemAddr=%d, "
+            "isShadowRom=%d, isDeviceMemAddr=%d, requestorId=%d\n",
+            addr, is_mem, is_shadow, is_device, pkt->requestorId());
+    
+    return (is_mem && !is_shadow) || is_device;
 }
 
 void
