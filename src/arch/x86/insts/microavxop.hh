@@ -7,12 +7,10 @@ namespace gem5 {
 
 namespace X86ISA {
 
-class AVXOpBase : public X86MicroopBase
-{
+class AVXOpBase : public X86MicroopBase {
 
 public:
-  enum SrcType
-  {
+  enum SrcType {
     Non = 0,
     Reg,
     RegReg,
@@ -28,9 +26,9 @@ protected:
   const RegIndex src2;
   const RegIndex src3;
   const uint8_t destSize;
-  const uint8_t destVL;
+  const uint32_t destVL;
   const uint8_t srcSize;
-  const uint8_t srcVL;
+  const uint32_t srcVL;
   const uint8_t imm8;
   const uint8_t ext;
   const RegIndex mask;
@@ -48,8 +46,8 @@ protected:
   AVXOpBase(ExtMachInst _machInst, const char *_mnem, const char *_instMnem,
             uint64_t _setFlags, OpClass _opClass, SrcType _srcType,
             FpRegIndex _dest, FpRegIndex _src1, FpRegIndex _src2,
-            FpRegIndex _src3, uint8_t _destSize, uint8_t _destVL,
-            uint8_t _srcSize, uint8_t _srcVL, uint8_t _imm8, uint8_t _ext,
+            FpRegIndex _src3, uint8_t _destSize, uint32_t _destVL,
+            uint8_t _srcSize, uint32_t _srcVL, uint8_t _imm8, uint8_t _ext,
             GpRegIndex _mask, bool _zeroHighRegs)
       : X86MicroopBase(_machInst, _mnem, _instMnem, _setFlags, _opClass),
         srcType(_srcType), dest(_dest.index), src1(_src1.index),
@@ -62,48 +60,43 @@ protected:
     setRegIdxArrays(reinterpret_cast<RegIdArrayPtr>(
                         &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
                     reinterpret_cast<RegIdArrayPtr>(
-                        &std::remove_pointer_t<decltype(this)>::destRegIdxArr)
-                    );
+                        &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
   }
 
   std::string generateDisassembly(Addr pc,
                                   const loader::SymbolTable *symtab) const;
 
-  union FloatInt
-  {
-    struct __attribute__((packed))
-    {
+  union FloatInt {
+    struct __attribute__((packed)) {
       float f1;
       float f2;
     } f;
     double d;
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
       uint32_t i1;
       uint32_t i2;
     } ui;
-    struct __attribute__((packed))
-    {
+    uint32_t ui_array[2];
+    struct __attribute__((packed)) {
       int32_t i1;
       int32_t i2;
     } si;
-    struct __attribute__((packed))
-    {
+    int32_t si_array[2];
+    struct __attribute__((packed)) {
       uint16_t i1;
       uint16_t i2;
       uint16_t i3;
       uint16_t i4;
     } us;
     uint16_t us_array[4];
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
       int16_t i1;
       int16_t i2;
       int16_t i3;
       int16_t i4;
     } ss;
-    struct __attribute__((packed))
-    {
+    int16_t ss_array[4];
+    struct __attribute__((packed)) {
       uint8_t i1;
       uint8_t i2;
       uint8_t i3;
@@ -114,8 +107,7 @@ protected:
       uint8_t i8;
     } uc;
     uint8_t uc_array[8];
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
       int8_t i1;
       int8_t i2;
       int8_t i3;
@@ -125,12 +117,12 @@ protected:
       int8_t i7;
       int8_t i8;
     } sc;
+    int8_t sc_array[8];
     uint64_t ul;
     int64_t sl;
   };
 
-  enum BinaryOp
-  {
+  enum BinaryOp {
     FloatAdd,
     FloatSub,
     FloatMul,
@@ -146,25 +138,40 @@ protected:
     IntXor,
     IntOr,
     IntCmpEq,
+    IntCmpGt,
     IntMul,
     IntMulLow,
+    UIntMin,
     UIntMul,
     UIntMulLow,
     SIntMin,
     SIntToUIntPack,
+    UnpackInterleaveLow,
+    UnpackInterleaveHigh,
   };
 
   FloatInt calcPackedBinaryOp(FloatInt src1, FloatInt src2, BinaryOp op) const;
   // A helper function to perform packed src1 op src2
   void doPackedBinaryOp(ExecContext *xc, BinaryOp op) const;
+
   // A helper function to perform packed (src1 op1 src2) op2 src3
-  void doFusedPackedBinaryOp(ExecContext *xc,
-    BinaryOp op1, BinaryOp op2) const;
+  void doFusedPackedBinaryOp(ExecContext *xc, BinaryOp op1, BinaryOp op2) const;
   // A helper function to perform single (src1 op1 src2) op2 src3
-  void doFusedSingleBinaryOp(ExecContext *xc,
-    BinaryOp op1, BinaryOp op2) const;
+  void doFusedSingleBinaryOp(ExecContext *xc, BinaryOp op1, BinaryOp op2) const;
+
+  enum TrinaryOp {
+    UIntSIntMulAdd,
+  };
+
+  FloatInt calcPackedTrinaryOp(FloatInt src1, FloatInt src2, FloatInt src3,
+                               TrinaryOp op) const;
+  // A helper function to perform packed trinary op.
+  void doPackedTrinaryOp(ExecContext *xc, TrinaryOp op) const;
+
   // A helper function to perform pack operation
   void doPackOp(ExecContext *xc, BinaryOp op) const;
+  // A helper function to perform unpack operation
+  void doUnpackOp(ExecContext *xc, BinaryOp op) const;
   // A helper function to perform extract operation
   void doExtract(ExecContext *xc) const;
   // A helper function to perform insert operation
@@ -173,12 +180,21 @@ protected:
   // void doBroadcast(ExecContext *xc) const;
   // A helper function to perform vcmpf operation.
   void doFloatCompare(ExecContext *xc, bool isSingle = false) const;
+  // A helper function to perform vcmp operation and write to mask
+  void doIntCompareToMask(ExecContext *xc, BinaryOp op) const;
   // A helper function to perform single src1 op src2
   void doSingleBinaryOpFillSrc1(ExecContext *xc, BinaryOp op) const;
   // A helper function to perform move operation
   void doMov(ExecContext *xc) const;
   // A helper function to perform permutation in lane
   void doPermuteInLane(ExecContext *xc) const;
+  // A helper function to perform permutation using indexes from reg.
+  void doPermOp(ExecContext *xc) const;
+  // A helper function to set AMX tile config from reg.
+  void doAMXSetTileCfg(ExecContext *xc) const;
+  // A helper function to release AMX tile config.
+  void doAMXReleaseTileCfg(ExecContext *xc) const;
+  void setAMXTileCfg(ExecContext *xc, const uint8_t *raw) const;
 
   // A helper function to add dest regs.
   void addAVXDestRegs();

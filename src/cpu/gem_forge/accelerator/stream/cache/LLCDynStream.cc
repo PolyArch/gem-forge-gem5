@@ -37,6 +37,8 @@ LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
                    _mlcController->getRubySystem()->getBlockSizeBytes()),
       strandId(_configData->dynamicId, _configData->strandIdx,
                _configData->totalStrands),
+      storeReuseInfo(_configData->storeReuseInfo),
+      reusedStoreStream(_configData->storeReuseInfo.getTotalReuse()),
       initializedCycle(_mlcController->curCycle()), creditedSliceIdx(0) {
 
   // Allocate the range builder.
@@ -67,10 +69,22 @@ LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
                   this->baseOnConfigs.back()->dynamicId);
   }
 
+  // Set the store reuse.
+  if (this->storeReuseInfo.hasReuse()) {
+    LLC_S_DPRINTF(this->getDynStrandId(), "Setup StoreReuse %s.\n",
+                  this->storeReuseInfo);
+  }
+
   if (this->isPointerChase()) {
     // PointerChase allows at most one InflyRequest.
     this->maxInflyRequests = 1;
   }
+
+  // if (this->getStaticS()->getStreamName().find("gfm_warm.ld") !=
+  //     std::string::npos) {
+  //   // DRAM prefetch stream has higher infly request count.
+  //   this->maxInflyRequests = 64;
+  // }
 
   if (_configData->floatPlan.getFirstFloatElementIdx() > 0) {
     auto firstFloatElemIdx = _configData->floatPlan.getFirstFloatElementIdx();
@@ -109,10 +123,9 @@ LLCDynStream::LLCDynStream(ruby::AbstractStreamAwareController *_mlcController,
     std::vector<LLCDynStreamPtr> pumPrefetchStreams;
     auto iter = GlobalLLCDynStreamMap.begin();
     while (iter != GlobalLLCDynStreamMap.end()) {
-      if (iter->first.dynStreamId == this->getDynStreamId()) {
+      if (iter->first.dynStreamId == this->getDynStreamId() &&
+          iter->second->configData->isPUMPrefetch) {
         auto dynS = iter->second;
-        assert(dynS->configData->isPUMPrefetch &&
-               "This should be PUMPrefetchStream.");
         assert(dynS->state == State::TERMINATED &&
                "PUMPrefetchStream should be terminated.");
         pumPrefetchStreams.push_back(dynS);
@@ -356,7 +369,7 @@ bool LLCDynStream::shouldUpdateIssueClearCycle() {
     // for both myself and all the indirect streams.
     this->shouldUpdateIssueClearCycleMemorized = true;
     auto dynCoreS = this->getCoreDynS();
-    if (dynCoreS && !dynCoreS->shouldCoreSEIssue()) {
+    if ((!dynCoreS) || !dynCoreS->shouldCoreSEIssue()) {
       this->shouldUpdateIssueClearCycleMemorized = false;
     }
   }
@@ -473,7 +486,7 @@ LLCStreamSlicePtr LLCDynStream::allocNextSlice(LLCStreamEngine *se) {
       }
     }
     LLC_SLICE_DPRINTF(sliceId, "Allocated SliceIdx %llu VAddr %#x.\n",
-                      this->nextAllocSliceIdx, slice->getSliceId().vaddr);
+                      this->nextAllocSliceIdx, sliceId.vaddr);
     this->invokeSliceAllocCallbacks(this->nextAllocSliceIdx);
     this->nextAllocSliceIdx++;
     this->lastAllocSliceId = sliceId;
@@ -486,6 +499,65 @@ LLCStreamSlicePtr LLCDynStream::allocNextSlice(LLCStreamEngine *se) {
   }
 
   LLC_S_PANIC(this->getDynStrandId(), "No Initialized Slice to allocate from.");
+}
+
+float LLCDynStream::getMinRecvStrandProgress(
+    const DynStreamSliceId &sliceId) const {
+
+  float minProgress = 1.0f;
+
+  for (const auto &sendToEdge : this->sendToEdges) {
+
+    auto recvConfig = sendToEdge.data;
+
+    auto sendStrandElemIdx = sliceId.getStartIdx();
+    if (this->isOneIterationBehind()) {
+      assert(sendStrandElemIdx > 0);
+      sendStrandElemIdx--;
+    }
+
+    const auto &sendConfig = this->configData;
+
+    auto translation = sendConfig->translateSendToRecv(sendToEdge, sendConfig,
+                                                       sendStrandElemIdx);
+    auto recvStrandId = std::get<0>(translation);
+    auto recvStrandElemIdx = std::get<1>(translation);
+
+    if (auto recvDynS = LLCDynStream::getLLCStream(recvStrandId)) {
+      assert(recvDynS->getTotalTripCount());
+      auto recvStrandTotalTripCount = recvDynS->getTotalTripCount();
+
+      // Let's recursively get the MinRecvProgress if there is a chain of
+      // sending.
+      float progress = 0.0f;
+      if (!recvDynS->sendToEdges.empty()) {
+        DynStreamSliceId recvSliceId;
+        recvSliceId.getDynStrandId() = recvStrandId;
+        recvSliceId.getStartIdx() = recvStrandElemIdx;
+        recvSliceId.getEndIdx() = recvStrandElemIdx + 1;
+        progress = recvDynS->getMinRecvStrandProgress(recvSliceId);
+        LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s Recursive %.4f.\n",
+                          recvStrandId, progress * 100.f);
+      } else {
+        progress = static_cast<float>(recvStrandElemIdx) /
+                   static_cast<float>(recvStrandTotalTripCount);
+        LLC_SLICE_DPRINTF(sliceId, "[Fwd]   RecvProgress %s %lu/%lu %.4f.\n",
+                          recvStrandId, recvStrandElemIdx,
+                          recvStrandTotalTripCount, progress * 100.f);
+      }
+
+      if (progress < minProgress) {
+        minProgress = progress;
+      }
+    } else {
+      LLC_SLICE_DPRINTF(sliceId, "[Fwd] Check Progress %s No RecvDynS.\n",
+                        recvStrandId);
+    }
+  }
+
+  LLC_SLICE_DPRINTF(sliceId, "[Fwd] MinRecvProgress %.4f.\n",
+                    minProgress * 100.f);
+  return minProgress;
 }
 
 const DynStreamSliceId &LLCDynStream::peekNextAllocSliceId() const {
@@ -564,9 +636,12 @@ void LLCDynStream::initNextElem(Addr vaddr) {
    * delaying element releasing.
    * Therefore, I increased the threshold and also check for elements with
    * slices not released.
+   * Don't check this for OnlyDirectLoadS, which is used for prefetching.
    */
   if (this->getStaticS()->isDirectMemStream() &&
-      this->getMemElementSize() >= 64) {
+      this->getMemElementSize() >= 64 &&
+      this->getMemElementSize() != 1024 && // Hack: Experiment with AMX.
+      !this->getStaticS()->isOnlyDirectLoadStream()) {
     if (this->idxToElementMap.size() >= 2048) {
       int sliceNotReleasedElements = 0;
       for (const auto &entry : this->idxToElementMap) {
@@ -753,6 +828,8 @@ void LLCDynStream::initNextElem(Addr vaddr) {
       if (reusedBaseS.reuse > 1 && reusedBaseS.hasElem(baseStreamElemIdx)) {
         // We can reuse.
         baseElem = reusedBaseS.reuseElem(baseStreamElemIdx);
+        LLC_ELEMENT_DPRINTF(elem, "Reuse BaseElem %s%llu VAddr %#x.\n",
+                            baseElem->strandId, baseElem->idx, baseElem->vaddr);
       } else {
 
         Addr baseElemVAddr = 0;
@@ -770,10 +847,10 @@ void LLCDynStream::initNextElem(Addr vaddr) {
                   ->genAddr(addrGenBaseElemIdx, baseConfig->addrGenFormalParams,
                             getStreamValueFail)
                   .front();
-          LLC_ELEMENT_DPRINTF(elem, "BaseStrandElem %s%llu VAddr %#x.\n",
-                              baseStrandId, baseStrandElemIdx, baseElemVAddr);
         }
 
+        LLC_ELEMENT_DPRINTF(elem, "Create BaseElem %s%llu VAddr %#x.\n",
+                            baseStrandId, baseStrandElemIdx, baseElemVAddr);
         baseElem = std::make_shared<LLCStreamElement>(
             baseS, this->mlcController, baseStrandId, baseStrandElemIdx,
             baseElemVAddr, baseS->getMemElementSize(),
@@ -1146,6 +1223,11 @@ void LLCDynStream::remoteConfigured(
   LLC_S_DPRINTF_(LLCRubyStreamLife, this->getDynStrandId(),
                  "RemoteConfig at %s.\n", llcCtrl->getMachineID());
   if (auto *dynS = this->getStaticS()->getDynStream(this->getDynStreamId())) {
+    if (this->prevConfiguredCycle < dynS->configCycle) {
+      LLC_S_DPRINTF(this->getDynStrandId(),
+                    "WTF PrevConfig %ld < DynSConfig %ld.\n",
+                    this->prevConfiguredCycle, dynS->configCycle);
+    }
     stats.numRemoteConfigCycle += this->prevConfiguredCycle - dynS->configCycle;
   }
 }
@@ -2242,6 +2324,26 @@ LLCStreamElementPtr LLCDynStream::getElemPanic(uint64_t elemIdx,
                 elemIdx, errMsg);
   }
   return elem;
+}
+
+void LLCDynStream::checkStoreReuse(LLCStreamElementPtr elem) {
+  /**
+   * We should only check StoreReuse for once for every element.
+   */
+  if (this->storeReuseInfo.hasReuse() && !elem->isStoreReuseChecked()) {
+    auto baseElemIdx = this->storeReuseInfo.convertDepToBaseElemIdx(elem->idx);
+    if (this->reusedStoreStream.hasElem(baseElemIdx)) {
+      LLC_ELEMENT_DPRINTF(elem, "[StoreReuse] Reuse %s -> Base %lu.\n",
+                          this->storeReuseInfo, baseElemIdx);
+      this->reusedStoreStream.reuseElem(baseElemIdx);
+      elem->setStoreReused(true);
+    } else {
+      LLC_ELEMENT_DPRINTF(elem, "[StoreReuse] Create %s -> Base %lu.\n",
+                          this->storeReuseInfo, baseElemIdx);
+      this->reusedStoreStream.addElem(baseElemIdx, elem);
+      elem->setStoreReused(false);
+    }
+  }
 }
 
 void LLCDynStream::sample() {

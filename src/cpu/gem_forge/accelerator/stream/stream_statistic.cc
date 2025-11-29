@@ -218,6 +218,11 @@ void StreamStatistic::dump(std::ostream &os) const {
      << "\n";
   dumpSrcDest(this->numRemoteNestConfig, os);
 
+  os << std::setw(40) << "IndReq"
+     << "\n";
+  dumpSrcDest(this->numIndReq, os);
+
+
   dumpScalar(numMissL0);
   dumpScalar(numMissL1);
   dumpScalar(numMissL2);
@@ -301,7 +306,9 @@ StreamStatistic::llcSEIssueReasonToString(LLCStreamEngineIssueReason reason) {
     Case(MulticastPolicy);
     Case(IssueClearCycle);
     Case(MaxInflyRequest);
-    Case(MaxEngineInflyRequest);
+    Case(MaxSEInqueueRequest);
+    Case(MaxSEInflyRequest);
+    Case(InsufficientIssueBurst);
     Case(MaxIssueWidth);
     Case(PendingMigrate);
     Case(AliasedIndirectUpdate);
@@ -392,6 +399,7 @@ void StreamStatistic::clear() {
   this->numLLCSendTo.clear();
   this->remoteToLocalMsg.clear();
   this->numRemoteNestConfig.clear();
+  this->numIndReq.clear();
 
   this->numRemoteMulticastSlice = 0;
 

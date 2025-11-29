@@ -115,6 +115,8 @@ class StreamEngine(GemForgeAccelerator):
         True, "Whether consider stream history for floating decision.")
     enableRemoteElimNestStreamConfig = Param.Bool(
         False, "Directly config eliminated nest streams at remote bank.")
+    noSpeculateFloat = Param.Bool(
+        False, "Always delay float until commit the stream config")
 
     # parameters for stream computing.
     enableZeroComputeLatency = Param.Bool(

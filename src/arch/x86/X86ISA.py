@@ -126,3 +126,8 @@ class X86ISA(BaseISA):
         [0x00003030, 0x00000000, 0x00000000, 0x00000000],
         "miscellaneous information",
     )
+
+    realCPUId = Param.String(
+        "",
+        "model a real cpu id",
+    )

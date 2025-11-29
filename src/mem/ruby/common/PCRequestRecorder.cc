@@ -10,11 +10,13 @@ namespace gem5 {
 namespace ruby {
 
 void PCRequestRecorder::recordReq(Addr pc, RubyRequestType type, bool isStream,
-                                  const char *streamName, Cycles latency) {
+                                  const char *streamName, Cycles latency,
+                                  int hitLevel) {
   auto stat = this->pcLatencySet.emplace(pc, type, isStream, streamName).first;
   assert(stat->isStream == isStream && "Changed isStream.");
   stat->totalReqs++;
   stat->totalLatency += latency;
+  stat->recordHitLevel(static_cast<HitPlaceE>(hitLevel), latency);
 }
 
 void PCRequestRecorder::reset() { this->pcLatencySet.clear(); }
@@ -35,11 +37,6 @@ void PCRequestRecorder::dump() {
   std::sort(sortedStats.begin(), sortedStats.end(),
             [this](const RequestLatencyStats *a,
                    const RequestLatencyStats *b) -> bool {
-              auto reqs0 = a->totalReqs;
-              auto reqs1 = b->totalReqs;
-              if (reqs0 != reqs1) {
-                return reqs0 > reqs1;
-              }
               return a->operator<(*b);
             });
 
@@ -51,13 +48,23 @@ void PCRequestRecorder::dump() {
   ccprintf(*this->pcLatencyStream, "---------------------------\n");
   for (const auto &stat : sortedStats) {
     ccprintf(*this->pcLatencyStream,
-             "%10#x %4s %4s %10llu (%05.2f) %12llu (%05.2f) %s\n", stat->pc,
-             stat->isStream ? "SSP" : "Core",
+             "%10#x %4s %4s %10llu (%05.2f) %12llu (%05.2f) %8.2f %s\n",
+             stat->pc, stat->isStream ? "SSP" : "Core",
              RubyRequestType_to_string(stat->type), stat->totalReqs,
              static_cast<double>(stat->totalReqs * 100) / totalReqs,
              stat->totalLatency,
              static_cast<double>(stat->totalLatency * 100) / totalLatency,
+             static_cast<double>(stat->totalLatency) /
+                 static_cast<double>(stat->totalReqs),
              stat->streamName ? stat->streamName : "");
+    for (int i = HitPlaceE::INVALID; i <= HitPlaceE::LAST_HITPLACE; ++i) {
+      auto &v = stat->getHitLevel(static_cast<HitPlaceE>(i));
+      if (v.first > 0) {
+        ccprintf(*this->pcLatencyStream, "    Hit %2d %12llu (%5.2f) %8.2f\n", i,
+                 v.first, static_cast<double>(v.first * 100) / stat->totalReqs,
+                 static_cast<double>(v.second) / v.first);
+      }
+    }
   }
 }
 } // namespace ruby

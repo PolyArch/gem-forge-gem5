@@ -181,11 +181,13 @@ LSQUnit::completeDataAccess(PacketPtr pkt)
             writeback(inst, request->mainPacket());
             if (inst->isStore() || inst->isAtomic()) {
                 request->writebackDone();
+                decrementStoresInFlight();
                 completeStore(request->instruction()->sqIt);
             }
         } else if (inst->isStore()) {
             // This is a regular store (i.e., not store conditionals and
             // atomics), so it can complete without writing back
+            decrementStoresInFlight();
             completeStore(request->instruction()->sqIt);
         }
     }
@@ -197,7 +199,8 @@ LSQUnit::LSQUnit(uint32_t lqEntries, uint32_t sqEntries)
       htmStarts(0), htmStops(0),
       lastRetiredHtmUid(0),
       cacheBlockMask(0), stalled(false),
-      isStoreBlocked(false), storeInFlight(false), stats(nullptr)
+      isStoreBlocked(false), numStoresInFlight(0), maxStoresInFlight(0),
+      stats(nullptr)
 {
 }
 
@@ -219,6 +222,7 @@ LSQUnit::init(CPU *cpu_ptr, IEW *iew_ptr, const BaseO3CPUParams &params,
     depCheckShift = params.LSQDepCheckShift;
     checkLoads = params.LSQCheckLoads;
     needsTSO = params.needsTSO;
+    maxStoresInFlight = params.maxStoresInFlight;
 
     resetState();
 }
@@ -696,7 +700,18 @@ LSQUnit::executeLoad(const DynInstPtr &inst)
             ++it;
 
             if (checkLoads)
-                return checkViolations(it, inst);
+                load_fault = checkViolations(it, inst);
+        }
+    }
+
+    if (!this->cpu->params().block_on_prefetch_inst) {
+        if (load_fault == NoFault) {
+            if (inst->isDataPrefetch() || inst->isInstPrefetch()) {
+                if (inst->isIssued()) {
+                    // If not issued, the inst is blocked.
+                    this->writebackPrefetch(inst);
+                }
+            }
         }
     }
 
@@ -785,8 +800,8 @@ LSQUnit::commitLoad()
 
     DynInstPtr inst = loadQueue.front().instruction();
 
-    DPRINTF(LSQUnit, "Committing head load instruction, PC %s\n",
-            inst->pcState());
+    DPRINTF(LSQUnit, "Committing head load instruction [sn:%llu], PC %s\n",
+        inst->seqNum, inst->pcState());
 
     if (cpu->cpuDelegator) {
         /**
@@ -866,7 +881,7 @@ void
 LSQUnit::writebackStores()
 {
     if (isStoreBlocked) {
-        DPRINTF(LSQUnit, "Writing back  blocked store\n");
+        DPRINTF(LSQUnit, "Writing back blocked store\n");
         writebackBlockedStore();
     }
 
@@ -874,7 +889,9 @@ LSQUnit::writebackStores()
            storeWBIt.dereferenceable() &&
            storeWBIt->valid() &&
            storeWBIt->canWB() &&
-           ((!needsTSO) || (!storeInFlight)) &&
+           ((!needsTSO) || (numStoresInFlight == 0)) &&
+           ((maxStoresInFlight == 0) ||
+            (numStoresInFlight < maxStoresInFlight)) &&
            lsq->cachePortAvailable(false)) {
 
         if (isStoreBlocked) {
@@ -1150,9 +1167,7 @@ LSQUnit::storePostSend()
         }
     }
 
-    if (needsTSO) {
-        storeInFlight = true;
-    }
+    numStoresInFlight++;
 
     storeWBIt++;
 }
@@ -1219,6 +1234,8 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
         }
     }
 
+    DPRINTF(LSQUnit, "Writeback [sn:%lli]\n", inst->seqNum);
+
     // Need to insert instruction into queue to commit
     iewStage->instToCommit(inst);
 
@@ -1226,6 +1243,32 @@ LSQUnit::writeback(const DynInstPtr &inst, PacketPtr pkt)
 
     // see if this load changed the PC
     iewStage->checkMisprediction(inst);
+}
+
+void
+LSQUnit::writebackPrefetch(const DynInstPtr &inst)
+{
+    iewStage->wakeCPU();
+
+    assert(inst->isDataPrefetch() || inst->isInstPrefetch());
+    assert(!inst->isSquashed());
+    assert(!inst->isExecuted());
+    assert(inst->isIssued());
+    inst->setExecuted();
+    /**
+     * ! GemForge
+     * We have to handle GemForgeLoad here.
+     */
+    if (cpu->cpuDelegator) {
+        assert(cpu->cpuDelegator->canWriteback(inst));
+        cpu->cpuDelegator->writeback(inst);
+    }
+    DPRINTF(LSQUnit, "Writeback Pf [sn:%lli]\n", inst->seqNum);
+
+    // Need to insert instruction into queue to commit
+    iewStage->instToCommit(inst);
+
+    iewStage->activityThisCycle();
 }
 
 void
@@ -1289,10 +1332,6 @@ LSQUnit::completeStore(typename StoreQueue::iterator store_idx)
     }
 
     store_inst->setCompleted();
-
-    if (needsTSO) {
-        storeInFlight = false;
-    }
 
     // Tell the checker we've completed this instruction.  Some stores
     // may get reported twice to the checker, but the checker can
@@ -1711,7 +1750,7 @@ LSQUnit::read(LSQRequest *request, ssize_t load_idx)
 
             // Do not generate a writeback event as this instruction is not
             // complete.
-            DPRINTF(LSQUnit, "Store-Load Forward Mismatch Addr %#x, SQ %i %s\n",
+            DPRINTF(LSQUnit, "Store-Load Fwd Mismatch Addr %#x, SQ %i %s\n",
                 request->mainReq()->getVaddr(), store_it._idx,
                 *store_it->instruction());
 

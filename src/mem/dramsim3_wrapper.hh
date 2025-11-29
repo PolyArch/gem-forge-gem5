@@ -118,13 +118,10 @@ class DRAMsim3Wrapper
     void resetStats();
 
     /**
-     * Set the callbacks to use for read and write completion.
-     *
-     * @param read_callback Callback used for read completions
-     * @param write_callback Callback used for write completions
+     * Register custom InterleaveFunc.
      */
-    void setCallbacks(std::function<void(uint64_t)> read_complete,
-                      std::function<void(uint64_t)> write_complete);
+    using InterleaveMaskFuncT = std::function<uint64_t(uint64_t)>;
+    void setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func);
 
     /**
      * Determine if the controller can accept a new packet or not.

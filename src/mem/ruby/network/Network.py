@@ -65,3 +65,8 @@ class RubyNetwork(ClockedObject):
         "Size of data messages. Defaults to the parent "
         "RubySystem cache line size.",
     )
+
+    enable_custom_dram_interleave = Param.Bool(
+        False,
+        "Enable DRAM custom interleave size."
+    )

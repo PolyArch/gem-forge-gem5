@@ -1,0 +1,16 @@
+
+#ifndef __MEM_REQUEST_HIT_LEVEL_HH__
+#define __MEM_REQUEST_HIT_LEVEL_HH__
+enum ReqHitPlaceE {
+  INVALID = -1,
+  L0_CACHE = 0,
+  L1_CACHE = 1,
+  L2_CACHE = 2,
+  L3_CACHE = 3,
+  MEM = 4,
+  L1_STREAM_BUFFER = 5,
+  LAST_HITPLACE = L1_STREAM_BUFFER,
+  NUM_HITPLACE = LAST_HITPLACE - INVALID + 1,
+};
+
+#endif

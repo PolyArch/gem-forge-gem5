@@ -77,6 +77,12 @@ DirectoryMemory::init()
         m_entries[i] = NULL;
 }
 
+void
+DirectoryMemory::updateAddrRanges(AddrRangeList &addrRanges)
+{
+    this->addrRanges = addrRanges;
+}
+
 DirectoryMemory::~DirectoryMemory()
 {
     // free up all the directory entries

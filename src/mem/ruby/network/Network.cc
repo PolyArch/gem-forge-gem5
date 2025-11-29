@@ -43,9 +43,13 @@
 #include "base/logging.hh"
 #include "mem/ruby/common/MachineID.hh"
 #include "mem/ruby/network/BasicLink.hh"
+#include "mem/ruby/structures/DirectoryMemory.hh"
 #include "mem/ruby/system/RubySystem.hh"
+#include "mem/abstract_mem.hh"
 
 #include "sim/stream_nuca/stream_nuca_map.hh"
+
+#include "debug/RubyNetwork.hh"
 
 namespace gem5
 {
@@ -171,6 +175,44 @@ Network::~Network()
     delete m_topology_ptr;
 }
 
+void
+Network::init()
+{
+    // The only thing we need to do is to set up custom NUMA interleave.
+    // However, this breaks the isolation and we only support DRAMsim3.
+    if (params().enable_custom_dram_interleave)
+    {
+        auto maskFunc =
+            new memory::AbstractMemory::InterleaveMaskFuncT(
+                std::bind(&Network::maskAddrForNUMA,
+                    this, std::placeholders::_1)
+            );
+        for (auto simObj : this->getSimObjectList())
+        {
+            if (auto absMem = dynamic_cast<memory::AbstractMemory *>(simObj))
+            {
+                if (absMem->name() == "system.ruby.phys_mem")
+                {
+                    // Ignore the physical back up mem.
+                    continue;
+                }
+                absMem->setInterleaveMaskFunc(maskFunc);
+            }
+        }
+
+        StreamNUCAMap::registerNUMAInterleavePool = 
+            new StreamNUCAMap::RegisterNUMAInterleavePoolFuncT(
+                std::bind(&Network::addNUMAInterleavePool,
+                    this,
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    std::placeholders::_4,
+                    std::placeholders::_5)
+            );
+    }
+}
+
 uint32_t
 Network::MessageSizeType_to_int(MessageSizeType size_type)
 {
@@ -270,6 +312,96 @@ Network::addressToNodeID(Addr addr, MachineType mtype)
     warn("Failed to map address %#x to machine %s.\n", addr,
         MachineType_to_string(mtype));
     return m_ruby_system->MachineType_base_count(mtype);
+}
+
+Addr
+Network::maskAddrForNUMA(Addr addr)
+{
+    auto mtype = MachineType_Directory;
+    const auto &matching_ranges = addrMap.equal_range(mtype);
+    for (auto it = matching_ranges.first; it != matching_ranges.second; it++) {
+        AddrMapNode &node = it->second;
+        auto &ranges = node.ranges;
+        for (AddrRange &range: ranges) {
+            if (range.contains(addr)) {
+                return range.removeIntlvBits(addr);
+            }
+        }
+    }
+    panic("Failed to mask address %#x to machine %s.\n", addr,
+        MachineType_to_string(mtype));
+}
+
+void
+Network::addNUMAInterleavePool(Addr start, Addr end,
+    const std::vector<Addr> &masks, int nodes, int customize)
+{
+
+    auto getInterleaveMatch = [customize, nodes](int nodeId) -> int {
+        if (customize == NUMACustomizeTranspose) {
+            assert(nodes == 16);
+            auto rows = 8;
+            auto cols = nodes / rows;
+            auto row = nodeId / cols;
+            auto col = nodeId % cols;
+            return col * rows + row;
+        } else if (customize == NUMACustomizeMirrorHorizontal) {
+            assert(nodes == 16);
+            auto rows = 8;
+            auto cols = nodes / rows;
+            auto row = nodeId / cols;
+            auto col = nodeId % cols;
+            return row * cols + (cols - col - 1);
+       } else {
+            return nodeId;
+       }
+    };
+    auto mtype = MachineType_Directory;
+    const auto &matching_ranges = addrMap.equal_range(mtype);
+    for (auto it = matching_ranges.first; it != matching_ranges.second; it++)
+    {
+        AddrMapNode &node = it->second;
+        auto &ranges = node.ranges;
+        // Shrink the existing range with interlave pools.
+        assert(!ranges.empty());
+        for (auto &range : ranges)
+        {
+            range.shrink(start, end);
+        }
+        // Insert at the end to be consistent with DirectoryMemory.
+        auto interleaveMatch = getInterleaveMatch(node.id);
+        ranges.emplace_back(start, end, masks, interleaveMatch);
+
+        if (debug::RubyNetwork)
+        {
+            for (const auto &range : ranges)
+            {
+                DPRINTF(RubyNetwork, "[IntrlvPool] Node %3d %s\n",
+                    node.id, range.to_string());
+            }
+        }
+
+
+        // Update the addr ranges in DirectoryMemory.
+        bool found = false;
+        for (auto simObj : this->getSimObjectList())
+        {
+            if (auto dirMem = dynamic_cast<DirectoryMemory *>(simObj))
+            {
+                if (dirMem->params().index == node.id)
+                {
+                    // Ignore the physical back up mem.
+                    dirMem->updateAddrRanges(ranges);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found)
+        {
+            panic("Failed to update AddrRanges in DirectoryMemory.");
+        }
+    }
 }
 
 NodeID

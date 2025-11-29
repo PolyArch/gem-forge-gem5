@@ -50,9 +50,12 @@ class GarnetNetwork(RubyNetwork):
     enable_fault_model = Param.Bool(False, "enable network fault model")
     fault_model = Param.FaultModel(NULL, "network fault model")
     garnet_deadlock_threshold = Param.UInt32(
-        50000, "network-level deadlock threshold"
+        1000000, "network-level deadlock threshold"
     )
-    enable_multicast = Param.Bool(False, "enable multicast")
+    multicast_mode = Param.String("unicast",
+        "How to handle multicast msg: unicast, duplicate, fanout")
+    enable_multicast_local_bypass = Param.Bool(True,
+        "enable multicast local bypass, only work in duplicate mode")
     ideal_noc_hops = Param.Int(-1, "ideal NoC hops (-1 to disable)")
     ideal_noc_msg = Param.String("all", "ideal NoC on message")
 
@@ -87,6 +90,8 @@ class GarnetRouter(BasicRouter):
     width = Param.UInt32(
         Parent.ni_flit_size, "bit width supported by the router"
     )
+    enable_trace = Param.Bool(False, "enable trace")
+
 
 
 add_citation(

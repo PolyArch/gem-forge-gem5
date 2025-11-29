@@ -210,7 +210,7 @@ def addNoISAOptions(parser):
 
     parser.add_argument("--no-l2bus", action="store_true")
     parser.add_argument("--l2bus_width", type=int, default=32)
-    parser.add_argument("--l2_mshrs", type=int, default=20)
+    parser.add_argument("--l2_mshrs", type=int, default=128)
     parser.add_argument("--l2_assoc", type=int, default=8)
     parser.add_argument("--l2_lat", type=int, default=16)
     parser.add_argument("--l3_assoc", type=int, default=16)
@@ -734,6 +734,13 @@ def addCommonOptions(parser, default_isa: Optional[ISA] = None):
         type=str,
         default=None,
         help="Override vendor string returned by CPUID instruction in X86.",
+    )
+    parser.add_argument(
+        "--real-cpu-id",
+        action="store",
+        type=str,
+        default='',
+        help="Use real CPUID in X86.",
     )
 
 

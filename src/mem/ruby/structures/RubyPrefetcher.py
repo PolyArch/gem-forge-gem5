@@ -73,6 +73,8 @@ class RubyPrefetcher(SimObject):
         "Size of block to prefetch, usually cache line size"
     )
 
+    track_pc = Param.Bool(False, "Whether use PC to trace stream.")
+
 
 class Prefetcher(RubyPrefetcher):
     """DEPRECATED"""

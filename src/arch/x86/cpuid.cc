@@ -68,6 +68,13 @@ X86CPUID::doCpuid(ThreadContext * tc, uint32_t function, uint32_t index,
 
     DPRINTF(X86, "Calling CPUID function %x with index %d\n", function, index);
 
+    // Support real CPU ID if specified.
+    ISA *isa = dynamic_cast<ISA *>(tc->getIsaPtr());
+    const auto &realCPUId = isa->getRealCPUId();
+    if (!realCPUId.empty()) {
+        return doCpuidWithRealCPU(realCPUId, tc, function, index, result);
+    }
+
     // Handle the string-related CPUID functions specially
     if (function == VendorAndLargestStdFunc) {
         result = CpuidResult(NumStandardCpuidFuncs - 1,

@@ -35,6 +35,8 @@ def parse_int_list(value):
     vs = [int(v) for v in value.split('x')]
     return vs
 
+parser.add_argument("--chiplet-latency-increase", action="store", type=int, default=0)
+parser.add_argument("--chiplet-vcs-per-vnet", action="store", type=int, default=4)
 parser.add_argument("--gem-forge-work-mark-history", action="store", type=str,
                   help="""work mark history""")
 parser.add_argument("--gem-forge-work-mark-switch-cpu", action="store", type=int, default=-1,
@@ -45,6 +47,9 @@ parser.add_argument("--gem-forge-num-active-cpus", action="store", type=int,
                   help="""number of active cpus.""", default="1")
 parser.add_argument("--gem-forge-enable-func-acc-tick", action="store_true",
                   help="""enable func accumulate ticks.""", default=False)
+parser.add_argument("--gem-forge-enable-pc-acc-tick", action="store_true",
+                  help="""enable pc accumulate ticks. Must enable func acc tick.""",
+                  default=False)
 parser.add_argument("--gem-forge-enable-func-trace-at-tick", action="store", type=int,
                   help="""enable func trace at this tick.""", default=-1)
 parser.add_argument("--gem-forge-cpu-deadlock-interval", action="store", type=str, default="10000ns",
@@ -72,8 +77,12 @@ parser.add_argument("--gem-forge-ideal-prefetcher-distance", action="store",
 parser.add_argument("--gem-forge-prefetcher", type=str, default="none",
                   choices=['none', 'stride', 'imp', 'isb', 'bingo'],
                   help="Type of L1 prefetcher we are using.")
+parser.add_argument("--gem-forge-prefetch-train-misses", action="store", type=int,
+                  help="L1 prefetcher train misses", default="5")
 parser.add_argument("--gem-forge-prefetch-dist", action="store", type=int,
                   help="L1 prefetcher distance", default="8")
+parser.add_argument("--gem-forge-prefetch-track-pc", action="store", type=int,
+                  help="L1 prefetcher track pc", default="0")
 parser.add_argument("--gem-forge-prefetch-cross-page", action="store", type=int,
                   help="Prefetcher can cross pages", default="1")
 parser.add_argument("--gem-forge-prefetch-on-hit", action="store", type=int,
@@ -85,21 +94,40 @@ parser.add_argument("--gem-forge-prefetch-filter-dup", action="store", type=int,
 parser.add_argument("--gem-forge-l2-prefetcher", type=str, default="none",
                   choices=['none', 'stride'],
                   help="Type of L2 prefetcher we are using.")
+parser.add_argument("--gem-forge-l2-prefetch-train-misses", action="store", type=int,
+                  help="L2 prefetcher train misses", default="5")
 parser.add_argument("--gem-forge-l2-prefetch-dist", action="store", type=int,
                   help="L2 prefetcher distance", default="8")
+parser.add_argument("--gem-forge-l2-prefetch-track-pc", action="store", type=int,
+                  help="L2 prefetcher track pc", default="0")
 parser.add_argument("--gem-forge-l2-prefetch-cross-page", action="store", type=int,
                   help="L2 prefetcher can cross pages", default="1")
 parser.add_argument("--gem-forge-l2-prefetch-on-hit", action="store", type=int,
                   help="L2 prefetcher observe hits", default="0")
+parser.add_argument("--gem-forge-l2-prefetch-store", action="store", type=int,
+                  help="How L2 prefetch handles store: 0 disable, 1 as load, 2 as store",
+                  default="1")
 parser.add_argument("--gem-forge-l2-bulk-prefetch-size", action="store", type=int,
                   help="Bulk prefetch size at L2.", default=1)
 parser.add_argument("--gem-forge-prefetch-on-access", action="store_true",
                   help="""whether to prefetch on every access""", default=False)
+parser.add_argument("--gem-forge-l1-replacement-policy", type=str, default='brriprp',
+                  choices=['brriprp', 'lru'], help="replacement policy")
+parser.add_argument("--gem-forge-l2-replacement-policy", type=str, default='treeplrurp',
+                  choices=['brriprp', 'treeplrurp', 'lru'], help="L2 replacement policy")
+parser.add_argument("--gem-forge-l3-replacement-policy", type=str, default='brriprp',
+                  choices=['brriprp', 'lru'], help="L2 replacement policy")
 parser.add_argument("--llvm-trace-file", type=parse_tdg_files,
                   help="""llvm trace file input LLVMTraceCPU""", default=[])
+parser.add_argument("--gem-forge-core-needs-TSO", type=int, action="store", default=None,
+                  help="""core uarch needs TSO""")
+parser.add_argument("--gem-forge-core-max-inflight-stores", type=int, action="store",
+                  default=0, help="""Max num of inflight stores (0 is no limit)""")
 parser.add_argument("--gem-forge-core-pipeline", type=str,
                   choices=['none', 'sapphire-rapids'],
                   help="""core uarch details""", default="none")
+parser.add_argument("--gem-forge-core-block-on-prefetch", action="store", type=int,
+                  help="""whether to block commit on prefetch inst""", default="1")
 parser.add_argument("--llvm-issue-width", action="store", type=int,
                   help="""llvm issue width""", default="8")
 parser.add_argument("--llvm-store-queue-size", action="store",
@@ -164,6 +192,8 @@ parser.add_argument("--gem-forge-stream-engine-yield-core-when-blocked", action=
 # Stream Float options.
 parser.add_argument("--gem-forge-stream-engine-enable-float", action="store_true", default=False,
                   help="Enable stream float in LLC.")
+parser.add_argument("--gem-forge-stream-engine-no-speculate-float", action="store_true", default=False,
+                  help="Always delay float until stream config is committed.")
 parser.add_argument("--gem-forge-stream-engine-float-policy", type=str, default="static",
                   choices=['static', 'manual', 'smart', 'smart-reuse', 'smart-computation'],
                   help="Policy to choose floating stream in LLC.")
@@ -219,7 +249,7 @@ parser.add_argument("--gem-forge-stream-engine-enable-float-advance-migrate", ac
                   help="Enable advance migrate in stream float.")
 parser.add_argument("--gem-forge-stream-engine-enable-float-multicast", action="store_true",
                   default=False,
-                  help="Enable multicast transimission in stream float.")
+                  help="Enable multicast transmission in stream float.")
 parser.add_argument("--gem-forge-stream-engine-enable-float-multicast-forward", action="store_true",
                   default=False,
                   help="Enable multicast forwarding in stream float.")
@@ -250,6 +280,9 @@ parser.add_argument("--gem-forge-stream-engine-llc-stream-engine-migrate-width",
 parser.add_argument("--gem-forge-stream-engine-llc-stream-max-infly-request", action="store",
                   type=int, default="8",
                   help="LLCStream max infly request per stream.")
+parser.add_argument("--gem-forge-stream-engine-llc-engine-max-infly-direct-request", action="store",
+                  type=int, default="0",
+                  help="LLCStreamEngine max infly direct requests (0 no limit).")
 parser.add_argument("--gem-forge-stream-engine-enable-midway-float", action="store_true",
                   default=False,
                   help="Enable midway stream float.")
@@ -326,6 +359,9 @@ parser.add_argument("--gem-forge-enable-stream-nuca", type=int,
 parser.add_argument("--gem-forge-stream-nuca-force-distribute-array", type=int,
                   action="store", default="0",
                   help="Force NUCA distribute the array.")
+parser.add_argument("--gem-forge-stream-split-compute-stream", type=int,
+                  action="store", default="0",
+                  help="Split out the compute stream.")
 parser.add_argument("--gem-forge-enable-stream-strand", type=int,
                   action="store", default="0",
                   help="Enable stream strand auto parallelization.")
@@ -412,7 +448,10 @@ parser.add_argument("--gem-forge-stream-engine-float-level-policy", type=str, de
                   help="Policy to choose floating level for streams.")
 parser.add_argument("--gem-forge-stream-engine-mc-stream-max-infly-request", action="store",
                   type=int, default="16",
-                  help="LLCStream max infly request per stream.")
+                  help="MemStream max infly request per stream.")
+parser.add_argument("--gem-forge-stream-engine-mc-engine-max-infly-direct-request", action="store",
+                  type=int, default="0",
+                  help="MemStreamEngine max infly direct requests (0 no limit).")
 parser.add_argument("--gem-forge-stream-engine-mc-neighbor-stream-threshold", action="store",
                   type=int, default="0",
                   help="# of streams threshold to delay migration to neighbor MCC SE. 0 to disable.")
@@ -431,6 +470,12 @@ parser.add_argument("--gem-forge-stream-reuse-tile-elems", action="store",
 parser.add_argument("--gem-forge-stream-engine-mc-issue-width", action="store",
                   type=int, default="1",
                   help="Mem StreamEngine issue width.")
+parser.add_argument("--gem-forge-stream-engine-mc-issue-burst", action="store",
+                  type=int, default="16",
+                  help="Mem StreamEngine issue burst on the same stream.")
+parser.add_argument("--gem-forge-stream-engine-mc-issue-rotate-by-progress", action="store",
+                  type=int, default="0",
+                  help="Mem StreamEngine issue rotate by progress.")
 
 parser.add_argument("--gem-forge-adfa-enable",
                   action="store_true", default=False)

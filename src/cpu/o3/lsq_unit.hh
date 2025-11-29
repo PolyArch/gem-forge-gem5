@@ -371,6 +371,9 @@ class LSQUnit
     /** Writes back the instruction, sending it to IEW. */
     void writeback(const DynInstPtr &inst, PacketPtr pkt);
 
+    /** Special early writeback for prefetch instructions. */
+    void writebackPrefetch(const DynInstPtr &inst);
+
     /** Try to finish a previously blocked write back attempt */
     void writebackBlockedStore();
 
@@ -395,6 +398,8 @@ class LSQUnit
     void schedule(Event& ev, Tick when);
 
     BaseMMU *getMMUPtr();
+
+    CPU *getCPU() { return cpu; }
 
   private:
     /** Pointer to the CPU. */
@@ -498,8 +503,15 @@ class LSQUnit
     /** Whehter or not a store is blocked due to the memory system. */
     bool isStoreBlocked;
 
-    /** Whether or not a store is in flight. */
-    bool storeInFlight;
+    /** Number of stores in flight. */
+    int numStoresInFlight;
+    void decrementStoresInFlight() {
+      assert(numStoresInFlight > 0);
+      numStoresInFlight--;
+    }
+
+    /** Max number of stores in flight. 0 means no limit. */
+    int maxStoresInFlight;
 
     /** The oldest load that caused a memory ordering violation. */
     DynInstPtr memDepViolator;

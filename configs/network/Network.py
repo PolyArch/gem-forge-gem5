@@ -88,7 +88,7 @@ def define_options(parser):
         "--vcs-per-vnet",
         action="store",
         type=int,
-        default=4,
+        default=4, # originally 4
         help="""number of virtual channels per virtual network
             inside garnet network.""",
     )
@@ -120,7 +120,7 @@ def define_options(parser):
         "--garnet-deadlock-threshold",
         action="store",
         type=int,
-        default=500000,
+        default=1000000,
         help="network-level deadlock threshold.",
     )
     parser.add_argument(
@@ -131,10 +131,12 @@ def define_options(parser):
             channel for each virtual network""",
     )
     parser.add_argument(
-        "--garnet-enable-multicast",
-        action="store_true",
-        default=False,
-        help="""enable multicast"""
+        "--garnet-multicast-mode",
+        choices=["unicast", "duplicate", "fanout"],
+        help="""unicast: no multicast;
+            duplicate: clone msg at earliest diverging router;
+            fanout: directly fan out flits at diverging router;""",
+        default="unicast",
     )
     parser.add_argument(
         "--garnet-ideal-noc-hops",
@@ -154,7 +156,7 @@ def define_options(parser):
         "--garnet-ctrl-flit-buffer-size",
         action="store",
         type=int,
-        default=1,
+        default=4, # MOD from 1
         help="""Flit buffer size for ctrl vnet"""
     )
     parser.add_argument(
@@ -200,6 +202,7 @@ def create_network(options, ruby):
         ext_links=[],
         int_links=[],
         netifs=[],
+        enable_custom_dram_interleave=options.numa_custom_interleave,
     )
 
     return (network, IntLinkClass, ExtLinkClass, RouterClass, InterfaceClass)
@@ -212,7 +215,7 @@ def init_network(options, network, InterfaceClass):
         network.ni_flit_size = options.link_width_bits / 8
         network.routing_algorithm = options.routing_algorithm
         network.garnet_deadlock_threshold = options.garnet_deadlock_threshold
-        network.enable_multicast = options.garnet_enable_multicast
+        network.multicast_mode = options.garnet_multicast_mode
         network.ideal_noc_hops = options.garnet_ideal_noc_hops
         network.ideal_noc_msg = options.garnet_ideal_noc_msg
         network.buffers_per_data_vc = options.garnet_data_flit_buffer_size

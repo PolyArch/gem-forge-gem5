@@ -7,6 +7,8 @@
 #include "sim/stream_nuca/stream_nuca_map.hh"
 
 #include "RubySlicc_ComponentMapping.hh"
+#include "base/trace.hh"
+#include "debug/Arteen.hh"
 
 namespace gem5 {
 
@@ -70,6 +72,7 @@ void AbstractStreamAwareController::init() {
 }
 
 void AbstractStreamAwareController::resetStats() {
+  AbstractController::resetStats();
   if (this->llcSE) {
     this->llcSE->resetStats();
   }
@@ -236,8 +239,10 @@ AbstractStreamAwareController::mapAddressToLLCOrMem(Addr addr,
   // Ideally we should check mtype to be LLC or directory, etc.
   // But here I ignore it.
   if (mtype == MachineType::MachineType_L2Cache) {
+    DPRINTF(Arteen, "mapAddrToLLC: addr %s mtype %s this->llcSelectLowBit %d, this->llcSelectNumBits %d, m_clusterID %d\n",
+            addr, mtype, this->llcSelectLowBit, this->llcSelectNumBits, m_clusterID);
     return mapAddressToRange(addr, mtype, this->llcSelectLowBit,
-                             this->llcSelectNumBits, 0 /* cluster_id. */
+                             this->llcSelectNumBits, m_clusterID /* cluster_id. */
     );
   } else if (mtype == MachineType::MachineType_Directory) {
     return this->mapAddressToMachine(addr, mtype);
@@ -326,16 +331,18 @@ void AbstractStreamAwareController::recordPCReq(
   Addr pc = 0;
   bool isStream = false;
   const char *streamName = nullptr;
+  auto hitLevel = RequestStatistic::HitPlaceE::INVALID;
   if (reqStat) {
     pc = reqStat->pc;
     isStream = reqStat->isStream;
     streamName = reqStat->streamName;
+    hitLevel = reqStat->hitCacheLevel;
   }
   // For now we have no latency information for AbstractController.
   // And simply use LD request.
   Cycles latency(1);
   this->pcReqRecorder.recordReq(pc, RubyRequestType_LD, isStream, streamName,
-                                latency);
+                                latency, hitLevel);
 }
 
 void AbstractStreamAwareController::recordDeallocateNoReuseReqStats(

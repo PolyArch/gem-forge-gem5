@@ -134,6 +134,8 @@ def create_mem_intf(intf, r, i, intlv_bits, intlv_size, options):
         interface.filePath = m5.options.outdir
         interface.interleaveBitsLow = intlv_low_bit
         interface.interleaveBitsHigh = intlv_low_bit + intlv_bits - 1
+        interface.enableTrace = options.gem_forge_enable_llc_stream_engine_trace
+        interface.index = i
 
     return interface
 

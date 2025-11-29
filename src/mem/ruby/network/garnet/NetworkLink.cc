@@ -34,6 +34,7 @@
 
 #include "base/trace.hh"
 #include "debug/RubyNetwork.hh"
+#include "debug/Arteen.hh"
 #include "mem/ruby/network/garnet/CreditLink.hh"
 
 namespace gem5
@@ -99,8 +100,8 @@ NetworkLink::wakeup()
         }
         t_flit->set_time(clockEdge(m_latency));
         linkBuffer.insert(t_flit);
-        // DPRINTF(RubyNetwork, "Insert to linkBuffer flit %d of %s.\n",
-        //     t_flit->get_id(), *(t_flit->get_msg_ptr()));
+        //        DPRINTF(Arteen, "Insert to linkBuffer flit %d of %s.\n",
+        //t_flit->get_id(), *(t_flit->get_msg_ptr()));
         link_consumer->scheduleEventAbsolute(clockEdge(m_latency));
         m_link_utilized++;
         m_vc_load[t_flit->get_vc()]++;

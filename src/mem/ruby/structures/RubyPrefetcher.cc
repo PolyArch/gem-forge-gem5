@@ -113,7 +113,7 @@ RubyPrefetcher::observeMissWithPC(
 
     // check to see if we have already issued a prefetch for this block
     uint32_t index = 0;
-    PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, index);
+    PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, pc, index);
     if (pfEntry != NULL) {
         if (pfEntry->requestIssued[index]) {
             if (pfEntry->requestCompleted[index]) {
@@ -124,7 +124,7 @@ RubyPrefetcher::observeMissWithPC(
             } else {
                 // The controller has issued the prefetch request,
                 // but the request for the block arrived earlier.
-                observePfMiss(line_addr);
+                observePfMissWithId(line_addr, pfEntry->m_pc);
                 return;
             }
         } else {
@@ -135,13 +135,13 @@ RubyPrefetcher::observeMissWithPC(
     }
 
     // Check if address is in any of the stride filters
-    if (accessUnitFilter(&unitFilter, line_addr, 1, type)) {
+    if (accessUnitFilter(&unitFilter, line_addr, pc, 1, type)) {
         return;
     }
-    if (accessUnitFilter(&negativeFilter, line_addr, -1, type)) {
+    if (accessUnitFilter(&negativeFilter, line_addr, pc, -1, type)) {
         return;
     }
-    if (accessNonunitFilter(line_addr, type)) {
+    if (accessNonunitFilter(line_addr, pc, type)) {
         return;
     }
 }
@@ -167,7 +167,7 @@ RubyPrefetcher::observeHitWithPC(
 
     // check to see if we have already issued a prefetch for this block
     uint32_t index = 0;
-    PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, index);
+    PrefetchEntry *pfEntry = getPrefetchEntry(line_addr, pc, index);
     if (pfEntry != NULL) {
         // We have an allocated stream. Try to issue next one.
         issueNextPrefetch(line_addr, pfEntry);
@@ -175,31 +175,33 @@ RubyPrefetcher::observeHitWithPC(
     }
 
     // Check if address is in any of the stride filters
-    if (accessUnitFilter(&unitFilter, line_addr, 1, type)) {
+    if (accessUnitFilter(&unitFilter, line_addr, pc, 1, type)) {
         return;
     }
-    if (accessUnitFilter(&negativeFilter, line_addr, -1, type)) {
+    if (accessUnitFilter(&negativeFilter, line_addr, pc, -1, type)) {
         return;
     }
-    if (accessNonunitFilter(line_addr, type)) {
+    if (accessNonunitFilter(line_addr, pc, type)) {
         return;
     }
 
 }
 
 void
-RubyPrefetcher::observePfMiss(Addr address)
+RubyPrefetcher::observePfMissWithId(Addr address, Addr pc)
 {
     rubyPrefetcherStats.numPartialHits++;
-    DPRINTF(RubyPrefetcher, "Observed partial hit for %#x\n", address);
+    DPRINTF(RubyPrefetcher, "Observed partial hit for %#x pc %#x\n",
+        address, pc);
     issueNextPrefetch(address, NULL);
 }
 
 void
-RubyPrefetcher::observePfHit(Addr address)
+RubyPrefetcher::observePfHitWithId(Addr address, Addr pc)
 {
     rubyPrefetcherStats.numPrefetchedHits++;
-    DPRINTF(RubyPrefetcher, "Observed hit for %#x\n", address);
+    DPRINTF(RubyPrefetcher, "Observed hit for %#x pc %#x\n",
+        address, pc);
     issueNextPrefetch(address, NULL);
 }
 
@@ -211,10 +213,11 @@ RubyPrefetcher::observePfEvictUnused(Addr paddr)
 }
 
 void
-RubyPrefetcher::observePfAlreadyCached(Addr paddr)
+RubyPrefetcher::observePfAlreadyCachedWithId(Addr paddr, Addr pc)
 {
     rubyPrefetcherStats.numPrefetchAlreadyCachedBlocks++;
-    DPRINTF(RubyPrefetcher, "Observed already cached pf for %#x\n", paddr);
+    DPRINTF(RubyPrefetcher, "Observed already cached pf for %#x pc %#x\n",
+        paddr, pc);
 }
 
 void
@@ -223,7 +226,7 @@ RubyPrefetcher::issueNextPrefetch(Addr address, PrefetchEntry *stream)
     // get our corresponding stream fetcher
     if (stream == NULL) {
         uint32_t index = 0;
-        stream = getPrefetchEntry(address, index);
+        stream = getPrefetchEntry(address, InvalidPC, index);
     }
 
     // if (for some reason), this stream is unallocated, return.
@@ -281,8 +284,11 @@ RubyPrefetcher::issueNextPrefetch(Addr address, PrefetchEntry *stream)
     auto line_addr = addrBulk.getAt(0);
     if (addrBulk.size() == 1) {
         // Normal case.
-        DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
-        m_controller->enqueuePrefetch(line_addr, stream->m_type);
+        DPRINTF(RubyPrefetcher, "prefetch pc %#x %#x page %#x stride %d\n",
+            stream->m_pc, line_addr,
+            pageAddress(line_addr), stream->m_stride);
+        m_controller->enqueuePrefetchWithId(line_addr,
+            stream->m_type, stream->m_pc);
     } else {
         // Bulk prefetch.
         DPRINTF(RubyPrefetcher,
@@ -312,13 +318,13 @@ RubyPrefetcher::getLRUindex(void)
 }
 
 void
-RubyPrefetcher::initializeStream(Addr address, int stride,
+RubyPrefetcher::initializeStream(Addr address, Addr pc, int stride,
      uint32_t index, const RubyRequestType& type)
 {
 
     DPRINTF(RubyPrefetcher,
-        "Initialize stream, line %#x, page %#x, stride %d, LRU pos %u.\n",
-        makeLineAddress(address, m_block_size_bits),
+        "Init stream pc %#x, line %#x, page %#x, stride %d, LRU pos %u.\n",
+        pc, makeLineAddress(address, m_block_size_bits),
         pageAddress(address), stride, index);
     if (debug::RubyPrefetcher) {
         for (int i = 0; i < m_array.size(); ++i) {
@@ -327,8 +333,8 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
                 continue;
             }
             DPRINTF(RubyPrefetcher,
-                "[CurStrm] %3d page %#x line %#x stride %3d\n",
-                i,
+                "[CurStrm] %3d pc %#x page %#x line %#x stride %3d\n",
+                i, stream.m_pc,
                 pageAddress(stream.m_address),
                 makeLineAddress(stream.m_address, m_block_size_bits),
                 stream.m_stride);
@@ -349,9 +355,17 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
                 if (!sj.m_is_valid) {
                     continue;
                 }
+                bool is_duplicated = false;
                 if (si.m_stride == sj.m_stride &&
                     si.m_address == sj.m_address &&
                     si.m_type == sj.m_type) {
+                    if (this->params().track_pc && si.m_pc != sj.m_pc) {
+                        // Failed the PC check.
+                    } else {
+                        is_duplicated = true;
+                    }
+                }
+                if (is_duplicated) {
                     DPRINTF(RubyPrefetcher,
                         "Dedup stream %d.\n", i);
                     si.m_is_valid = false; 
@@ -361,10 +375,18 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
         }
         for (int i = 0; i < m_array.size(); ++i) {
             const auto &stream = m_array[i];
+            bool is_duplicated = false;
             if (stream.m_is_valid &&
                 pageAddress(address) == pageAddress(stream.m_address) &&
                 stride == stream.m_stride &&
                 type == stream.m_type) {
+                if (this->params().track_pc && pc != stream.m_pc) {
+                    // Failed PC check.
+                } else {
+                    is_duplicated = true;
+                }
+            }
+            if (is_duplicated) {
                 DPRINTF(RubyPrefetcher, "Filtered duplicated stream.\n");
                 return;
             }
@@ -375,8 +397,15 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
     // initialize the stream prefetcher
     PrefetchEntry *mystream = &(m_array[index]);
+
+    if (mystream->m_is_valid) {
+        DPRINTF(RubyPrefetcher, "Replace stream pc %#x addr %#x stride %d\n",
+            mystream->m_pc, mystream->m_address, mystream->m_stride);
+    }
+
     mystream->m_address = makeLineAddress(address, m_block_size_bits);
     mystream->m_stride = stride;
+    mystream->m_pc = pc;
     mystream->m_use_time = m_controller->curCycle();
     mystream->m_is_valid = true;
     mystream->m_type = type;
@@ -410,8 +439,10 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 
         // launch prefetch
         rubyPrefetcherStats.numPrefetchRequested++;
-        DPRINTF(RubyPrefetcher, "Requesting prefetch for %#x\n", line_addr);
-        m_controller->enqueuePrefetch(line_addr, m_array[index].m_type);
+        DPRINTF(RubyPrefetcher, "prefetch pc %#x %#x page %#x stride %d\n",
+            mystream->m_pc, line_addr, pageAddress(line_addr), stride);
+        m_controller->enqueuePrefetchWithId(
+            line_addr, m_array[index].m_type, m_array[index].m_pc);
     }
 
     // update the address to be the last address prefetched
@@ -420,20 +451,26 @@ RubyPrefetcher::initializeStream(Addr address, int stride,
 }
 
 PrefetchEntry *
-RubyPrefetcher::getPrefetchEntry(Addr address, uint32_t &index)
+RubyPrefetcher::getPrefetchEntry(Addr address, Addr pc, uint32_t &index)
 {
     // search all streams for a match
     for (int i = 0; i < m_num_streams; i++) {
         // search all the outstanding prefetches for this stream
         auto &stream = m_array[i];
         if (stream.m_is_valid) {
+            if (params().track_pc && pc != InvalidPC) {
+                // We need to check the PC.
+                if (stream.m_pc != pc) {
+                    continue;
+                }
+            }
             for (int j = 0; j < m_num_startup_pfs; j++) {
                 Addr pfAddr = makeNextStrideAddress(stream.m_address,
                     -(stream.m_stride * j));
                 if (pfAddr == address) {
                     DPRINTF(RubyPrefetcher,
-                        "Match Stream %#x, Stride %d, Index %u.\n",
-                        stream.m_address, stream.m_stride, j);
+                        "Match Stream at %u PC %#x Addr %#x, Stride %d.\n",
+                        j, stream.m_pc, stream.m_address, stream.m_stride);
                     return &stream;
                 }
             }
@@ -444,38 +481,61 @@ RubyPrefetcher::getPrefetchEntry(Addr address, uint32_t &index)
 
 bool
 RubyPrefetcher::accessUnitFilter(CircularQueue<UnitFilterEntry>* const filter,
-    Addr line_addr, int stride, const RubyRequestType& type)
+    Addr line_addr, Addr pc, int stride, const RubyRequestType& type)
 {
     for (auto& entry : *filter) {
+        if (this->params().track_pc && pc != InvalidPC) {
+            if (entry.pc != pc) {
+                continue;
+            }
+        }
         if (entry.addr == line_addr) {
             entry.addr = makeNextStrideAddress(entry.addr, stride);
             entry.hits++;
-            DPRINTF(RubyPrefetcher, "  *** hit %d in unit stride %d buffer\n",
-                entry.hits, stride);
+            DPRINTF(RubyPrefetcher, "  Hit %d with unit stride %d pc %#x\n",
+                entry.hits, stride, pc);
             if (entry.hits >= m_train_misses) {
                 // Allocate a new prefetch stream
-                initializeStream(line_addr, stride, getLRUindex(), type);
+                initializeStream(line_addr, entry.pc, stride, getLRUindex(), type);
             }
             return true;
         }
     }
 
     // Enter this address in the filter
+    DPRINTF(RubyPrefetcher, "Init unit stride %d pc %#x addr %#x\n",
+        stride, pc, line_addr);
     filter->push_back(UnitFilterEntry(
-        makeNextStrideAddress(line_addr, stride)));
+        makeNextStrideAddress(line_addr, stride), pc));
 
     return false;
 }
 
 bool
-RubyPrefetcher::accessNonunitFilter(Addr line_addr,
+RubyPrefetcher::accessNonunitFilter(Addr line_addr, Addr pc,
     const RubyRequestType& type)
 {
     /// look for non-unit strides based on a (user-defined) page size
     Addr page_addr = pageAddress(line_addr);
 
     for (auto& entry : nonUnitFilter) {
-        if (pageAddress(entry.addr) == page_addr) {
+        /**
+         * When not tracking PC, we match the page addr.
+         * Otherwise, we match PC.
+         * 
+         * This is because when tracking PC, when the loop
+         * is unrolled, it's very often that access is crossing
+         * multple pages (observed in MKL). Hence we relax this.
+         */
+        bool matched = false;
+        if (this->params().track_pc && pc != InvalidPC) {
+            // Track PC.
+            matched = entry.pc == pc;
+        } else {
+            // Track page addr.
+            matched = pageAddress(entry.addr) == page_addr;
+        }
+        if (matched) {
             // hit in the non-unit filter
             // compute the actual stride (for this reference)
             int delta = line_addr - entry.addr;
@@ -484,9 +544,10 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
                 // no zero stride prefetches
                 // check that the stride matches (for the last N times)
                 DPRINTF(RubyPrefetcher,
-                    "  *** hit in non-unit stride buffer. "
-                    "hits %d stride %ld delta %ld\n",
-                    entry.hits, entry.stride, delta);
+                    "Hit %d with non-unit stride %ld "
+                    "delta %#x = %#x - %#x pc %#x\n",
+                    entry.hits, entry.stride,
+                    delta, line_addr, entry.addr, entry.pc);
                 if (delta == entry.stride) {
                     // -> stride hit
                     // increment count (if > m_train_misses) allocate stream
@@ -500,7 +561,7 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
                         // clear this filter entry
                         entry.clear();
 
-                        initializeStream(line_addr, stride, getLRUindex(),
+                        initializeStream(line_addr, entry.pc, stride, getLRUindex(),
                             type);
                     }
                 } else {
@@ -519,7 +580,10 @@ RubyPrefetcher::accessNonunitFilter(Addr line_addr,
     }
 
     // not found: enter this address in the table
-    nonUnitFilter.push_back(NonUnitFilterEntry(line_addr));
+    DPRINTF(RubyPrefetcher,
+        "Init non-unit stride addr %#x pc %#x\n",
+        line_addr, pc);
+    nonUnitFilter.push_back(NonUnitFilterEntry(line_addr, pc));
 
     return false;
 }

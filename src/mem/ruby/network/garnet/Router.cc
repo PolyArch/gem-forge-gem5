@@ -53,7 +53,8 @@ Router::Router(const Params &p)
     m_virtual_networks(p.virt_nets), m_vc_per_vnet(p.vcs_per_vnet),
     m_num_vcs(m_virtual_networks * m_vc_per_vnet), m_bit_width(p.width),
     m_network_ptr(nullptr), routingUnit(this), switchAllocator(this),
-    crossbarSwitch(this)
+    crossbarSwitch(this),
+    tracer(m_id, "Router")
 {
     m_input_unit.clear();
     m_output_unit.clear();
@@ -63,6 +64,9 @@ void
 Router::init()
 {
     BasicRouter::init();
+
+    // Duplicate Fanout InPort must happen before SA init.
+    this->addMulticastFanoutInPort();
 
     switchAllocator.init();
     crossbarSwitch.init();
@@ -119,6 +123,38 @@ Router::addInPort(PortDirection inport_dirn,
     m_input_unit.push_back(std::shared_ptr<InputUnit>(input_unit));
 
     routingUnit.addInDirection(inport_dirn, port_num);
+}
+
+void
+Router::addMulticastFanoutInPort()
+{
+
+    if (m_network_ptr->getMulticastMode() !=
+        GarnetNetwork::MulticastModeE::FANOUT_FLIT_AT_FORK) {
+        return;
+    }
+
+    auto num_real_inports = m_input_unit.size();
+    auto num_real_outports = m_output_unit.size();
+    auto duplicate_count = num_real_outports - 1;
+
+    for (auto i = 0; i < num_real_inports; ++i) {
+
+        const auto &inport_dirn = this->getInportDirection(i);
+        auto inport = this->getInputUnit(i);
+
+        for (auto j = 0; j < duplicate_count; ++j) {
+
+            int port_num = m_input_unit.size();
+            m_input_unit.push_back(
+                std::make_shared<InputUnit>(port_num, inport_dirn, this)
+            );
+            m_input_unit.back()->setFanoutMainInPortNum(i);
+            inport->addFanoutInPortNum(port_num);
+
+            // No need to add to RoutingUnit?
+        }
+    }
 }
 
 void
@@ -249,6 +285,8 @@ Router::collateStats()
     m_sw_output_arbiter_activity =
         switchAllocator.get_output_arbiter_activity();
     m_crossbar_activity = crossbarSwitch.get_crossbar_activity();
+
+    this->tracer.write();
 }
 
 void
@@ -260,6 +298,8 @@ Router::resetStats()
 
     crossbarSwitch.resetStats();
     switchAllocator.resetStats();
+
+    this->tracer.resetFloatTrace();
 }
 
 void
@@ -324,6 +364,20 @@ Router::functionalWrite(Packet *pkt)
     }
 
     return num_functional_writes;
+}
+
+void Router::traceEvent(
+    Cycles cycle, ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event)
+{
+    if (this->params().enable_trace)
+    {
+        this->tracer.traceEvent(cycle, MachineID(MachineType_L2Cache, m_id), event);
+    }
+}
+
+void Router::traceEvent(
+    ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType event) {
+  this->traceEvent(this->curCycle(), event);
 }
 
 } // namespace garnet

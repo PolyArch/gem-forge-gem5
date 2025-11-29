@@ -110,6 +110,14 @@ class X86CPUID
     uint64_t stringToRegister(const char *str);
 };
 
+    // Support to implement real CPU id.
+    bool doCpuidWithRealCPU(const std::string &realCPUId,
+        ThreadContext * tc, uint32_t function,
+        uint32_t index, CpuidResult &result);
+
+    // A hacker implementation for xgetbv.
+    bool doXGETBVInst(ThreadContext * tc, uint32_t ecx, CpuidResult &result);
+
 } // namespace X86ISA
 } // namespace gem5
 

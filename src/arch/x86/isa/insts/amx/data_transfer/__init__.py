@@ -1,7 +1,11 @@
 
 categories = [
+    "ldtilecfg",
     "tileloadd",
+    "tileloaddt1",
+    "tilerelease",
     "tilestored",
+    "tilezero",
 ]
 
 microcode = """

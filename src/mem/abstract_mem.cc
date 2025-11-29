@@ -393,7 +393,10 @@ AbstractMemory::access(PacketPtr pkt)
       return;
     }
 
-    assert(pkt->getAddrRange().isSubset(range));
+    if (!hasInterleaveMaskFunc)
+    {
+        assert(pkt->getAddrRange().isSubset(range));
+    }
 
     uint8_t *host_addr = toHostAddr(pkt->getAddr());
 
@@ -506,7 +509,10 @@ AbstractMemory::access(PacketPtr pkt)
 void
 AbstractMemory::functionalAccess(PacketPtr pkt)
 {
-    assert(pkt->getAddrRange().isSubset(range));
+    if (!hasInterleaveMaskFunc)
+    {
+        assert(pkt->getAddrRange().isSubset(range));
+    }
 
     uint8_t *host_addr = toHostAddr(pkt->getAddr());
 
@@ -561,6 +567,12 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
         panic("AbstractMemory: unimplemented functional command %s",
               pkt->cmdString());
     }
+}
+
+void
+AbstractMemory::setInterleaveMaskFunc(InterleaveMaskFuncT *mask_func)
+{
+    panic("%s: Custom Interleave Mask Func not Supported.", this->name());
 }
 
 } // namespace memory

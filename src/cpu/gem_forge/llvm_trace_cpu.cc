@@ -19,6 +19,7 @@ LLVMTraceCPU::LLVMTraceCPU(const Params &params)
     : BaseCPU(params), cpuParams(&params),
       pageTable(params.name + ".page_table", 0, params.system,
                 params.isa[0]->getPageBytes()),
+      memPools(log2i(params.isa[0]->getPageBytes())),
       instPort(params.name + ".inst_port", this),
       dataPort(params.name + ".data_port", this),
       traceFileName(params.traceFile), totalActiveCPUs(params.totalActiveCPUs),
@@ -126,6 +127,15 @@ void LLVMTraceCPU::init() {
     // Create the delegator and handshake with the accelerator manager.
     this->accelManager->handshake(this->cpuDelegator.get());
   }
+
+  AddrRangeList memories = this->system->getPhysMem().getConfAddrRanges();
+  const auto &m5op_range = this->system->m5opRange();
+
+  if (m5op_range.valid()) {
+      memories -= m5op_range;
+  }
+
+  memPools.populate(memories);
 }
 
 void LLVMTraceCPU::tick() {
@@ -553,9 +563,7 @@ Addr LLVMTraceCPU::translateAndAllocatePhysMem(Addr vaddr) {
     // Handle the page fault.
     Addr pageBytes = this->pageTable.pageSize();
     Addr startVaddr = this->pageTable.pageAlign(vaddr);
-    assert(this->process);
-    assert(this->process->seWorkload);
-    auto startPaddr = this->process->seWorkload->allocPhysPages(1);
+    auto startPaddr = this->memPools.allocPhysPages(1);
     this->pageTable.map(startVaddr, startPaddr, pageBytes);
     DPRINTF(LLVMTraceCPU, "Map vaddr 0x%x to paddr 0x%x\n", startVaddr,
             startPaddr);

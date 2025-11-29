@@ -63,8 +63,13 @@ enum EVEXTupleType
  * 66 5D vminpd         FULL
  * 66 5E vdivpd         FULL
  * 66 5F vmaxpd         FULL
+ * 66 60 vpunpcklbw     FULL_MEM
+ * 66 61 vpunpcklwd     FULL_MEM
  * 66 67 vpackuswb      FULL_MEM
+ * 66 68 vpunpckhbw     FULL_MEM
+ * 66 69 vpunpckhwd     FULL_MEM
  * 66 6F vmovdqa(load)  FULL_MEM
+ * 66 70 vpshufd        FULL
  * 66 72 vpslld/vpsrld/vpsraq  FULL
  * 66 73 vpsllq/vpsrlq  FULL
  * 66 7F vmovdqa(store) FULL_MEM
@@ -91,8 +96,8 @@ const EVEXTupleType EVEXTupleTypeTwoByte66[256] =
 /*  3 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  4 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  5 */ O , O , O , O , O , O , O , FU, FU, FU, FU, FU, FU, FU, FU, FU,
-/*  6 */ O , O , O , O , O , O , O , FM, O , O , O , O , O , O , O , FM,
-/*  7 */ O , O , FU, FU, O , O , O , O , O , O , O , O , O , O , O , FM,
+/*  6 */ FM, FM, O , O , O , O , O , FM, FM, FM, O , O , O , O , O , FM,
+/*  7 */ FU, O , FU, FU, O , O , O , O , O , O , O , O , O , O , O , FM,
 /*  8 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  9 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  A */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
@@ -147,6 +152,8 @@ const EVEXTupleType EVEXTupleTypeTwoByteF3[256] =
  * F2 5C vsubsd         TUPLE1_SCALAR
  * F2 5A vcvtsd2ss      TUPLE1_SCALAR
  * F2 5E vdivsd         TUPLE1_SCALAR
+ * F2 6F vmovdqu(load)  FULL_MEM
+ * F2 7F vmovdqu(store) FULL_MEM
  */
 const EVEXTupleType EVEXTupleTypeTwoByteF2[256] =
     {    //LSB
@@ -157,8 +164,8 @@ const EVEXTupleType EVEXTupleTypeTwoByteF2[256] =
 /*  3 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  4 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  5 */ O , O , O , O , O , O , O , O , TS, TS, TS, O , TS, O , TS, O ,
-/*  6 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
-/*  7 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
+/*  6 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , FM,
+/*  7 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , FM,
 /*  8 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  9 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  A */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
@@ -172,6 +179,8 @@ const EVEXTupleType EVEXTupleTypeTwoByteF2[256] =
  * Implemeted.
  * 10 vmovups(load)        FULL_MEM
  * 11 vmovups(store)       FULL_MEM
+ * 14 vunpcklps            FULL
+ * 15 vunpckhps            FULL
  * 28 vmovaps(load)        FULL_MEM
  * 29 vmovaps(store)       FULL_MEM
  * 54 vandps               FULL
@@ -188,7 +197,7 @@ const EVEXTupleType EVEXTupleTypeTwoByte[256] =
     {    //LSB
 // MSB   O | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
 /*  O */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
-/*  1 */ FM, FM, O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
+/*  1 */ FM, FM, O , O , FU, FU, O , O , O , O , O , O , O , O , O , O ,
 /*  2 */ O , O , O , O , O , O , O , O , FM, FM, O , O , O , O , O , O ,
 /*  3 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  4 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
@@ -206,19 +215,28 @@ const EVEXTupleType EVEXTupleTypeTwoByte[256] =
     };
 /****************************************************************
  * Implemeted.
+ *   66 16 vpermps                FULL
  *   66 18 vbroadcastss           TUPLE1_SCALAR
  *   66 19 vbroadcastsd(W1)       TUPLE1_SCALAR
  * ! 66 19 vbroadcastf32x2(W0)    TUPLE2
+ *   66 1A vbroadcastf64x2(W1)    TUPLE2
+ * ! 66 1A vbroadcastf32x4(W0)    TUPLE4
+ *   66 1B vbroadcastf64x4(W1)    TUPLE4
+ * ! 66 1B vbroadcastf32x8(W0)    TUPLE8
  *   66 28 vpmuldq                FULL
  *   66 2B vpackusdw              FULL
+ *   66 36 vpermd                 FULL
+ *   66 37 vpcmpgtq               FULL
  *   66 39 vpminsd,vpminsq        FULL
  *   66 40 vpmulld                FULL
+ *   66 50 vpdpbusd               FULL
  *   66 58 vbroadcastd            TUPLE1_SCALAR
  *   66 7A vbroadcastb            TUPLE1_SCALAR
  *   66 7B vbroadcastw            TUPLE1_SCALAR
  *   66 98 vfmadd132ps            FULL
  *   66 9C vfnmadd132ps           FULL
  *   66 A8 vfmadd213ps            FULL
+ *   66 A9 vfmadd213ss            TUPLE1_SCALAR
  *   66 AC vfnmadd213ps           FULL
  *   66 AD vfnmadd213ss           TUPLE1_SCALAR
  *   66 B8 vfmadd231ps            FULL
@@ -229,16 +247,16 @@ const EVEXTupleType EVEXTupleTypeThreeByte660F38[256] =
     {    //LSB
 // MSB   O | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
 /*  O */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
-/*  1 */ O , O , O , O , O , O , O , O , TS, TS, O , O , O , O , O , O ,
+/*  1 */ O , O , O , O , O , O , FU, O , TS, TS, T2, T4, O , O , O , O ,
 /*  2 */ O , O , O , O , O , O , O , O , FU, O , O , FU, O , O , O , O ,
-/*  3 */ O , O , O , O , O , O , O , O , O , FU, O , O , O , O , O , O ,
+/*  3 */ O , O , O , O , O , O , FU, FU, O , FU, O , O , O , O , O , O ,
 /*  4 */ FU, O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
-/*  5 */ O , O , O , O , O , O , O , O , TS, O , O , O , O , O , O , O ,
+/*  5 */ FU, O , O , O , O , O , O , O , TS, O , O , O , O , O , O , O ,
 /*  6 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  7 */ O , O , O , O , O , O , O , O , O , O , TS, TS, O , O , O , O ,
 /*  8 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  9 */ O , O , O , O , O , O , O , O , FU, O , O , O , FU, O , O , O ,
-/*  A */ O , O , O , O , O , O , O , O , FU, O , O , O , FU, TS, O , O ,
+/*  A */ O , O , O , O , O , O , O , O , FU, TS, O , O , FU, TS, O , O ,
 /*  B */ O , O , O , O , O , O , O , O , FU, O , O , O , FU, TS, O , O ,
 /*  C */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  D */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
@@ -277,18 +295,20 @@ const EVEXTupleType EVEXTupleTypeThreeByteF30F38[256] =
  *   66 17 vextractps              TUPLE1_SCALAR
  * ! 66 18 vinsertf128             TUPLE2/TUPLE4
  * ! 66 19 vextractf128            TUPLE2/TUPLE4
+ *   66 23 vshuff32x4/f64x2        FULL
  *   66 25 vpternlog               FULL
  * ! 66 38 vinserti128             TUPLE2/TUPLE4
  * ! 66 39 vextracti128            TUPLE2/TUPLE4
+ *   66 43 vshuff32x4/f64x2        FULL
  */
 const EVEXTupleType EVEXTupleTypeThreeByte660F3A[256] =
     {    //LSB
 // MSB   O | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
 /*  O */ O , O , O , FU, O , FU, O , O , O , O , O , O , O , O , O , O ,
 /*  1 */ O , O , O , O , O , O , TS, TS, T2, T2, O , O , O , O , O , O ,
-/*  2 */ O , O , O , O , O , FU, O , O , O , O , O , O , O , O , O , O ,
+/*  2 */ O , O , O , FU, O , FU, O , O , O , O , O , O , O , O , O , O ,
 /*  3 */ O , O , O , O , O , O , O , O , T2, T2, O , O , O , O , O , O ,
-/*  4 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
+/*  4 */ O , O , O , FU, O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  5 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  6 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /*  7 */ O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
@@ -341,8 +361,21 @@ void Decoder::processCompressedDisplacement() {
     }
     case ThreeByte0F38Opcode: {
       switch (emi.legacy.decodeVal) {
-        case 0x1: tupleType = EVEXTupleTypeThreeByte660F38[emi.opcode.op];
+        case 0x1: {
+          tupleType = EVEXTupleTypeThreeByte660F38[emi.opcode.op];
+          if (emi.opcode.op == 0x1A) {
+          // Special case for 66 0F 38 1A vbroadcastf32x4/vbroadcastf64x2.
+            tupleType = emi.rex.w ?
+              EVEXTupleType::TUPLE2 :
+              EVEXTupleType::TUPLE4;
+          } else if (emi.opcode.op == 0x1B) {
+          // Special case for 66 0F 38 1B vbroadcastf32x8/vbroadcastf64x4.
+            tupleType = emi.rex.w ?
+              EVEXTupleType::TUPLE4 :
+              EVEXTupleType::TUPLE8;
+          }
           break;
+        }
         case 0x4: tupleType = EVEXTupleTypeThreeByteF30F38[emi.opcode.op];
           break;
       }
@@ -397,6 +430,7 @@ void Decoder::processCompressedDisplacement() {
     case TUPLE1_SCALAR: N = emi.rex.w ? 8 : 4; break;
     case TUPLE2:        N = emi.rex.w ? 16 : 8; break;
     case TUPLE4:        N = emi.rex.w ? 32 : 16; break;
+    case TUPLE8:        N = 32; break;
     case MOVDDUP: {
       switch (emi.evex.l_extend) {
         case 0: N = 8; break;

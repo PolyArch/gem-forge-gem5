@@ -116,6 +116,9 @@ class LdStFpOp : public InstOperands<MemOp, FloatDataOp, AddrOp>
             { _data, { _scale, _index, _base, _disp, _segment } },
             data_size, address_size, mem_flags | _segment.index)
     {}
+
+    int getAMXSubTileBytes(ExecContext *xc,
+                           int tileId, int row, int col) const;
 };
 
 /**

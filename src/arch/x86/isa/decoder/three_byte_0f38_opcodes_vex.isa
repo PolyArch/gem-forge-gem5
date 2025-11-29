@@ -35,6 +35,11 @@
         1: decode LEGACY_DECODEVAL {
             // 0x66
             0x1: decode OPCODE_OP {
+                0x16: decode REX_W {
+                    0x0: decode EVEX_L{
+                        0x1: VPERMPS(VYdo, WYdo);
+                    }
+                }
                 0x18: decode EVEX_L {
                     0x1: VBROADCASTSS(VYdo, Wq);
                     0x0: VBROADCASTSS(Vo, Wq);
@@ -55,9 +60,23 @@
                     0x1: VPMINSD(VYdo, WYdo);
                     0x0: VPMINSD(Vo, Wo);
                 }
+                0x40: decode EVEX_L {
+                    0x1: VPMULLD(VYdo, WYdo);
+                    0x0: VPMULLD(Vo, Wo);
+                }
+                0x4B: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x0: TILELOADDT1(VZqo, WZqo);
+                    }
+                }
                 0x58: decode EVEX_L {
                     0x1: VPBROADCASTD(VYdo, Wd);
                     0x0: VPBROADCASTD(Vo, Wd);
+                }
+                0x5E: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x0: TDPBUSD(VZqo, Rqo);
+                    }
                 }
                 0x78: decode EVEX_L {
                     0x1: VPBROADCASTB(VYdo, Wb);
@@ -93,22 +112,51 @@
                         0x0: VFNMADD231SS(Vo, Wq);
                     }
                 }
+                0xF7: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x1: SHLXQ(Gv, Ev);
+                    }
+                }
             }
         }
         0: decode LEGACY_DECODEVAL {
+            0x0: decode OPCODE_OP {
+                0x49: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x0: decode MODRM {
+                            0xC0: TILERELEASE();
+                            default: LDTILECFG(Mqo);
+                        }
+                    }
+                }
+                0xF2: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x1: ANDNQ(Gq, Eq);
+                    }
+                }
+            }
             // 0xF3
             0x4: decode OPCODE_OP {
                 0x4B: decode EVEX_L {
-                    0x0: TILESTORED(VZqo, WZqo);
+                    0x0: TILESTORED(VZqo, Mqo);
                 }
             }
             // 0xF2 scalar double
             0x8: decode OPCODE_OP {
+                0x49: decode EVEX_L {
+                    0x0: decode REX_W {
+                        0x0: TILEZERO(Gq);
+                    }
+                }
                 0x4B: decode EVEX_L {
-                    0x0: TILELOADD(VZqo, WZqo);
+                    0x0: decode REX_W {
+                        0x0: TILELOADD(VZqo, WZqo);
+                    }
                 }
                 0x5E: decode EVEX_L {
-                    0x0: TDPBSSD(VZqo, WZqo);
+                    0x0: decode REX_W {
+                        0x0: TDPBSSD(VZqo, Rqo);
+                    }
                 }
             }
         }

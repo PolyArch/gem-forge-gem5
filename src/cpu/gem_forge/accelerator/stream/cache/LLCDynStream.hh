@@ -81,6 +81,19 @@ public:
   }
 
   Stream *getStaticS() const { return this->configData->stream; }
+  bool isMemDisabled() const { return this->configData->disableMem; }
+  bool isCmpDisabled() const { return this->configData->disableCmp; }
+  bool trackBaseElemBeforeIssue() const {
+    return this->configData->trackBaseElemBeforeIssue;
+  }
+  bool isUpdateStream() const {
+    return !this->configData->disableCmp &&
+           this->getStaticS()->isUpdateStream();
+  }
+  bool isStoreComputeStream() const {
+    return !this->configData->disableCmp &&
+           this->getStaticS()->isStoreComputeStream();
+  }
   DynStream *getCoreDynS() const {
     return this->getStaticS()->getDynStream(this->getDynStreamId());
   }
@@ -215,6 +228,11 @@ public:
   void checkNextAllocElemIdx();
   LLCStreamSlicePtr getNextAllocSlice() const;
   LLCStreamSlicePtr allocNextSlice(LLCStreamEngine *se);
+
+  float getMinRecvStrandProgress(const DynStreamSliceId &sliceId) const;
+  float getMinRecvStrandProgress() const {
+    return this->getMinRecvStrandProgress(this->peekNextAllocSliceId());
+  }
 
   void
   traceEvent(const ::LLVM::TDG::StreamFloatEvent::StreamFloatEventType &type);
@@ -429,6 +447,7 @@ public:
   struct ReusedBaseStream {
     const int reuse = 1;
     std::map<uint64_t, ReusedBaseElement> elems;
+    ReusedBaseStream() = default;
     ReusedBaseStream(int _reuse) : reuse(_reuse) {}
 
     bool hasElem(uint64_t streamElemIdx) const {
@@ -458,6 +477,11 @@ public:
   // Base stream with reuse.
   LLCDynStream *baseStream = nullptr;
   StreamReuseInfo baseStreamReuseInfo;
+
+  // Used to track store reuse.
+  StreamReuseInfo storeReuseInfo;
+  ReusedBaseStream reusedStoreStream;
+  void checkStoreReuse(LLCStreamElementPtr elem);
 
   // Root stream.
   LLCDynStream *rootStream = nullptr;

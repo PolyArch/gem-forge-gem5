@@ -89,6 +89,7 @@ class NetDest
 
     // For Princeton Network
     std::vector<NodeID> getAllDest() const;
+    std::vector<MachineID> getAllDestMachineID(RubySystem *ruby_system) const;
 
     MachineID smallestElement() const;
     MachineID smallestElement(MachineType machine) const;

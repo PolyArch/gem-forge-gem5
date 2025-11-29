@@ -408,6 +408,9 @@ enum : RegIndex
     XcrBase,
     Xcr0 = XcrBase,
 
+    // AMX tile config to track dependence.
+    AmxTileConfig,
+
     NumRegs
 };
 

@@ -594,11 +594,18 @@ CacheStreamConfigureData::translateSendToRecv(
                       getStreamValueFail)
             .front();
 
-    auto recvStreamElemIdx =
-        recvConfig->getStreamElemIdxFromStrandElemIdx(recvStrandElemIdx);
+    // auto recvStreamElemIdx =
+    //     recvConfig->getStreamElemIdxFromStrandElemIdx(recvStrandElemIdx);
+    // auto recvElemMachineType =
+    //     recvConfig->streamConfig->floatPlan.getMachineTypeAtElem(
+    //         recvStreamElemIdx);
+    /**
+     * After I did these crazy reuse split strand, I think I have to give up
+     * arbitrary float plan support.
+     */
+    assert(recvConfig->floatPlan.changePoints.size() == 1);
     auto recvElemMachineType =
-        recvConfig->streamConfig->floatPlan.getMachineTypeAtElem(
-            recvStreamElemIdx);
+        recvConfig->floatPlan.getMachineTypeAtElem(recvStrandElemIdx);
 
     DYN_S_DPRINTF_(LLCRubyStreamBase, sendConfig->getStrandId(),
                    "[LLCFwd] SendStrnd %lu R/S %s/%ld -> RecvStrnd %s%lu %s.\n",

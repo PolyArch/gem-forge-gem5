@@ -102,6 +102,12 @@ def define_options(parser):
         "0 = highest bit, not specified = lowest bit",
     )
     parser.add_argument(
+        "--numa-custom-interleave",
+        type=int,
+        default=0,
+        help="Whether enable NUMA custom interleaving",
+    )
+    parser.add_argument(
         "--interleaving-bits",
         type=int,
         default=0,
@@ -131,7 +137,9 @@ def define_options(parser):
         '--ruby-mesh-dir-location',
         type=str,
         default='corner',
-        choices=['corner', 'middle', 'tile', 'diag'],
+        choices=['corner', 'middle', 'tile', 'diag',
+            'east-west-edge', 'east-edge', 'west-edge',
+            'north-south-edge', 'north-edge',],
         help='How to place directories in the mesh network.',
     )
 
@@ -336,7 +344,8 @@ def create_directories(options, bootmem, ruby_system, system):
         dir_cntrl = Directory_Controller()
         dir_cntrl.version = i
         dir_cntrl.directory = RubyDirectoryMemory(
-            block_size=ruby_system.block_size_bytes
+            block_size=ruby_system.block_size_bytes,
+            index=i,
         )
         dir_cntrl.ruby_system = ruby_system
 

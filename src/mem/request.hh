@@ -289,6 +289,15 @@ class Request : public Extensible<Request>
         OFFLOADED                   = 0x1000000000000000,
 
         /**
+         * ! GemForge
+         * This request comes with temporal hint (x86).
+         * TODO: Very wasteful. Conserve some bits.
+         */
+        TEMPORAL_HINT_T1            = 0x2000000000000000,
+        TEMPORAL_HINT_T2            = 0x4000000000000000,
+        TEMPORAL_HINT_NTA           = 0x8000000000000000,
+
+        /**
          * These flags are *not* cleared when a Request object is
          * reused (assigned a new address).
          */

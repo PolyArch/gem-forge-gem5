@@ -37,6 +37,9 @@
 
 #include "sim/stream_nuca/stream_nuca_map.hh"
 
+#include "base/trace.hh"
+#include "debug/Arteen.hh"
+
 namespace gem5
 {
 
@@ -52,18 +55,21 @@ mapAddressToRange(Addr addr, MachineType type, int low_bit,
      * Intercept the mapping for LLC bank to enable StreamNUCA.
      */
     if (type == MachineType::MachineType_L2Cache) {
-        auto bank = StreamNUCAMap::getBank(addr);
-        if (bank != -1) {
-            MachineID mach = {type, static_cast<NodeID>(bank)};
-            return mach;
-        }
+      auto bank = StreamNUCAMap::getBank(addr);
+      DPRINTF(Arteen, "Got bank: %d\n", bank);      
+      if (bank != -1) {
+        MachineID mach = {type, static_cast<NodeID>(bank)};
+        mach.num += (1 << num_bits) * cluster_id;
+        return mach;
+      }
     }
     MachineID mach = {type, 0};
     if (num_bits == 0)
         mach.num = cluster_id;
     else
         mach.num = bitSelect(addr, low_bit, low_bit + num_bits - 1)
-            + (1 << num_bits) * cluster_id;
+                   + (1 << num_bits) * cluster_id;
+    DPRINTF(Arteen, "Result of mach.num (final conditional): %d\n", mach.num);
     return mach;
 }
 

@@ -133,6 +133,10 @@ class BaseO3CPU(BaseCPU):
     trapLatency = Param.Cycles(13, "Trap latency")
     fetchTrapLatency = Param.Cycles(1, "Fetch trap latency")
 
+    block_on_prefetch_inst = Param.Bool(
+        True, "Whether wait for prefetch inst."
+    )
+
     backComSize = Param.Unsigned(
         5, "Time buffer size for backwards communication"
     )
@@ -226,3 +230,4 @@ class BaseO3CPU(BaseCPU):
     recvRespBufferSize = Param.Unsigned(
         64, "Maximum number of receive response bytes per cycle"
     )
+    maxStoresInFlight = Param.Int(0, "Max inflight stores. Zero means no limit.")

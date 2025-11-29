@@ -311,7 +311,8 @@ BaseSimpleCPU::setupFetchRequest(const RequestPtr &req)
     Addr fetchPC = (instAddr & decoder->pcMask()) + t_info.fetchOffset;
 
     // set up memory request for instruction fetch
-    DPRINTF(Fetch, "Fetch: Inst PC:%08p, Fetch PC:%08p\n", instAddr, fetchPC);
+    // DPRINTF(Fetch,
+    //    "Fetch: Inst PC:%08p, Fetch PC:%08p\n", instAddr, fetchPC);
 
     req->setVirt(fetchPC, decoder->moreBytesSize(), Request::INST_FETCH,
                  instRequestorId(), instAddr);
@@ -382,8 +383,22 @@ BaseSimpleCPU::preExecute()
 
     //If we decoded an instruction this "tick", record information about it.
     if (curStaticInst) {
-        DPRINTF(Fetch, "Fetched %s\n",
-            curStaticInst->disassemble(pc_state.instAddr()));
+        if (debug::Fetch) {
+            std::stringstream ss;
+            ccprintf(ss, "Fetched %s %s", pc_state, 
+                curStaticInst->disassemble(pc_state.instAddr()));
+            for (int i = 0; i < curStaticInst->numSrcRegs(); ++i) {
+                const auto &reg = curStaticInst->srcRegIdx(i);
+                if (reg.classValue() == RegClassType::IntRegClass) {
+                    ccprintf(ss, " %#x",
+                        t_info.getRegOperand(curStaticInst.get(), i));
+                } else {
+                    ccprintf(ss, " ?");
+                }
+            }
+            DPRINTF(Fetch, "%s\n", ss.str());
+        }
+        
 #if TRACING_ON
         traceData = tracer->getInstRecord(curTick(), thread->getTC(),
                 curStaticInst, thread->pcState(), curMacroStaticInst);

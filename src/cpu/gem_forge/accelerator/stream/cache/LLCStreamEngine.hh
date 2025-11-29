@@ -117,11 +117,13 @@ private:
   std::unique_ptr<StreamReuseBuffer> reuseBuffer;
   std::unique_ptr<PUMEngine> pumEngine;
   const int issueWidth;
+  std::pair<DynStrandId, int> curIssueBurst;
   const int migrateWidth;
-  // Threshold to limit maximum number of infly requests.
-  const int maxInflyRequests;
-  // Threshold to limit maximum number of requests in queue;
+  // Threshold to limit maximum number of requests in queue.
   const int maxInqueueRequests;
+  // Threshold to limit maximum number of direct req infly.
+  const int maxInflyDirectRequests;
+  int curInflyDirectRequests = 0;
 
   using StreamSet = std::set<LLCDynStreamPtr>;
   using StreamVec = std::vector<LLCDynStreamPtr>;
@@ -267,10 +269,10 @@ private:
   void issueStreams();
 
   /**
-   * Find a stream ready to issue.
+   * Check if a direct stream is ready to issue.
    * @return nullptr if not found.
    */
-  LLCDynStreamPtr findStreamReadyToIssue(LLCDynStreamPtr dynS);
+  LLCDynStreamPtr checkDirectStreamReadyToIssue(LLCDynStreamPtr dynS);
 
   /**
    * Helper function to manage the issuing streams.
@@ -480,7 +482,10 @@ private:
    * Helper function to check if a stream should
    * be migrated.
    */
-  bool canMigrateStream(LLCDynStream *dynS) const;
+  struct CanMigrateArgs {
+    bool checkIndBufferReq = true;
+  };
+  bool canMigrateStream(LLCDynStream *dynS, const CanMigrateArgs &args) const;
 
   /**
    * Helper function to process stream data for indirect/update.
@@ -583,7 +588,9 @@ private:
                      const StreamValue &_result, Cycles _readyCycle)
         : elem(_elem), result(_result), readyCycle(_readyCycle) {}
   };
-  int64_t numInflyRealCmps = 0;
+  int numInflyRealCmps = 0;
+  int numInflyMatrixCmps = 0;
+  static constexpr int maxInflyMatrixCmps = 1;
   std::list<InflyComputation> inflyComputations;
   void tryVectorizeElem(LLCStreamElementPtr &elem, bool tryVectorize);
   void pushReadyComputation(LLCStreamElementPtr &elem,

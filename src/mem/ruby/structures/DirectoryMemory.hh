@@ -60,7 +60,8 @@ namespace ruby
 class DirectoryMemory : public SimObject
 {
   public:
-    typedef RubyDirectoryMemoryParams Params;
+    // typedef RubyDirectoryMemoryParams Params;
+    PARAMS(RubyDirectoryMemory);
     DirectoryMemory(const Params &p);
     ~DirectoryMemory();
 
@@ -91,6 +92,8 @@ class DirectoryMemory : public SimObject
     void print(std::ostream& out) const;
     void recordRequestType(DirectoryRequestType requestType);
 
+    void updateAddrRanges(AddrRangeList &addrRanges);
+
   private:
     // Private copy constructor and assignment operator
     DirectoryMemory(const DirectoryMemory& obj);
@@ -112,7 +115,7 @@ class DirectoryMemory : public SimObject
      * The address range for which the directory responds. Normally
      * this is all possible memory addresses.
      */
-    const AddrRangeList addrRanges;
+    AddrRangeList addrRanges;
 };
 
 inline std::ostream&

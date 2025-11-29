@@ -6,6 +6,7 @@
 
 #include "debug/MLCStreamPUM.hh"
 #include "debug/StreamNUCAMap.hh"
+#include "debug/Arteen.hh"
 
 namespace gem5 {
 
@@ -18,6 +19,9 @@ StreamNUCAMap::NonUniformNodeVec StreamNUCAMap::numaNodes;
 std::map<Addr, StreamNUCAMap::RangeMap> StreamNUCAMap::rangeMaps;
 std::map<int, Addr> StreamNUCAMap::pumWordlineToRangeMap;
 std::unordered_map<Addr, int> StreamNUCAMap::paddrLineToBankMap;
+
+StreamNUCAMap::RegisterNUMAInterleavePoolFuncT
+    *StreamNUCAMap::registerNUMAInterleavePool = nullptr;
 
 void StreamNUCAMap::initializeTopology(int numRows, int numCols) {
   if (topologyInitialized) {
@@ -105,18 +109,19 @@ void StreamNUCAMap::checkOverlapRange(Addr startPAddr, Addr endPAddr) {
 
 void StreamNUCAMap::addRangeMap(Addr startPAddr, Addr endPAddr) {
   std::vector<uint64_t> defaultIntrlv(1, 0);
-  addRangeMap(startPAddr, endPAddr, defaultIntrlv, -1, -1);
+  addRangeMap(startPAddr, endPAddr, defaultIntrlv, -1, -1, false);
 }
 
 void StreamNUCAMap::addRangeMap(Addr startPAddr, Addr endPAddr,
                                 const std::vector<uint64_t> &interleaves,
-                                int startBank, int startSet) {
+                                int startBank, int startSet,
+                                bool transposeBank) {
   checkOverlapRange(startPAddr, endPAddr);
-  DPRINTF(StreamNUCAMap, "Add PAddrRangeMap [%#x, %#x) %% %lu + %d.\n",
-          startPAddr, endPAddr, startBank);
+  DPRINTF(StreamNUCAMap, "Add PAddrRangeMap [%#x, %#x) %% %lu + %d T%d.\n",
+          startPAddr, endPAddr, startBank, transposeBank);
   rangeMaps.emplace(std::piecewise_construct, std::forward_as_tuple(startPAddr),
                     std::forward_as_tuple(startPAddr, endPAddr, interleaves,
-                                          startBank, startSet));
+                                          startBank, startSet, transposeBank));
 }
 
 void StreamNUCAMap::addRangeMap(Addr startPAddr, Addr endPAddr,
@@ -184,11 +189,16 @@ int StreamNUCAMap::getNUCABank(Addr paddr, const RangeMap &range) {
   assert(bankIdx < range.interleaves.size());
   auto bank = startBank + roundIdx * numBanksPerRound + bankIdx;
   bank = bank % (getNumRows() * getNumCols());
+  if (range.transposeBank) {
+    auto bankRow = bank / getNumCols();
+    auto bankCol = bank % getNumCols();
+    bank = bankCol * getNumCols() + bankRow;
+  }
   DPRINTF(StreamNUCAMap,
-          "Map PAddr %#x in [%#x, %#x) Round %dx%d + %d + StartBank(%d) to "
+          "Map PAddr %#x in [%#x, %#x) Round %dx%d + %d + StartBank(%d) T%d to "
           "Bank %d of %dx%d.\n",
           paddr, startPAddr, endPAddr, roundIdx, numBanksPerRound, bankIdx,
-          startBank, bank, getNumRows(), getNumCols());
+          startBank, range.transposeBank, bank, getNumRows(), getNumCols());
   return bank;
 }
 
@@ -244,15 +254,20 @@ StreamNUCAMap::getPUMLocation(Addr paddr, const RangeMap &range) {
 
 int StreamNUCAMap::getBank(Addr paddr) {
   if (auto *range = getRangeMapContaining(paddr)) {
+    DPRINTF(Arteen, "found range map containing our addr\n");
     if (range->isStreamPUM) {
+      DPRINTF(Arteen, "is a streamPUM\n");
       return getPUMLocation(paddr, *range).bank;
     } else if (range->startBank != -1) {
+      DPRINTF(Arteen, "is a NUCABank\n");      
       return getNUCABank(paddr, *range);
     }
   }
+  DPRINTF(Arteen, "did not found range map\n");
   const auto lineSize = getCacheBlockSize();
   auto paddrLine = paddr - (paddr % lineSize);
   if (paddrLineToBankMap.count(paddrLine)) {
+    DPRINTF(Arteen, "lineSize: %d, paddrLine: %d, paddrLinetoMap.count: %d\n", lineSize, paddrLine, paddrLineToBankMap.count(paddrLine));
     return paddrLineToBankMap.at(paddrLine);
   }
   return -1;

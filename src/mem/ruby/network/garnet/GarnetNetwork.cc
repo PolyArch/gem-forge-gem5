@@ -36,6 +36,7 @@
 #include "base/cast.hh"
 #include "base/compiler.hh"
 #include "debug/RubyNetwork.hh"
+#include "debug/Arteen.hh"
 #include "mem/ruby/common/NetDest.hh"
 #include "mem/ruby/network/MessageBuffer.hh"
 #include "mem/ruby/network/garnet/CommonTypes.hh"
@@ -65,7 +66,10 @@ namespace garnet
 GarnetNetwork::GarnetNetwork(const Params &p)
     : Network(p)
 {
-    m_num_rows = p.num_rows;
+  m_num_rows = p.num_rows;
+  // all chiplets are square -- Arteen
+  m_num_cols = m_num_rows;
+
     m_ni_flit_size = p.ni_flit_size;
     m_max_vcs_per_vnet = 0;
     m_buffers_per_data_vc = p.buffers_per_data_vc;
@@ -76,7 +80,16 @@ GarnetNetwork::GarnetNetwork(const Params &p)
     m_enable_fault_model = p.enable_fault_model;
     if (m_enable_fault_model)
         fault_model = p.fault_model;
-    m_enable_multicast = p.enable_multicast;
+    if (p.multicast_mode == "unicast") {
+        m_multicast_mode = MulticastModeE::UNICAST;
+    } else if (p.multicast_mode == "duplicate") {
+        m_multicast_mode = MulticastModeE::DUPLICATE_MSG_AT_FORK;
+    } else if (p.multicast_mode == "fanout") {
+        m_multicast_mode = MulticastModeE::FANOUT_FLIT_AT_FORK;
+    } else {
+        panic("Invalid Multicast Mode %s.", p.multicast_mode);
+    }
+    m_enable_multicast_local_bypass = p.enable_multicast_local_bypass;
     m_ideal_noc_hops = p.ideal_noc_hops;
     m_ideal_noc_msg = p.ideal_noc_msg;
     m_ideal_noc_msg_all = m_ideal_noc_msg == "all";
@@ -195,9 +208,8 @@ GarnetNetwork::init()
         // Only for Mesh topology
         // m_num_rows and m_num_cols are only used for
         // implementing XY or custom routing in RoutingUnit.cc
-        m_num_rows = getNumRows();
-        m_num_cols = m_routers.size() / m_num_rows;
-        assert(m_num_rows * m_num_cols == m_routers.size());
+        DPRINTF(Arteen, "m_num_rows: %d, m_num_cols: %d\n", m_num_rows, m_num_cols);
+	//        assert(m_num_rows * m_num_cols == m_routers.size());
 
         /**
          * Notify the StreamNUCAMap about the topology information.

@@ -54,9 +54,10 @@ namespace X86ISA
 
 /**
  * ! AVX-512 microops still uses a fixed size src/dest reg array.
+ * ! We set 128 dest regs for AMX tiles.
  */
 const int MaxInstSrcRegs = 32;
-const int MaxInstDestRegs = 8;
+const int MaxInstDestRegs = 128;
 
 /**
  * Classes for register indices passed to instruction constructors. Using a

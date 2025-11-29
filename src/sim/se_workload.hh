@@ -93,6 +93,9 @@ class SEWorkload : public Workload
     void deallocPhysPage(Addr paddr, int pool_id=0);
     Addr memSize(int pool_id=0) const;
     Addr freeMemSize(int pool_id=0) const;
+    using InterleavePoolArgs = MemPools::InterleavePoolArgs;
+    int splitInterleavePool(const InterleavePoolArgs &args, int pool_id=0);
+    int getInterleavePool(Addr intrlv) const;
 };
 
 } // namespace gem5

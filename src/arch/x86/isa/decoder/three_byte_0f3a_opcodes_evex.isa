@@ -97,6 +97,12 @@
                         }
                     }
                 }
+                0x23: decode EVEX_L_EXTEND {
+                    0x2: decode REX_W {
+                        0x1: VSHUFF64X2(VZqo, WZqo, Ib);
+                        0x0: VSHUFF32X4(VZqo, WZqo, Ib);
+                    }
+                }
                 0x25: decode EVEX_L_EXTEND {
                     0x2: decode REX_W {
                         0x1: VPTERNLOGQ(VZqo, WZqo, Ib);
@@ -137,6 +143,12 @@
                     0x2: decode IMMEDIATE {
                         0x0: VEXTRACT256L(WYdo, VZqo, Ib);
                         0x1: VEXTRACT256H(WYdo, VZqo, Ib);
+                    }
+                }
+                0x43: decode REX_W {
+                    0x0: decode EVEX_L_EXTEND {
+                        0x2: VSHUFI32X4(VZqo, WZqo, Ib);
+                        0x1: VSHUFI32X4(VYdo, WYdo, Ib);
                     }
                 }
             }

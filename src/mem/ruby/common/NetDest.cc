@@ -27,7 +27,8 @@
  */
 
 #include "mem/ruby/common/NetDest.hh"
-
+#include "base/trace.hh"
+#include "debug/Arteen.hh"
 #include <algorithm>
 
 #include "mem/ruby/system/RubySystem.hh"
@@ -54,6 +55,14 @@ void
 NetDest::add(MachineID newElement)
 {
     assert(m_bits.size() > 0);
+    DPRINTF(Arteen,
+            "newElement.num: %d, bitIndex(newElement.num): %d, newElement: %s, "
+            "vecIndex(newElement): %d, m_bits[vecIndex(newElement)]: %d, "
+            ".size(): %d\n",
+            newElement.num, bitIndex(newElement.num),
+            MachineIDToString(newElement).c_str(), vecIndex(newElement),
+            m_bits[vecIndex(newElement)],
+            m_bits[vecIndex(newElement)].getSize());
     assert(bitIndex(newElement.num) < m_bits[vecIndex(newElement)].getSize());
     m_bits[vecIndex(newElement)].add(bitIndex(newElement.num));
 }
@@ -133,12 +142,27 @@ NetDest::getAllDest() const
     assert(m_bits.size() > 0);
 
     std::vector<NodeID> dest;
-    dest.clear();
     for (int i = 0; i < m_bits.size(); i++) {
         for (int j = 0; j < m_bits[i].getSize(); j++) {
             if (m_bits[i].isElement(j)) {
                 int id = MachineType_base_number((MachineType)i) + j;
                 dest.push_back((NodeID)id);
+            }
+        }
+    }
+    return dest;
+}
+
+std::vector<MachineID>
+NetDest::getAllDestMachineID(RubySystem *ruby_system) const
+{
+    std::vector<MachineID> dest;
+    for (int i = 0; i < m_bits.size(); i++) {
+        for (int j = 0; j < m_bits[i].getSize(); j++) {
+            if (m_bits[i].isElement(j)) {
+                int id = MachineType_base_number((MachineType)i) + j;
+                dest.push_back(
+                    ruby_system->getMachineIDFromRawNodeID((NodeID)id));
             }
         }
     }

@@ -117,6 +117,16 @@ public:
   ExecFuncPtr storeCallback;
   DynStreamFormalParamV loadFormalParams;
   ExecFuncPtr loadCallback;
+  bool disableCmp = false;
+  bool disableMem = false;
+  // Ugly ugly ugly to implement hierarchical stream.
+  bool trackBaseElemBeforeIssue = false;
+  void clearLoadStoreCallback() {
+    this->storeFormalParams.clear();
+    this->loadFormalParams.clear();
+    this->storeCallback = nullptr;
+    this->loadCallback = nullptr;
+  }
 
   // For LoopBoundFunc.
   // Break when loopBoundCallback() == Ret.
@@ -291,6 +301,8 @@ public:
     this->baseEdges.clear();
     this->depEdges.clear();
   }
+  // Remember the reuse store tile.
+  StreamReuseInfo storeReuseInfo;
   CacheStreamConfigureDataPtr getUsedByBaseConfig();
   void addUsedBy(CacheStreamConfigureDataPtr &data, int reuse = 1,
                  bool predBy = false, int predId = 0, bool predValue = false);

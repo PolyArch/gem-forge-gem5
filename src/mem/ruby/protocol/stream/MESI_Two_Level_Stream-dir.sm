@@ -77,6 +77,12 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     M_DWR, AccessPermission:Busy, desc="Intermediate State when there is a dma write";
     M_DWRI, AccessPermission:Busy, desc="Intermediate State when there is a dma write";
 
+    S, AccessPermission:Read_Only, desc="shared among 1 or more L2s";
+    IE, AccessPermission:Busy, desc="I>M?";
+    IS, AccessPermission:Busy, desc="I>S";
+    SS, AccessPermission:Busy, desc="servicing a new FetchS";
+    SI, AccessPermission:Busy, desc="collecting ACKs";
+
     // States to get data from Memory for StreamEngine. 
     I_GH, AccessPermission:Busy, desc="Intermediate State after seen GetH";
     I_GU, AccessPermission:Busy, desc="Intermediate State after seen GetU";
@@ -87,7 +93,9 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
   // Events
   enumeration(Event, desc="Directory events") {
-    Fetch, desc="A memory fetch arrives";
+    FetchS, desc="A memory read request arrives";
+    FetchX, desc="A memory write request arrives";
+    Upgrade, desc="An L2 lets us know it wants to write to a read-only block";
     Data, desc="writeback data arrives";
     Memory_Data, desc="Fetched data from memory arrives";
     Memory_Ack, desc="Writeback Ack from memory arrives";
@@ -95,6 +103,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     DMA_READ, desc="A DMA Read memory request";
     DMA_WRITE, desc="A DMA Write memory request";
     CleanReplacement, desc="Clean Replacement in L2 cache";
+    CleanReplFinal, desc="Clean replacement, but it's the last sharer";
 
     GETH,           desc="Load data but not send to cache";
     GETU,           desc="Load data and directly send to L1";
@@ -112,6 +121,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
   structure(Entry, desc="...", interface="AbstractCacheEntry", main="false") {
     State DirectoryState,          desc="Directory state";
     MachineID Owner;
+    NetDest Sharers;
   }
 
   // TBE entries for DMA requests
@@ -126,6 +136,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     DataBlock streamStoreBlk,         desc="Buffer for the update data";
     NetDest Fetch_IDs,     desc="Set of Fetch Requestors";
     NetDest GetU_IDs,      desc="Set of GetU Requestors";
+    NetDest GetS_IDs,      desc="Set of GetS Requestors";
   }
 
   structure(TBETable, external="yes") {
@@ -137,11 +148,27 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     int functionalWrite(Packet *pkt);
   }
 
+  void addSharer(Addr addr, MachineID requestor, Entry directory_entry) {
+    assert(is_valid(directory_entry));
+    DPRINTF(RubySlicc, "machineID: %s, requestor: %s, address: %#x\n",
+            machineID, requestor, addr);
+    DPRINTF(Arteen, "machineID: %s, requestor: %s, address: %#x\n",
+            machineID, requestor, addr);
+    DPRINTF(Arteen, "machineID: %s\n", machineID);
+    directory_entry.Sharers.add(requestor);
+  }
+
+  void removeSharer(Addr addr, MachineID requestor, Entry directory_entry) {
+    assert(is_valid(directory_entry));
+    DPRINTF(RubySlicc, "machineID: %s, requestor: %s, address: %#x\n",
+            machineID, requestor, addr);
+    directory_entry.Sharers.remove(requestor);
+  }
 
   // ** OBJECTS **
   TBETable TBEs, template="<Directory_TBE>", constructor="m_number_of_TBEs";
 
-  /**
+  /**.
    * ! Sean: StreamAwareCache
    */
   structure(LLCStreamEngine, external="yes", desc="Stream Engine at MC") {
@@ -290,12 +317,16 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
   in_port(requestNetwork_in, RequestMsg, requestToDir, rank = 0) {
     if (requestNetwork_in.isReady(clockEdge())) {
       peek(requestNetwork_in, RequestMsg) {
-
+DPRINTF(ProtocolTrace, "Received Dir requestNetwork_in %s\n", in_msg.addr);
         assert(in_msg.Destination.isElement(machineID));
         Addr lineAddr := makeLineAddress(in_msg.addr);
 
         if (isGETRequest(in_msg.Type)) {
-          trigger(Event:Fetch, in_msg.addr, TBEs[in_msg.addr]);
+          if (in_msg.Type == CoherenceRequestType:GETX) {
+            trigger(Event:FetchX, in_msg.addr, TBEs[in_msg.addr]);
+          } else {
+            trigger(Event:FetchS, in_msg.addr, TBEs[in_msg.addr]);
+          }
         } else if (in_msg.Type == CoherenceRequestType:DMA_READ) {
           trigger(Event:DMA_READ, makeLineAddress(in_msg.addr),
                   TBEs[makeLineAddress(in_msg.addr)]);
@@ -327,12 +358,22 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
   in_port(responseNetwork_in, ResponseMsg, responseToDir, rank = 1) {
     if (responseNetwork_in.isReady(clockEdge())) {
-      peek(responseNetwork_in, ResponseMsg) {
+    peek(responseNetwork_in, ResponseMsg) {
+DPRINTF(ProtocolTrace, "Received Dir responseNetwork_in %s\n", in_msg.addr);
         assert(in_msg.Destination.isElement(machineID));
         if (in_msg.Type == CoherenceResponseType:MEMORY_DATA) {
           trigger(Event:Data, in_msg.addr, TBEs[in_msg.addr]);
         } else if (in_msg.Type == CoherenceResponseType:ACK) {
-          trigger(Event:CleanReplacement, in_msg.addr, TBEs[in_msg.addr]);
+          if (
+          (getState(TBEs[in_msg.addr], in_msg.addr) == State:S || getState(TBEs[in_msg.addr], in_msg.addr) == State:SI)
+          && getDirectoryEntry(in_msg.addr).Sharers.count() == 1
+             ) {
+            trigger(Event:CleanReplFinal, in_msg.addr, TBEs[in_msg.addr]);
+          } else {
+            trigger(Event:CleanReplacement, in_msg.addr, TBEs[in_msg.addr]);
+          }
+        } else if (in_msg.Type == CoherenceResponseType:UPGRADE) {
+            trigger(Event:Upgrade, in_msg.addr, TBEs[in_msg.addr]);
         } else {
           DPRINTF(RubySlicc, "%s\n", in_msg.Type);
           error("Invalid message");
@@ -407,6 +448,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_ACK;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendAck: %s\n", in_msg.Sender);
         out_msg.Destination.add(in_msg.Sender);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
@@ -419,6 +461,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_DATA;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendData: %s\n", in_msg.OriginalRequestorMachId);        
         out_msg.Destination.add(in_msg.OriginalRequestorMachId);
         out_msg.DataBlk := in_msg.DataBlk;
         out_msg.Dirty := false;
@@ -437,9 +480,12 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:MEMORY_ACK;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID aa_sendAck: %s\n", in_msg.OriginalRequestorMachId);                
         out_msg.Destination.add(in_msg.OriginalRequestorMachId);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
+      APPEND_TRANSITION_COMMENT("OriginalRequestor ");
+      APPEND_TRANSITION_COMMENT(in_msg.OriginalRequestorMachId);
     }
   }
 
@@ -481,8 +527,11 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.DataBlk := in_msg.DataBlk;
         out_msg.Len := 0;
       }
+      APPEND_TRANSITION_COMMENT("in_msg.Sender: ");
+      APPEND_TRANSITION_COMMENT(in_msg.Sender);
     }
-  }
+}
+
 
 //added by SS for dma
   action(qf_queueMemoryFetchRequestDMA, "qfd", desc="Queue off-chip fetch request") {
@@ -508,6 +557,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.DataBlk := in_msg.DataBlk;   // we send the entire data block and rely on the dma controller to split it up if need be
+        DPRINTF(Arteen, "machineID aa_sendDMAData: %s\n", tbe.Requestor);                        
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
@@ -533,6 +583,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         assert(is_valid(tbe));
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:ACK;
+        DPRINTF(Arteen, "machineID _sendDMAAck: %s\n", tbe.Requestor);                                
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Writeback_Control;
       }
@@ -540,7 +591,11 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
   action(z_stallAndWaitRequest, "z", desc="recycle request queue") {
     stall_and_wait(requestNetwork_in, address);
-  }
+}
+
+  action(z_stallAndWaitResponse, "zr", desc="stall response queue") {
+    stall_and_wait(responseNetwork_in, address);
+}
 
   action(zz_recycleDMAQueue, "zz", desc="recycle DMA queue") {
     requestNetwork_in.recycle(clockEdge(), cyclesToTicks(recycle_latency));
@@ -552,6 +607,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:INV;
         out_msg.Sender := machineID;
+        DPRINTF(Arteen, "machineID sendCacheInv: %s\n",getDirectoryEntry(address).Owner);                                        
         out_msg.Destination.add(getDirectoryEntry(address).Owner);
         out_msg.MessageSize := MessageSizeType:Response_Control;
       }
@@ -564,6 +620,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
       enqueue(requestNetwork_out, RequestMsg, directory_latency) {
         out_msg.addr := address;
         out_msg.Type := CoherenceRequestType:INV_GET;
+        DPRINTF(Arteen, "machineID sendCacheInvGetAsRequest: %s\n",machineID);        
+        DPRINTF(Arteen, "machineID sendCacheInvGetAsRequest: %s\n",getDirectoryEntry(address).Owner);
         out_msg.Requestors.add(machineID);
         out_msg.Destination.add(getDirectoryEntry(address).Owner);
         out_msg.MessageSize := MessageSizeType:Request_Control;
@@ -580,6 +638,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
         out_msg.addr := address;
         out_msg.Type := CoherenceResponseType:DATA;
         out_msg.DataBlk := in_msg.DataBlk;   // we send the entire data block and rely on the dma controller to split it up if need be
+        DPRINTF(Arteen, "machineID sendDMAData: %s\n",tbe.Requestor);                
         out_msg.Destination.add(tbe.Requestor);
         out_msg.MessageSize := MessageSizeType:Response_Data;
       }
@@ -589,12 +648,14 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
   action(ss_recordFetchID, "\s\s", desc="Record Fetch for load response") {
     peek(requestNetwork_in, RequestMsg) {
       assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordFetchID: %s\n",in_msg.Requestors.singleElement());                      
       tbe.Fetch_IDs.add(in_msg.Requestors.singleElement());
     }
   }
   action(su_recordGetUID, "su", desc="Record GetU for load response") {
     peek(requestNetwork_in, RequestMsg) {
       assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordGetUID: %s\n",in_msg.Requestors.singleElement());                            
       tbe.GetU_IDs.add(in_msg.Requestors.singleElement());
       tbe.sliceIds.merge(in_msg.sliceIds);
     }
@@ -707,6 +768,8 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
 
           Entry e := getDirectoryEntry(address);
           e.Owner := tbe.Fetch_IDs.singleElement();
+          APPEND_TRANSITION_COMMENT("new owner: ");
+          APPEND_TRANSITION_COMMENT(e.Owner);
         }
       }
     }
@@ -734,8 +797,151 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     }
   }
 
+/* Support for S state actions */
+action(sos_recordGetSID, "sos", desc="Record GetS to send to guys") {
+   peek(requestNetwork_in, RequestMsg) {
+     assert(is_valid(tbe));
+      DPRINTF(Arteen, "machineID recordGetSID: %s\n",in_msg.Requestors.singleElement());                                 
+      tbe.GetS_IDs.add(in_msg.Requestors.singleElement());
+    }
+  }
+
+action(dfs_sendSharedFetchData, "dfs", desc="Send data to the FetchS requestors") {
+    assert(is_valid(tbe));
+    assert(tbe.GetS_IDs.count() > 0);
+    peek(memQueue_in, MemoryMsg) {
+      enqueue(responseNetwork_out, ResponseMsg, to_mem_ctrl_latency) {
+        out_msg.addr := address;
+        out_msg.Type := CoherenceResponseType:MEMORY_DATA_SHARED;
+        out_msg.Sender := machineID;
+        out_msg.Destination := tbe.GetS_IDs;
+        out_msg.DataBlk := in_msg.DataBlk;
+        out_msg.Dirty := false;
+        out_msg.MessageSize := MessageSizeType:Response_Data;
+    }
+  }
+}
+
+action(ll_clearSharers, "\l", desc="Remove all L2 sharers from list") {
+    Entry directory_entry := getDirectoryEntry(address);
+    directory_entry.Sharers.clear();
+  }
+
+action(nn_addSharer, "\n", desc="Add L2 sharer to list") {  
+  peek(requestNetwork_in, RequestMsg) {
+      Entry directory_entry := getDirectoryEntry(address);    
+      addSharer(address, in_msg.Requestors.singleElement(), directory_entry);
+      APPEND_TRANSITION_COMMENT(directory_entry.Sharers);
+    }
+  }
+
+action(nn_removeSharer, "\n\n", desc="Add L2 sharer to list") {  
+  peek(responseNetwork_in, ResponseMsg) {
+      Entry directory_entry := getDirectoryEntry(address);    
+      removeSharer(address, in_msg.Sender, directory_entry);
+      APPEND_TRANSITION_COMMENT(directory_entry.Sharers);
+    }
+  }
+
+  action(f_sendInvToSharers, "f", desc="invalidate sharers for FetchX or Upgrade") {
+    Entry e := getDirectoryEntry(address);
+    assert(e.Sharers.count() > 0);
+    enqueue(responseNetwork_out, ResponseMsg, to_mem_ctrl_latency) {
+      out_msg.addr := address;
+      out_msg.Type := CoherenceResponseType:INV;
+      out_msg.Sender := machineID;
+      out_msg.Destination := e.Sharers;
+      out_msg.MessageSize := MessageSizeType:Response_Control;
+    }
+  }
+
 
   // TRANSITIONS
+
+/* Additional Support for Shared State on top of modifications, added by AA */
+transition(I, FetchS, IE) {
+   v_allocateTBE;
+   ll_clearSharers;
+   nn_addSharer;
+   ss_recordFetchID;
+   sos_recordGetSID;
+   qf_queueMemoryFetchRequest;
+   j_popIncomingRequestQueue;
+}
+
+transition({IE, IS}, FetchS, IS) {
+  nn_addSharer;
+  sos_recordGetSID;
+  j_popIncomingRequestQueue;
+}
+
+transition({IE, IS}, FetchX) {
+  z_stallAndWaitRequest;
+}
+
+// IE transition went with IM
+transition({IS, SS}, Memory_Data, S) {
+  dt_writeDataToTBE;
+  // net_notifyStreamEngineFromTBE;
+  //  du_sendGetUData;
+  dfs_sendSharedFetchData;
+  w_deallocateTBE;
+  l_popMemQueue;
+  kd_wakeUpDependents; 
+}
+
+transition(S, FetchS, SS) {
+  v_allocateTBE;
+  nn_addSharer;
+  sos_recordGetSID;
+  qf_queueMemoryFetchRequest;
+  j_popIncomingRequestQueue;
+}
+
+transition(SS, FetchS) {
+  nn_addSharer;
+  sos_recordGetSID;
+  j_popIncomingRequestQueue;
+}
+
+transition(SS, FetchX) {
+  z_stallAndWaitRequest;
+}
+
+transition(SS, {CleanReplacement, Upgrade}) {
+  z_stallAndWaitResponse;
+}
+
+transition(S, FetchX, SI) {
+  f_sendInvToSharers;
+  z_stallAndWaitRequest;
+}
+
+transition(S, Upgrade, SI) {
+  f_sendInvToSharers;
+  k_popIncomingResponseQueue;
+}
+
+transition(SI, Upgrade) {
+  k_popIncomingResponseQueue;
+}
+
+transition(SI, {FetchX, FetchS}) {
+  z_stallAndWaitRequest;
+}
+
+transition({S, SI}, CleanReplacement) {
+  a_sendAck;
+  nn_removeSharer;
+  k_popIncomingResponseQueue;
+}
+
+transition({S, SI}, CleanReplFinal, I) {
+  a_sendAck;
+  nn_removeSharer;
+  k_popIncomingResponseQueue;
+  kd_wakeUpDependents;
+}
 
 //added by SS
   transition(M, CleanReplacement, I) {
@@ -783,7 +989,12 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     kd_wakeUpDependents;
   }
 
-  transition({ID, ID_W, M_DRDI, M_DWRI, IM, MI}, {Fetch, Data} ) {
+  /* NOTE: Fetch used to be here */
+  transition({ID, ID_W, M_DRDI, M_DWRI, IM, MI}, {Data} ) {
+    z_stallAndWaitRequest;
+  }
+
+  transition({IM, MI}, {FetchX, FetchS}) {
     z_stallAndWaitRequest;
   }
 
@@ -844,7 +1055,9 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     sh_recordGetHID;
     j_popIncomingRequestQueue;
   }
-  transition(I_GH, Fetch, IM) {
+
+  /* TODO: STREAM */
+  transition(I_GH, {FetchX, FetchS}, IM) {
     ss_recordFetchID;
     j_popIncomingRequestQueue;
   }
@@ -856,7 +1069,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     kd_wakeUpDependents;
   }
 
-  transition(I, Fetch, IM) {
+  transition(I, FetchX, IM) {
     v_allocateTBE;
     ss_recordFetchID;
     qf_queueMemoryFetchRequest;
@@ -870,7 +1083,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     sh_recordGetHID;
     j_popIncomingRequestQueue;
   }
-  transition(IM, Memory_Data, M) {
+  transition({IM, IE}, Memory_Data, M) {
     dt_writeDataToTBE;
     net_notifyStreamEngineFromTBE;
     du_sendGetUData;
@@ -890,7 +1103,9 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     su_recordGetUID;
     j_popIncomingRequestQueue;
   }
-  transition(I_GU, Fetch, IM) {
+
+  /* TODO: STREAM */
+  transition(I_GU, {FetchX, FetchS}, IM) {
     ss_recordFetchID;
     j_popIncomingRequestQueue;
   }
@@ -903,7 +1118,7 @@ machine(MachineType:Directory, "MESI Two Level directory protocol", interface="A
     kd_wakeUpDependents;
   }
 
-  transition(M, Fetch) {
+  transition(M, {FetchX, FetchS}) {
     inv_sendCacheInvalidate;
     z_stallAndWaitRequest;
   }

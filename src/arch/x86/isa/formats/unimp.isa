@@ -90,7 +90,9 @@ output header {{
         {
             // don't call execute() (which panics) if we're on a
             // speculative path
-            flags[IsNonSpeculative] = true;
+            // Zhengrong: Well we don't have to?
+            // For performance issue of prefetch inst blocking pipeline.
+            flags[IsNonSpeculative] = false;
         }
 
         Fault execute(ExecContext *, trace::InstRecord *) const override;

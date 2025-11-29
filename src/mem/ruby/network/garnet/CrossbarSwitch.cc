@@ -56,6 +56,51 @@ CrossbarSwitch::init()
     switchBuffers.resize(m_router->get_num_inports());
 }
 
+
+void CrossbarSwitch::finishLastTrace() {
+
+    /**
+     * First clear last trace assuming one cycle delay.
+     */
+    while (!this->traceState.lastTraceEvents.empty()) {
+        m_router->traceEvent(
+            this->traceState.lastTraceCycle + Cycles(1),
+            static_cast<::LLVM::TDG::StreamFloatEvent::StreamFloatEventType>(
+                this->traceState.lastTraceEvents.back()));
+        this->traceState.lastTraceEvents.pop_back();
+    }
+
+}
+
+void CrossbarSwitch::trace(flit *f, OutputUnit *out) {
+
+    if (!m_router->params().enable_trace) {
+        return;
+    }
+
+    auto event1 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_LOCAL_START;
+    auto event2 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_LOCAL_DONE;
+
+    const auto &dir = out->get_direction();
+    if (dir == "South") {
+        event1 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_SOUTH_START;
+        event2 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_SOUTH_DONE;
+    } else if (dir == "North") {
+        event1 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_NORTH_START;
+        event2 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_NORTH_DONE;
+    } else if (dir == "West") {
+        event1 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_WEST_START;
+        event2 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_WEST_DONE;
+    } else if (dir == "East") {
+        event1 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_EAST_START;
+        event2 = ::LLVM::TDG::StreamFloatEvent::ROUTER_XBAR_OUT_EAST_DONE;
+    }
+
+    m_router->traceEvent(event1);
+    this->traceState.lastTraceEvents.push_back(event2);
+    this->traceState.lastTraceCycle = m_router->curCycle();
+}
+
 /*
  * The wakeup function of the CrossbarSwitch loops through all input ports,
  * and sends the winning flit (from SA) out of its output port on to the
@@ -65,9 +110,7 @@ CrossbarSwitch::init()
 void
 CrossbarSwitch::wakeup()
 {
-    DPRINTF(RubyNetwork, "CrossbarSwitch at Router %d woke up "
-            "at time: %lld\n",
-            m_router->get_id(), m_router->curCycle());
+    this->finishLastTrace();
 
     for (auto& switch_buffer : switchBuffers) {
         if (!switch_buffer.isReady(curTick())) {
@@ -75,7 +118,7 @@ CrossbarSwitch::wakeup()
         }
 
         flit *t_flit = switch_buffer.peekTopFlit();
-        DPRINTF(RubyNetwork, "  Peek flit %s.\n", *t_flit);
+        DPRINTF(RubyNetwork, "XBar-%d peek flit %s.\n", *t_flit);
         if (t_flit->is_stage(ST_, curTick())) {
             int outport = t_flit->get_outport();
 
@@ -89,8 +132,12 @@ CrossbarSwitch::wakeup()
             switch_buffer.getTopFlit();
             m_crossbar_activity++;
 
-            DPRINTF(RubyNetwork, "CrossbarSwitch[%d] move flit %d of %s.\n",
-                m_router->get_id(), t_flit->get_id(), *(t_flit->get_msg_ptr()));
+            DPRINTF(RubyNetwork, "XBar-%d move %s flit %d of %s.\n",
+                m_router->get_id(),
+                m_router->getOutputUnit(outport)->get_direction(),
+                t_flit->get_id(), *(t_flit->get_msg_ptr()));
+
+            this->trace(t_flit, m_router->getOutputUnit(outport));
         }
     }
 }

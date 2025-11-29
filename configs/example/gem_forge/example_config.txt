@@ -12,7 +12,7 @@
 --ruby
 --access-backing-store
 --network=garnet
---garnet-enable-multicast
+--garnet-multicast-mode=duplicate
 --router-latency=2
 --link-latency=1
 --mem-channels=2

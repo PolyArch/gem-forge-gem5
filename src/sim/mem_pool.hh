@@ -56,6 +56,9 @@ class MemPool : public Serializable
 
     FreeList<Addr> freePhysPages;
 
+    /** The interleave of the pool. 0 for default. */
+    Addr interleave = 0;
+
     MemPool() = default;
 
     friend class MemPools;
@@ -76,6 +79,7 @@ class MemPool : public Serializable
 
     Addr allocate(Addr npages);
     void deallocate(Addr start, Addr npages);
+    Addr shrink(Addr npages);
 
     void serialize(CheckpointOut &cp) const override;
     void unserialize(CheckpointIn &cp) override;
@@ -106,6 +110,21 @@ class MemPools : public Serializable
 
     /** Amount of physical memory that is still free in a pool. */
     Addr freeMemSize(int pool_id=0) const;
+
+    /** Split interleave pool. */
+    struct InterleavePoolArgs {
+      Addr npages = 0;
+      Addr interleave = 0;
+      std::vector<Addr> masks;
+      static constexpr int NUMACustomizeDefault = 0;
+      static constexpr int NUMACustomizeTranspose = 1;
+      static constexpr int NUMACustomizeMirrorHorizontal = 2;
+      int customize = NUMACustomizeDefault;
+    };
+    int splitInterleavePool(const InterleavePoolArgs &args, int pool_id=0);
+
+    /** Get interleave pool id. -1 for invalid. */
+    int getInterleavePool(Addr interleave) const;
 
     void serialize(CheckpointOut &cp) const override;
     void unserialize(CheckpointIn &cp) override;

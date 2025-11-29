@@ -44,6 +44,9 @@ if not env['CONF']['USE_X86_ISA']:
     Return()
 
 env.TagImplies('x86 isa', 'gem5 lib')
+Source('amx.cc', tags=['x86 isa'])
+Source('cpuid_real.cc', tags=['x86 isa'])
+Source('insts/microldstop.cc', tags=['x86 isa'])
 
 env.TagImplies('isa', 'x86 isa')
 
@@ -111,6 +114,8 @@ DebugFlag('LocalApic', "Local APIC debugging", tags=['x86 isa'])
 DebugFlag('X86', "Generic X86 ISA debugging", tags=['x86 isa'])
 DebugFlag('ACPI', "ACPI debugging", tags=['x86 isa'])
 DebugFlag('X86AVX', "X86 ISA AVX debugging", tags=['x86 isa'])
+DebugFlag('X86AMX', "X86 ISA AMX debugging", tags=['x86 isa'])
+DebugFlag('X86CPUId', "X86 ISA CPUId debugging", tags=['x86 isa'])
 DebugFlag('X86MediaMicroop', "X86 Media Microop debugging", tags=['x86 isa'])
 
 python_files = (

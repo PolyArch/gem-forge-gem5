@@ -54,9 +54,18 @@ void StreamFloatPolicy::setFloatPlanManual(DynStream &dynS) {
       "gap.pr_push.atomic.out_v.ld", "gap.bfs_push.out_v.ld",
       "gap.sssp.out_v.ld",           "gap.sssp.out_w.ld",
       "gap.pr_pull.acc.in_v.ld",     "gap.bfs_pull.in_v.ld",
+      "gfm.acc_gen_mm.A.ld",         "gfm.acc_gen_mm.B.ld",
+      "gfm.acc_gen_mm.C.ld",
   };
 
-  if (manualFloatToMemSet.count(streamName)) {
+  bool isManualFloatToMem = false;
+  for (const auto &x : manualFloatToMemSet) {
+    if (streamName.find(x) != std::string::npos) {
+      isManualFloatToMem = true;
+    }
+  }
+
+  if (isManualFloatToMem) {
     if (this->enabledFloatMem) {
       floatPlan.addFloatChangePoint(firstElementIdx,
                                     ruby::MachineType_Directory);

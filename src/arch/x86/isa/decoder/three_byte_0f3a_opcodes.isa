@@ -88,7 +88,7 @@ format WarnUnimpl {
             0x41: dppd_Vdq_Wdq_Ib();
             0x42: pcmpistrm_Vdq_Wdq_Ib();
             0x43: pcmpistri_Vdq_Wdq_Ib();
-            default: Inst::UD2();
+            // default: Inst::UD2();
         }
         default: decode OPCODE_OP {
             0x0F: palignr_Pq_Qq_Ib();
